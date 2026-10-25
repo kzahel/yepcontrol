@@ -1,7 +1,7 @@
 /** Full native UI management with two independent browser identities and real hosted traffic. */
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { open, readFile, writeFile } from "node:fs/promises";
+import { open, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import jsQR from "jsqr";
@@ -49,12 +49,22 @@ async function until<T>(
   throw new Error("Mobile acceptance timed out; see private native logs");
 }
 export async function mobileAcceptance(f: Fixture) {
+  await rm(path.join(f.state, "result.json"), { force: true });
   const app = "com.yepcontrol.app";
   const { adb, privateWrite } = f;
   const log = await open(path.join(f.state, "mobile-native.log"), "w", 0o600);
   let native: ReturnType<typeof spawn> | undefined;
   let enrolled = false;
   const contexts: BrowserContext[] = [];
+  const phonePages = new Map<Page, string>();
+  // Preparation now retains the phone's one session lease. Keep inactive test
+  // browsers in their library, as a user leaving a phone page would do.
+  async function parkBrowsers() {
+    for (const page of phonePages.keys()) {
+      if (new URL(page.url()).pathname !== "/phones")
+        await page.goto(`${f.origin}/phones`);
+    }
+  }
   async function startNative() {
     adb(
       "shell",
@@ -164,10 +174,16 @@ export async function mobileAcceptance(f: Fixture) {
     await page
       .getByRole("button", { name: "Connect to phone", exact: true })
       .waitFor();
+    phonePages.set(page, page.url());
+    await parkBrowsers();
     return { page, id: invitation.id };
   }
-  async function check(page: Page, success = true) {
-    await page.reload();
+  async function check(page: Page, success = true, manual = false) {
+    await parkBrowsers();
+    if (native?.exitCode === null && !manual) await command("idle");
+    const target = phonePages.get(page);
+    assert.ok(target);
+    await page.goto(target);
     await page
       .getByRole("status")
       .filter({
@@ -178,9 +194,12 @@ export async function mobileAcceptance(f: Fixture) {
       .waitFor({ timeout: success ? 80000 : 15000 });
   }
   async function manual(peer: { page: Page; id: string }) {
+    await parkBrowsers();
+    await command("idle");
     await command("connect", { id: peer.id });
-    await check(peer.page);
-    await delay(400);
+    await check(peer.page, true, true);
+    await parkBrowsers();
+    await command("idle");
   }
   async function probe(page: Page) {
     return page.evaluate(async () => {
@@ -392,6 +411,7 @@ export async function mobileAcceptance(f: Fixture) {
       });
     }
     console.log("Both browsers passed process-absent FCM wake");
+    await parkBrowsers();
     await a.page.reload();
     await b.page.reload();
     await startNative();
@@ -461,7 +481,7 @@ export async function mobileAcceptance(f: Fixture) {
     );
     assert.ok(!nativeLog.includes("FAILURES!!!"));
     const report = {
-      databaseTests: 3,
+      databaseTests: 6,
       independentBrowsers: 2,
       publicWebsiteQrAndShare: true,
       pairingAndForegroundAccessBeforePermissions: true,

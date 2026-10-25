@@ -74,8 +74,21 @@ validation. Existing native local-settings protection tests pass.
 
 Hosted signed pairing/Allow, encrypted exchange, process-absent FCM, persisted
 reconnect and revocation pass with the candidate viewer and an owned Android 15
-emulator against the production relay. Additional multi-browser/native shortcut
-and publication receipts are recorded when completed. New scanner UI and its
+emulator against the production relay. The broader native-management run also
+decoded the app's website QR as `/pair`, paired two independent browsers and
+passed their encrypted foreground checks. That run later failed its notification
+permission restoration check: Android reported notifications allowed, but both
+pair records still reported wake readiness false. It is not a passing full
+multi-browser/background-recovery qualification. No wake implementation was
+changed by this work. Its fixture now parks inactive viewers to release prepared
+sessions, rather than assuming the earlier one-shot readiness behavior.
+
+The source at `95320ee` passed complete
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40234299551).
+The website is live as `relay-v0.2.1`; fresh isolated mobile and desktop checks
+against the public origin verify both roles, QR decoding and the invitation
+handoff. See [the deployment receipt](relay-releases.md#pairing-roles-and-links--2026-10-25).
+New scanner UI and its
 install-time module request need an Android update; website improvements also
 work with the existing public 0.7.0 and internal 0.8.0 apps.
 

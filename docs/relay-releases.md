@@ -191,3 +191,21 @@ The existing pairing also survived a browser restart using its persistent
 profile. Exporting/importing a Playwright storage snapshot did not preserve the
 nonextractable CryptoKey correctly; that fixture was replaced and revoked.
 This was a test-harness failure, not evidence of an application storage loss.
+
+## Pairing roles and links — 2026-10-25
+
+[`relay-v0.2.1`](https://github.com/kzahel/yepcontrol/tree/relay-v0.2.1), source
+`95320eeb88d48d04f580e14a0467f6a68f1b4072`, passed complete
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40234299551) and
+[production deployment](https://github.com/kzahel/yepcontrol/actions/runs/40234598931).
+Live health confirms Worker `2b4f72ad-9281-41d3-b7b5-cf5a6890a0d0`, version
+0.2.1, the exact revision and public admission.
+
+The homepage has separate browser-control and Android-installation entry points.
+Browser pairing explains which phone scans and approves, and offers the same
+invitation as a copyable link. Valid browser fallback provides an explicit
+package-pinned app handoff; the public Play destination contains no invitation.
+Fresh isolated live mobile/desktop checks verify both roles, rendered QR decoding
+and the fallback. Existing public hosts and pairings remain compatible. Native
+scanner feedback requires the separate Android update. See
+[the scope, evidence and qualification limits](onboarding.md).

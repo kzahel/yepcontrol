@@ -294,6 +294,7 @@ class HostedPairingTest {
                     title("This phone")
                 }
                 "home" -> start()
+                "idle" -> waitFor { HostSessions.current.get() == null }
                 "control-ready" -> {
                     start()
                     waitFor { dev.remoteaccess.app.control.ScreenAccessService.current != null }
