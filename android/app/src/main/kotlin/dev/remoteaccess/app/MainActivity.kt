@@ -582,7 +582,14 @@ class MainActivity : ComponentActivity() {
             showInvitation(task.result)
         } else {
             notice =
-                "Couldn’t open the scanner. Keep this phone online, check Google Play services and try again. You can also open a pairing link from the other browser."
+                if ((task.exception as? MlKitException)?.errorCode == MlKitException.INTERNAL) {
+                    // Scanner 16.1.0 maps a delegate result without data (including
+                    // Android Back) to INTERNAL. Do not diagnose it as a failed
+                    // launch or infer that a code was scanned or access approved.
+                    "Scan ended without a code. Try again or open a pairing link from the other browser."
+                } else {
+                    "Couldn’t open the scanner. Keep this phone online, check Google Play services and try again. You can also open a pairing link from the other browser."
+                }
             render()
         }
     }

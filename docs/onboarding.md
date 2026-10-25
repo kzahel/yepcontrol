@@ -102,7 +102,25 @@ closing it exposed a misleading failure notice. Play services can return
 `MlKitException.CODE_SCANNER_CANCELLED` rather than a cancelled Task. Code 7
 was not promoted publicly.
 
-The **0.8.2/code 8** candidate treats that documented result as normal
-cancellation, with an added native UI regression check. It retains the same
-signing identity and storage/protocol contracts. Release and physical receipts
-are recorded separately when established.
+**0.8.2/code 8** treats that documented result as normal cancellation, with an
+added native UI regression check. Play-installed physical testing confirms that
+Close now returns to the enabled scanner tile without an error. Android Back
+still produced a failure notice. Source review of the pinned scanner 16.1.0 AAR
+shows its delegate result handler maps absent result data to `INTERNAL` (13),
+whereas an explicit scanner-close result carries its dedicated code. This is
+pinned binary/source evidence plus observed Back/Close behavior, not a documented
+guarantee about every Play-services build. Code 8 was not promoted publicly.
+
+The **0.8.3/code 9** candidate handles the generic no-result error with neutral
+**Scan ended without a code** copy and retry/link options. It does not infer
+success, classify every internal error as user cancellation or grant access.
+The native regression covers this outcome too. Signing, storage and protocol
+contracts are unchanged. Release and physical receipts are recorded separately
+when established.
+
+Code 8's first release-workflow attempt passed video, text, taps, held input and
+landscape rotation, then timed out waiting for the viewer to return to portrait.
+An independent local run passed the complete same sequence, and the unchanged
+CI retry passed it too. The intermittent timeout's cause is not established;
+the check was not disabled or weakened. The local sample decoded 61 H.264
+frames in 5.010 seconds and passed disarm/removal without browser errors.

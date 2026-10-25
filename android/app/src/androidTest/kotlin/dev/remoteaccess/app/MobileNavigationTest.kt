@@ -167,6 +167,16 @@ class MobileNavigationTest {
 
             next = TaskCompletionSource()
             click("scan_pairing_code")
+            instrumentation.runOnMainSync {
+                next.setException(MlKitException("Failed to scan barcode.", MlKitException.INTERNAL))
+            }
+            assertTrue(device.wait(Until.hasObject(enabled(true)), 10000))
+            assertTrue(device.hasObject(By.textStartsWith("Scan ended without a code.")))
+            assertFalse(device.hasObject(By.textStartsWith("Couldn’t open the scanner.")))
+            assertFalse(device.hasObject(By.res("${context.packageName}:id/grant_device")))
+
+            next = TaskCompletionSource()
+            click("scan_pairing_code")
             assertTrue(device.wait(Until.hasObject(progress), 1000))
             device.pressBack()
             title("Allowed browsers")

@@ -335,3 +335,29 @@ physical acceptance and production submission are recorded separately when
 established. Physical testing found that closing the real Google scanner
 reported its dedicated cancellation error and incorrectly showed a failure
 notice. Code 7 was not promoted publicly; the correction is in 0.8.2/code 8.
+
+## Android 0.8.2 / code 8 — 2026-10-25
+
+Source `a2ae8afd9f0829efcb0aa53206198fbd8385fdeb` passed complete
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40236596729) and
+the [release/signing workflow](https://github.com/kzahel/yepcontrol/actions/runs/40236598710)
+on attempt 2 without a source change. Attempt 1 timed out waiting for portrait
+viewing after rotation, after earlier video/input checks passed. A local full
+control run and the unchanged CI retry passed rotation and the remaining
+acceptance. The timeout's cause remains unconfirmed; no check was disabled.
+
+The signed AAB SHA-256 is
+`fe5ed0b2e78ec980a698b7606f231c72ce065605e16d7f0285ba083505a99fcc`.
+This patch handles ML Kit's documented scanner-close error as normal cancellation
+and adds a native UI regression for that result. Storage, protocol and signing
+identity are unchanged. See [onboarding verification](../onboarding.md).
+
+The [internal publisher](https://github.com/kzahel/yepcontrol/actions/runs/40239183617)
+verified and committed that exact candidate as code 8 to internal testing.
+The Pixel 7a received the in-place update through Google Play. The installed
+version/code, Play installer and original Play signing certificate were verified;
+the existing pairing and native permissions survived. Browser control and an
+independently observed remote Home action passed. Close cancelled the real
+scanner normally, but Android Back still showed a misleading failure notice.
+Code 8 was not promoted publicly; see the pinned-SDK analysis and code-9
+handling in [onboarding verification](../onboarding.md).
