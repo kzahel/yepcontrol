@@ -177,7 +177,6 @@ export function PairPhone() {
             viewBox={`-4 -4 ${qr.size + 8} ${qr.size + 8}`}
             width="360"
             height="360"
-            shapeRendering="crispEdges"
           >
             <title>Scan to pair this browser</title>
             <rect
