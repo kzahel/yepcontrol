@@ -97,6 +97,22 @@ describe("control path recovery", () => {
     vi.unstubAllGlobals();
     vi.resetAllMocks();
   });
+  it("promotes the prepared encrypted lane without opening another relay socket", async () => {
+    const prepared = lane();
+    const result = await RemoteSession.connect(
+      identity,
+      grant,
+      vi.fn(),
+      new AbortController().signal,
+      prepared,
+    );
+    expect(mocks.relay).not.toHaveBeenCalled();
+    expect(prepared.sent).toEqual([1]);
+    expect(result.state.accessibility).toBe(true);
+    expect(prepared.close).not.toHaveBeenCalled();
+    result.session.close();
+    expect(prepared.close).toHaveBeenCalledOnce();
+  });
   it("keeps the hosted lane usable when direct setup fails", async () => {
     const hosted = lane();
     mocks.relay.mockResolvedValue(hosted);

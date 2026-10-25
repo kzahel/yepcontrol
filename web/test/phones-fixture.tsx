@@ -12,7 +12,8 @@ const fixtureDevice = (name: string) => ({
   name,
   android: "17",
   sdk: 37,
-  app: "0.6.0",
+  app: "0.8.0",
+  connectionPreparation: 1 as const,
 });
 
 const models = (await (await fetch("/fixture-models")).json()) as Record<
@@ -37,6 +38,7 @@ window.phonesFixture = {
   closed: 0,
   checks: 0,
   controls: 0,
+  reused: 0,
   drop: () => {},
   finishCheck: () => {},
   finishControl: () => {},
@@ -67,9 +69,47 @@ async function deferred(
   });
 }
 const services: ViewerServices = {
-  async connect(identity, grant, _report, signal) {
+  async prepare(identity, grant, report, signal) {
+    const features = await services.check(identity, grant, report, signal);
+    if (!features) throw Error("Missing features");
+    let active = true;
+    let end: () => void = () => {};
+    const closed = new Promise<void>((resolve) => {
+      end = resolve;
+    });
+    const session = {
+      get connected() {
+        return active;
+      },
+      closed,
+      close() {
+        active = false;
+        end();
+      },
+      async send() {
+        throw Error("Use fixture control adapter");
+      },
+      async read() {
+        throw Error("Use fixture control adapter");
+      },
+    };
+    signal.addEventListener("abort", () => session.close(), { once: true });
+    return {
+      features,
+      session,
+      expiresAt:
+        Date.now() +
+        Number(sessionStorage.getItem("fixture-preparation-ms") ?? 29000),
+    };
+  },
+  async connect(identity, grant, _report, signal, prepared) {
     if (b64(identity.publicKey) !== grant.viewer)
       throw Error("Wrong browser identity");
+    if (prepared) {
+      if (!("connected" in prepared) || !prepared.connected)
+        throw Error("Preparation was closed before promotion");
+      window.phonesFixture.reused++;
+    }
     window.phonesFixture.controls++;
     window.phonesFixture.calls.push(grant.id);
     if (window.phonesFixture.controlDelay)
@@ -94,6 +134,7 @@ const services: ViewerServices = {
       close() {
         if (active) window.phonesFixture.closed++;
         active = false;
+        prepared?.close();
       },
       async command(command: Command): Promise<Reply> {
         if (!active) throw Error("Fixture session ended");
@@ -147,6 +188,7 @@ declare global {
       closed: number;
       checks: number;
       controls: number;
+      reused: number;
       drop: () => void;
       finishCheck: () => void;
       finishControl: () => void;

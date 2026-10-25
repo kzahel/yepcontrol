@@ -227,3 +227,13 @@ YepControl is live with Install and no tester enrollment. Version 0.7.0/code 5
 is now a public release. Preserve compatibility with that installed app when
 changing the viewer, relay or stored formats; the historical pre-release policy
 above no longer applies. See `docs/distribution/android-production.md`.
+
+## Prepared connections and release authorization — 2026-10-25
+
+The owner authorized implementing bounded reuse of readiness connections,
+testing on the attached Pixel 7a, incremental commits/pushes, Cloudflare production
+deployment and a new Android release through Play, autonomously end to end.
+Use internal Play delivery for physical acceptance before public promotion.
+Preserve compatibility with public 0.7.0 hosts and existing pairings. This does
+not authorize physical credential entry or lock/debugging changes. See
+`docs/connection-delay.md` for the baseline and implementation evidence.

@@ -27,5 +27,6 @@ internal object DeviceInfo {
             .put("android", clean(Build.VERSION.RELEASE, 20, Build.VERSION.SDK_INT.toString()))
             .put("sdk", Build.VERSION.SDK_INT)
             .put("app", clean(BuildConfig.VERSION_NAME, 40, "unknown"))
+            .put("connectionPreparation", 1)
     }
 }

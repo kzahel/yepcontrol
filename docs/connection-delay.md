@@ -84,9 +84,9 @@ delivery, Android scheduling and network availability remain separate limits.
 The screenshot's last-contact label is saved history, not proof that the current
 control session has reached the phone.
 
-## Follow-up, not implemented
+## Options considered during investigation
 
-The smallest viewer-only remedy compatible with installed 0.7.0 hosts is to stop
+The smallest viewer-only remedy compatible with installed 0.7.0 hosts was to stop
 automatically waking/checking a phone immediately before an explicit Connect.
 One Connect action would make one wake request. If automatic readiness checks
 remain a product requirement, design a single retained session that can become
@@ -113,3 +113,72 @@ The temporary browser pairing was removed on the phone, screen sharing stopped,
 and the isolated browser exited. The Play-installed app and its normal setup
 remain on the phone. The targeted viewer-status and Node rapid-reconnect
 regressions pass (three tests) under Node 24; `git diff --check` also passes.
+
+## Prepared session implementation — Android 0.8.0 / code 6
+
+The owner chose retained authenticated sessions and authorized implementation,
+physical acceptance, production deployment and Play publication on 2026-10-25.
+Opening a supported phone's page makes one encrypted readiness check. The viewer
+retains that exact lane and its browser-tab lease for up to 29 seconds measured
+from canary send; the host independently limits preparation to 30 seconds after
+check completion. This margin leaves time to deliver promotion. No screen is
+captured and no control foreground service starts during preparation.
+
+Connect changes the desired result of an in-flight preparation, or promotes a
+completed one with the existing control-start command. It does not abort the
+check, create another socket, replay an input or ask for another wake. Normal
+control deadlines, phone policy checks, direct WebRTC upgrade and encrypted
+relay recovery then apply. The preparation timer cannot close promoted control.
+
+Cancel, page departure, hiding a preparing tab, revocation and transport closure
+release preparation. Expiry releases both the browser lock and native lease;
+there is no periodic re-wake or automatic retry. A later explicit Connect uses a
+fresh session. Opening the phone list does not prepare every saved phone.
+The relay's existing wake limits remain in place for genuinely new requests.
+
+Compatibility uses an optional `connectionPreparation: 1` in the existing phone
+report. New Android hosts retain the existing canary/check exchange; an old
+viewer still reads the same reply and feature trailer and closes normally.
+The new viewer only auto-prepares when an authenticated saved report advertises
+support. Public 0.7.0 hosts use one explicit Connect, without a preceding wake.
+After an existing phone updates, its next explicit connection refreshes this
+report, enabling preparation on subsequent visits. No re-pairing, storage reset,
+signing change or grant/protocol version replacement is required. Reports that
+omit the extension remain valid; malformed extension values are rejected.
+
+The foreground listener and background FCM worker both retain their original
+phone-session lease. A repeated canary cannot renew the deadline. The FCM hint
+continues to select a fresh request and does not grant authority. Preparation
+has no projection consent, saved-PIN action, screen wake or input side effects.
+
+The browser fixture covers promotion after readiness and during preparation,
+cancellation, expiry without a new request, cross-tab ownership, and the 0.7.0
+explicit-connect path. Protocol tests cover old reports and the authenticated
+optional extension; a control transport regression verifies no second relay
+open during promotion. The owned Android acceptance run measured promotion in
+**109 ms** with the same socket, then passed preparation during startup, direct
+WebRTC, H.264 (36 decoded frames in 5.006 seconds), tap/text, held/multitouch
+input, watchdog release, direct loss/relay recovery, disarm and removal.
+This is owned-emulator evidence; Play-installed 0.8.0 physical and publication
+receipts are recorded separately after acceptance.
+
+To test a built viewer against the real relay before deploying static assets:
+
+```sh
+HOSTED_ORIGIN=https://YOUR_ORIGIN HOSTED_VIEWER_DIRECTORY=web/dist \
+  HOSTED_PREPARATION=1 HOSTED_TOUCH=1 HOSTED_VIDEO=1 HOSTED_DIRECT=1 \
+  pnpm exec tsx scripts/hosted-acceptance.ts --control
+```
+
+The override serves only built static files inside the isolated test browser;
+pairing, WebSockets, phone authentication and FCM still use the selected real
+origin. The normal runner owns its emulator and revokes fixture authority.
+
+The candidate viewer also passed on the attached Pixel 7a's unchanged
+Play-installed **0.7.0/code 5**: page load sent no application socket/wake,
+foreground control worked, and explicit background Connect reached phone-route
+readiness in **1.616 s** (socket opened at 50.321 s, ready at 51.937 s).
+Its pairing is retained privately for an in-place 0.8.0 update check.
+The standalone hosted fixture now accepts an already-established retained
+canary lease rather than waiting for a transient pre-handshake status to reappear;
+actual browser readiness remains required before that test advances.

@@ -62,7 +62,7 @@ internal object ForegroundAccess {
                     handler.removeCallbacks(retry)
                     entries.values
                         .toList()
-                        .filter { !it.control }
+                        .filter { !it.control && !it.passed }
                         .forEach { end(it) }
                     retryAfter.clear()
                 }
@@ -87,7 +87,7 @@ internal object ForegroundAccess {
     }
 
     private fun valid(entry: Entry): Boolean =
-        (visible || entry.control) &&
+        (visible || entry.control || entry.passed) &&
             entry.active.get() &&
             store.allowed(entry.device.id, entry.device.generation) &&
             (entry.lease?.active?.get() != false) &&
@@ -169,17 +169,18 @@ internal object ForegroundAccess {
             "Remote control connected" -> store.record("Remote control started", entry.device.id)
             "Encrypted connection passed" -> {
                 entry.passed = true
+                entry.expires = System.currentTimeMillis() + 30000
                 store.record("Connection check completed", entry.device.id)
                 handler.postDelayed({
                     HostRuntime.io.execute {
                         synchronized(this) {
-                            if (entries[entry.device.id] === entry) {
+                            if (entries[entry.device.id] === entry && !entry.control) {
                                 end(entry, graceful = true)
                                 reconcile()
                             }
                         }
                     }
-                }, 1000)
+                }, 30000)
             }
             else ->
                 if (state.startsWith("Connection closed") || state.contains("rejected")) {

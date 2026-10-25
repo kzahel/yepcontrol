@@ -6,6 +6,7 @@ import androidx.work.WorkerParameters
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /** Bounded work. Neither push receipt nor relay policy establishes endpoint authority. */
 class WakeWorker(
@@ -30,17 +31,25 @@ class WakeWorker(
             store.record("Session blocked: phone busy", id)
             return Result.success()
         }
-        val done = CountDownLatch(1)
         val viewerClosed = CountDownLatch(1)
         val passed = AtomicBoolean(false)
         val control = AtomicBoolean(false)
+        val preparedUntil = AtomicLong(0)
         val sessionDeadline = System.currentTimeMillis() + 30 * 60 * 1000
         val current = {
             lease.active.get() &&
                 !isStopped &&
                 store.allowed(id, generation, automatic) &&
                 (!automatic || WakeSupport.notificationsAllowed(applicationContext)) &&
-                (if (control.get()) System.currentTimeMillis() < sessionDeadline else expires > System.currentTimeMillis() / 1000)
+                (
+                    if (control.get()) {
+                        System.currentTimeMillis() < sessionDeadline
+                    } else if (passed.get()) {
+                        android.os.SystemClock.elapsedRealtime() < preparedUntil.get()
+                    } else {
+                        expires > System.currentTimeMillis() / 1000
+                    }
+                )
         }
         val connection =
             RelayConnection(
@@ -53,14 +62,15 @@ class WakeWorker(
                             "Encrypted session established" -> store.connected(id)
                             "Remote control connected" -> store.record("Remote control started", id)
                             "Encrypted connection passed" -> {
+                                preparedUntil.set(android.os.SystemClock.elapsedRealtime() + 30000)
                                 passed.set(true)
                                 store.record("Connection check completed", id)
-                                done.countDown()
+                                WakeSupport.preferences(applicationContext).save { putLong("lastWakeExchange", System.currentTimeMillis()) }
+                                if (automatic) WakeSupport.notify(applicationContext, "Secure connection verified")
                             }
                             else ->
                                 if (state.startsWith("Connection closed") || state.contains("rejected")) {
                                     viewerClosed.countDown()
-                                    done.countDown()
                                 }
                         }
                         store.listeners.forEach { it() }
@@ -94,13 +104,10 @@ class WakeWorker(
             if (!current()) return Result.success()
             store.record("Connection requested", id)
             connection.connect()
-            while (current() && !done.await(100, TimeUnit.MILLISECONDS)) {}
-            if (passed.get()) {
-                WakeSupport.preferences(applicationContext).save { putLong("lastWakeExchange", System.currentTimeMillis()) }
-                if (automatic) WakeSupport.notify(applicationContext, "Secure connection verified")
-                // Let the viewer consume the optional feature report before graceful teardown.
-                viewerClosed.await(1000, TimeUnit.MILLISECONDS)
-            } else if (current() && !control.get()) {
+            // Keep this exact authenticated lane available for up to 30 seconds after
+            // checking. Starting control promotes its existing lease, without a new push.
+            while (current() && !viewerClosed.await(100, TimeUnit.MILLISECONDS)) {}
+            if (!passed.get() && !control.get()) {
                 store.record("Connection failed", id)
             }
             Result.success()

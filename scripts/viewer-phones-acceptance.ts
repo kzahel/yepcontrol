@@ -160,7 +160,8 @@ try {
       name: "Pixel 9",
       android: "17",
       sdk: 37,
-      app: "0.6.0",
+      app: "0.8.0",
+      connectionPreparation: 1,
     });
     return grant;
   }, b64(first.publicKey));
@@ -336,7 +337,8 @@ try {
           name: "Fixture phone",
           android: "17",
           sdk: 37,
-          app: "0.6.0",
+          app: "0.8.0",
+          connectionPreparation: 1,
         },
       };
       window.phonesFixture.finishCheck();
@@ -408,7 +410,8 @@ try {
           name: "Fixture phone",
           android: "17",
           sdk: 37,
-          app: "0.6.0",
+          app: "0.8.0",
+          connectionPreparation: 1,
         },
       };
       window.phonesFixture.finishCheck();
@@ -426,6 +429,18 @@ try {
     await states.emulateMedia({ colorScheme: "light" });
   }
   await states.close();
+  await a.bringToFront();
+  await expect
+    .poll(() =>
+      a.evaluate(
+        async (id) =>
+          (await navigator.locks.query()).held?.some(
+            (lock) => lock.name === `remote-access-phone:${id}`,
+          ) ?? false,
+        firstId,
+      ),
+    )
+    .toBe(false);
   console.log(
     "Preview card and capability icons stay fixed through loading, errors, cancellation and theme changes at four sizes",
   );
@@ -522,7 +537,8 @@ try {
       name: "Pixel 7a",
       android: "17",
       sdk: 37,
-      app: "0.6.0",
+      app: "0.8.0",
+      connectionPreparation: 1,
     }),
   );
   offered.set(grant.id, grant);
@@ -685,7 +701,7 @@ try {
   console.log(
     "Two phones connected independently; same-phone contention sent no extra request",
   );
-  // A pending automatic check can be cancelled or superseded by Connect.
+  // Cancel closes a preparation; Connect continues an in-flight preparation.
   await a.evaluate(() => sessionStorage.setItem("fixture-delay", "true"));
   await a.reload();
   await expect
@@ -710,6 +726,8 @@ try {
   await a
     .getByRole("button", { name: "Connect to phone", exact: true })
     .click();
+  assert.equal(await a.evaluate(() => window.phonesFixture.controls), 0);
+  await a.evaluate(() => window.phonesFixture.finishCheck());
   await expect(a.getByRole("region", { name: "Remote screen" })).toBeVisible();
   await expect(a.getByRole("status")).toHaveText("Connected securely");
   assert.deepEqual(
@@ -742,7 +760,8 @@ try {
         name: "Pixel 9",
         android: "17",
         sdk: 37,
-        app: "0.6.0",
+        app: "0.8.0",
+        connectionPreparation: 1,
       });
     }, firstId),
   ]);
@@ -812,6 +831,7 @@ try {
   await a
     .getByRole("button", { name: "Connect to phone", exact: true })
     .click();
+  await a.evaluate(() => window.phonesFixture.finishCheck());
   await expect(a.getByRole("region", { name: "Remote screen" })).toBeVisible();
   for (const [name, width, height] of [
     ["desktop", 1280, 1000],
@@ -872,6 +892,68 @@ try {
       fullPage: true,
     });
   }
+  // Preparation expiry releases the tab lease and makes no automatic second
+  // request. A subsequent explicit Connect uses the ordinary control path.
+  await other
+    .getByRole("button", { name: "Cancel connection", exact: true })
+    .click();
+  await other.evaluate(() =>
+    sessionStorage.setItem("fixture-preparation-ms", "350"),
+  );
+  await other.reload();
+  await expect(other.getByRole("status")).toHaveText("Ready to connect");
+  await expect(other.getByRole("status")).toHaveText(
+    "Connect when you’re ready",
+  );
+  assert.equal(await other.evaluate(() => window.phonesFixture.checks), 1);
+  await other
+    .getByRole("button", { name: "Connect to phone", exact: true })
+    .click();
+  await expect(
+    other.getByRole("region", { name: "Remote screen" }),
+  ).toBeVisible();
+  assert.equal(await other.evaluate(() => window.phonesFixture.reused), 0);
+  await other.getByRole("button", { name: "Disconnect", exact: true }).click();
+  await other.evaluate(() =>
+    sessionStorage.removeItem("fixture-preparation-ms"),
+  );
+  // Retained readiness is promoted without closing its underlying lane.
+  await other.reload();
+  await expect(other.getByRole("status")).toHaveText("Ready to connect");
+  await other
+    .getByRole("button", { name: "Connect to phone", exact: true })
+    .click();
+  await expect(
+    other.getByRole("region", { name: "Remote screen" }),
+  ).toBeVisible();
+  assert.equal(await other.evaluate(() => window.phonesFixture.reused), 1);
+  await other.getByRole("button", { name: "Disconnect", exact: true }).click();
+  // Existing public 0.7.0 reports have no preparation extension. Loading the
+  // page must not wake them merely to throw away a check before Connect.
+  await other.evaluate(async (id) => {
+    const module = "/src/store.ts";
+    const store = await import(module);
+    const phone = (await store.savedPhones()).find(
+      (p: { id: string }) => p.id === id,
+    );
+    const { connectionPreparation: _extension, ...device } = phone.device;
+    await store.contactedPhone(id, { ...device, app: "0.7.0" });
+  }, secondId);
+  await other.reload();
+  await expect(other.getByRole("status")).toHaveText(
+    "Connect when you’re ready",
+  );
+  assert.equal(await other.evaluate(() => window.phonesFixture.checks), 0);
+  await other
+    .getByRole("button", { name: "Connect to phone", exact: true })
+    .click();
+  await expect(
+    other.getByRole("region", { name: "Remote screen" }),
+  ).toBeVisible();
+  assert.equal(await other.evaluate(() => window.phonesFixture.controls), 1);
+  console.log(
+    "Preparation reused after readiness and during connection; expiry releases its lease; 0.7.0 has no automatic wake",
+  );
   assert.deepEqual(errors, []);
   await writeFile(
     path.join(artifacts, "result.json"),

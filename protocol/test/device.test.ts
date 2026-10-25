@@ -31,6 +31,25 @@ describe("device report sealed into a pairing offer", () => {
       openDevice(vector.secret, "44".repeat(16), vector.sealed),
     ).rejects.toThrow();
   });
+  it("preserves the optional preparation extension without requiring it from 0.7.0", async () => {
+    const device = { ...vector.device, connectionPreparation: 1 as const };
+    expect(
+      await openDevice(
+        vector.secret,
+        vector.id,
+        await sealDevice(vector.secret, vector.id, device),
+      ),
+    ).toEqual(device);
+    expect(parseDevice(vector.device)).not.toHaveProperty(
+      "connectionPreparation",
+    );
+    expect(() =>
+      parseDevice({ ...vector.device, connectionPreparation: true }),
+    ).toThrow();
+    expect(() =>
+      parseDevice({ ...vector.device, connectionPreparation: 2 }),
+    ).toThrow();
+  });
   it("rejects malformed reports", () => {
     expect(() => parseDevice({ ...vector.device, app: "" })).toThrow();
     expect(() => parseDevice({ ...vector.device, extra: 1 })).not.toThrow();

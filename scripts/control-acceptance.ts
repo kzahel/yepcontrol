@@ -8,6 +8,7 @@ import jsQR from "jsqr";
 import { PNG } from "pngjs";
 import { resultMessage } from "../protocol/src/control.js";
 import { nativeFailure } from "./acceptance-diagnostics.js";
+import { candidateViewer } from "./candidate-viewer.js";
 import { prepareIdleWake } from "./control-recovery.js";
 import { admitProofBrowser } from "./proof-relay.js";
 
@@ -45,6 +46,7 @@ export async function controlAcceptance(f: Fixture) {
     deviceScaleFactor: 1,
   });
   await admitProofBrowser(context, f.origin);
+  await candidateViewer(context, f.origin);
   if (process.env.HOSTED_DIRECT === "1") {
     await context.addInitScript(() => {
       const native = window.RTCPeerConnection;
@@ -91,6 +93,11 @@ export async function controlAcceptance(f: Fixture) {
     );
   });
   const page = await context.newPage();
+  let sockets = 0;
+  page.on("websocket", () => {
+    sockets++;
+  });
+  let preparationVerified = false;
   const traffic = await context.newCDPSession(page);
   await traffic.send("Network.enable");
   let receivedBytes = 0;
@@ -271,7 +278,48 @@ export async function controlAcceptance(f: Fixture) {
         id,
       );
     } else await command("control-ready", { id });
-    await page.getByRole("button", { name: "Connect to phone" }).click();
+    if (process.env.HOSTED_PREPARATION === "1") {
+      // First exercise a completed readiness check, then continue an in-flight
+      // one. Both must use exactly one socket through actual Android promotion.
+      await page.reload();
+      await expect(page.getByRole("status")).toHaveText("Ready to connect", {
+        timeout: 80000,
+      });
+      const readySockets = sockets;
+      const started = Date.now();
+      await page.getByRole("button", { name: "Connect to phone" }).click();
+      await page
+        .getByRole("region", { name: "Remote screen" })
+        .waitFor({ timeout: 10000 });
+      assert.equal(
+        sockets,
+        readySockets,
+        "Completed check must reuse its socket",
+      );
+      console.log(
+        `Prepared connection promoted in ${Date.now() - started} ms without another socket`,
+      );
+      await page
+        .getByRole("button", { name: "Disconnect", exact: true })
+        .click();
+      const before = sockets;
+      await page.reload({ waitUntil: "commit" });
+      await page.getByRole("button", { name: "Connect to phone" }).click();
+      await page
+        .getByRole("region", { name: "Remote screen" })
+        .waitFor({ timeout: 10000 });
+      assert.equal(
+        sockets,
+        before + 1,
+        "Connect during preparation must continue its one socket",
+      );
+      preparationVerified = true;
+      console.log(
+        "Native preparation retained and promoted, including Connect during startup",
+      );
+    } else {
+      await page.getByRole("button", { name: "Connect to phone" }).click();
+    }
     await page
       .getByRole("region", { name: "Remote screen" })
       .waitFor({ timeout: 80000 });
@@ -783,6 +831,7 @@ export async function controlAcceptance(f: Fixture) {
       path.join(f.state, "result.json"),
       `${JSON.stringify(
         {
+          preparationVerified,
           encryptedScreen: true,
           idleWake: idleWake?.receipt,
           bootRecovery: process.env.HOSTED_BOOT === "1",

@@ -8,7 +8,10 @@ import type { Grant } from "@remote/protocol/enrollment";
 import { openDirectLane } from "./direct-lane.js";
 import { openEncryptedSession } from "./relay.js";
 
-type Lane = Awaited<ReturnType<typeof openEncryptedSession>>;
+type Lane = Pick<
+  Awaited<ReturnType<typeof openEncryptedSession>>,
+  "close" | "send" | "read"
+>;
 class RecoveredAction extends Error {}
 /** One command owner at a time. Path changes release held input; uncertain commands are never replayed. */
 export class RemoteSession {
@@ -32,9 +35,10 @@ export class RemoteSession {
     grant: Grant,
     report: (s: string) => void,
     signal: AbortSignal,
+    prepared?: Lane,
   ) {
     const session = new RemoteSession(
-      await openEncryptedSession(identity, grant, report, signal),
+      prepared ?? (await openEncryptedSession(identity, grant, report, signal)),
     );
     const stop = () => session.close();
     signal.addEventListener("abort", stop, { once: true });
@@ -141,7 +145,7 @@ export class RemoteSession {
     if (!this.active) return;
     this.active = false;
     this.abort.abort();
-    this.lane.close();
+    if (this.lane !== this.relay) this.lane.close();
     this.relay.close();
   }
 }

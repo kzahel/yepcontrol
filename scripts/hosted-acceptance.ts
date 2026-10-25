@@ -14,6 +14,7 @@ import {
   nativeFailure,
   safeFixtureDiagnostics,
 } from "./acceptance-diagnostics.js";
+import { candidateViewer } from "./candidate-viewer.js";
 import { controlAcceptance } from "./control-acceptance.js";
 import { mobileAcceptance } from "./mobile-management-acceptance.js";
 import { admitProofBrowser } from "./proof-relay.js";
@@ -453,6 +454,7 @@ try {
       deviceScaleFactor: 3,
     });
     await admitProofBrowser(context, origin);
+    await candidateViewer(context, origin);
     const page = await context.newPage();
     await page.goto(`${origin}/pair`);
     const qr = page.getByRole("img", { name: "Scan to pair this browser" });

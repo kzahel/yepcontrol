@@ -49,8 +49,13 @@ export async function openEncryptedSession(
   let wake: (() => void) | undefined;
   let channel: Channel | undefined;
   let refusal: string | undefined;
+  let ended: (() => void) | undefined;
+  const closed = new Promise<void>((resolve) => {
+    ended = resolve;
+  });
   const close = () => {
     active = false;
+    ended?.();
     channel?.close();
     ws.close();
     wake?.();
@@ -170,6 +175,10 @@ export async function openEncryptedSession(
     const established = channel;
     return {
       close,
+      closed,
+      get connected() {
+        return active;
+      },
       async send(bytes: Bytes) {
         if (!active || ws.bufferedAmount > 1048608)
           throw new Error("Connection ended or too slow");
@@ -207,5 +216,39 @@ export async function encryptedCheck(
     return trailer ? parseFeatures(trailer) : undefined;
   } finally {
     session.close();
+  }
+}
+
+export type PreparedConnection = {
+  features: PhoneFeatures;
+  session: Awaited<ReturnType<typeof openEncryptedSession>>;
+  expiresAt: number;
+};
+
+/** A single canary, followed by control on the same ordered encrypted lane. */
+export async function prepareConnection(
+  identity: Identity,
+  grant: Grant,
+  report: (message: string) => void,
+  signal: AbortSignal,
+): Promise<PreparedConnection> {
+  const session = await openEncryptedSession(identity, grant, report, signal);
+  try {
+    // The phone enforces 30 s from completing the check. Start our slightly
+    // shorter window before sending, leaving time to deliver a promotion.
+    const expiresAt = Date.now() + 29000;
+    const canary = utf8("Encrypted connection check 🌞");
+    await session.send(canary);
+    const reply = await session.read();
+    if (!reply || !equal(reply, canary))
+      throw new Error("Connection check failed");
+    const trailer = await session.read(1200);
+    const features = trailer ? parseFeatures(trailer) : undefined;
+    if (features?.device.connectionPreparation !== 1)
+      throw new Error("Update the phone app, then connect again.");
+    return { features, session, expiresAt };
+  } catch (error) {
+    session.close();
+    throw error;
   }
 }

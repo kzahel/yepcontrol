@@ -40,6 +40,7 @@ internal class RelayConnection(
     private var ready = false
     private var control: ControlSession? = null
     private var relayFlow = false
+    private var checked = false
 
     @Volatile private var direct: dev.remoteaccess.app.transport.DirectLink? = null
 
@@ -171,6 +172,9 @@ internal class RelayConnection(
                         control!!.receive(plaintext)
                         return
                     }
+                    // A check reserves one bounded preparation window, never a renewable keepalive.
+                    check(!checked)
+                    checked = true
                     webSocket.send(current.seal(plaintext).toByteString())
                     features?.let { report ->
                         check(active.get() && this.current())

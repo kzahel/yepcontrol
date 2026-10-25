@@ -183,7 +183,20 @@ class HostedPairingTest {
                 .first { !it.revoked }
                 .id,
         )
-        waitFor { HostSessions.current.get()?.status == "Waiting for your device" }
+        // The viewer may already have completed its canary and retained this
+        // exact lease. Do not require an earlier transient status to reappear.
+        waitFor {
+            HostSessions.current.get()?.let {
+                it.active.get() &&
+                    it.status in
+                    setOf(
+                        "Waiting for your device",
+                        "Device connected; securing session",
+                        "Encrypted session established",
+                        "Encrypted connection passed",
+                    )
+            } == true
+        }
         stage.writeText("connected")
         waitFor(120000) { command.exists() }
         when (command.readText()) {

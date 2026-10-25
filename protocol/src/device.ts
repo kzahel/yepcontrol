@@ -10,6 +10,8 @@ export interface DeviceInfo {
   android: string;
   sdk: number;
   app: string;
+  /** Host can retain a readiness check for promotion to control for 30 seconds. */
+  connectionPreparation?: 1;
 }
 const text = (value: unknown, max: number): value is string =>
   typeof value === "string" &&
@@ -31,7 +33,8 @@ export function parseDevice(value: unknown): DeviceInfo {
     typeof d.sdk !== "number" ||
     !Number.isInteger(d.sdk) ||
     d.sdk < 1 ||
-    d.sdk > 1000
+    d.sdk > 1000 ||
+    (d.connectionPreparation !== undefined && d.connectionPreparation !== 1)
   )
     throw new Error("Invalid device report");
   return {
@@ -41,6 +44,7 @@ export function parseDevice(value: unknown): DeviceInfo {
     android: d.android,
     sdk: d.sdk,
     app: d.app,
+    ...(d.connectionPreparation === 1 ? { connectionPreparation: 1 } : {}),
   };
 }
 
