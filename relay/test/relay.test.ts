@@ -538,11 +538,41 @@ it("registration refresh does not displace a live encrypted route", async () => 
   expect(v.socket.readyState).toBe(WebSocket.OPEN);
   expect(p.socket.readyState).toBe(WebSocket.OPEN);
 });
+it("admits two immediate authenticated wakes, then queues the next fresh request", async () => {
+  const sent: string[] = [];
+  await relay.close();
+  await start({
+    wakeCooldownMs: 1000,
+    sender: async (_fid, wake) => {
+      sent.push(wake.requestId);
+      return "accepted";
+    },
+  });
+  await enroll();
+  await registerPush();
+  for (let count = 0; count < 2; count++) {
+    const viewerSocket = client();
+    await viewerSocket.login(viewer, "viewer");
+    expect(await viewerSocket.json()).toMatchObject({ delivery: "accepted" });
+    const closed = once(viewerSocket.socket, "close");
+    viewerSocket.socket.close();
+    await closed;
+  }
+  expect(new Set(sent).size).toBe(2);
+  const third = client();
+  await third.login(viewer, "viewer");
+  expect(await third.json()).toMatchObject({ delivery: "coalesced" });
+  expect(sent).toHaveLength(2);
+  expect(await third.json()).toMatchObject({ delivery: "accepted" });
+  expect(new Set(sent).size).toBe(3);
+});
+
 it("delivers a fresh wake after a rapid check-to-control reconnect", async () => {
   const sent: { requestId: string; expires: number }[] = [];
   await relay.close();
   await start({
     wakeCooldownMs: 400,
+    wakeBurst: 1,
     sender: async (_fid, request) => {
       sent.push(request);
       return "accepted";
@@ -605,6 +635,7 @@ it.each([
   await relay.close();
   await start({
     wakeCooldownMs: 300,
+    wakeBurst: 1,
     sender: async (_fid, request) => {
       sent.push(request);
       return "accepted";
@@ -647,6 +678,7 @@ it("expires a queued wake rather than sending a stale hint", async () => {
   await relay.close();
   await start({
     wakeCooldownMs: 2500,
+    wakeBurst: 1,
     wakeLifetimeMs: 1200,
     sender: async () => {
       sends++;

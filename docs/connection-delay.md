@@ -134,7 +134,13 @@ Cancel, page departure, hiding a preparing tab, revocation and transport closure
 release preparation. Expiry releases both the browser lock and native lease;
 there is no periodic re-wake or automatic retry. A later explicit Connect uses a
 fresh session. Opening the phone list does not prepare every saved phone.
-The relay's existing wake limits remain in place for genuinely new requests.
+The global and per-installation wake limits remain in place. A bounded
+per-pair allowance permits two immediate requests, replenishing one request per
+30 seconds. This gives a quick cancelled/disconnected attempt one fresh retry
+without enabling sustained push traffic. Cloudflare persists the allowance; the
+previous numeric cooldown is carried forward and retained for code rollback.
+Fresh FCM work queues behind a prior worker’s teardown instead of dropping its
+request under WorkManager KEEP; expired or superseded work still cannot connect.
 
 Compatibility uses an optional `connectionPreparation: 1` in the existing phone
 report. New Android hosts retain the existing canary/check exchange; an old

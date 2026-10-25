@@ -75,7 +75,10 @@ internal object WakeSupport {
         if (!registration) work.addTag("remote-session")
         WorkManager.getInstance(context).enqueueUniqueWork(
             if (registration) "register-push" else "remote-wake-${data.getString("pairingId")}",
-            if (registration) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,
+            // A fresh request can arrive while the previous socket is finishing.
+            // Serialize it behind teardown rather than dropping its only hint.
+            // Each worker still validates its own request expiry and local policy.
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
             work.build(),
         )
     }

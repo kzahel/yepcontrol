@@ -39,6 +39,7 @@ export interface Options {
   sender?: Sender;
   wakeLifetimeMs?: number;
   wakeCooldownMs?: number;
+  wakeBurst?: 1 | 2;
   /** Longest a pairing poll with a `Pair-Wait` header is held for a state change. */
   pairWaitMs?: number;
 }
@@ -63,6 +64,7 @@ export function createRelay(options: Options) {
     options.sender,
     Date.now,
     options.wakeCooldownMs,
+    options.wakeBurst,
   );
   const requests = new Map<string, Wake>();
   const wakeTimers = new Map<string, ReturnType<typeof setTimeout>>();

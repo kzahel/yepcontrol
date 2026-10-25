@@ -1,5 +1,6 @@
 /** Hosted relay. Production and the closed proof use separate Workers/state. */
 import { DurableObject } from "cloudflare:workers";
+import { takeWake, type WakeAllowance } from "../../relay/src/wake-allowance.js";
 import { viewerAssetPath } from "../../web/routes.js";
 import {
   authBytes,
@@ -805,15 +806,22 @@ export class Pairing extends DurableObject<Env> {
       );
       return;
     }
-    const until = this.get<number>("cooldown") ?? 0;
-    if (until > Date.now()) {
-      this.put("wake", { ...wake, retryAt: until });
+    const now = Date.now();
+    // The old numeric cooldown represents one already-spent request. Preserve
+    // that consumption across this upgrade; continue writing it for safe rollback.
+    const legacy = this.get<number>("cooldown");
+    const previous = this.get<WakeAllowance>("wakeAllowance") ??
+      (legacy ? { tokens: 1, at: legacy - 30000 } : undefined);
+    const allowance = takeWake(now, previous);
+    if (allowance.retryAfterMs > 0) {
+      this.put("wake", { ...wake, retryAt: now + allowance.retryAfterMs });
       viewer.send(
         JSON.stringify({ type: "contacting", delivery: "coalesced" }),
       );
       return;
     }
     this.put("wake", { ...wake, retryAt: undefined });
+    this.put("wakeAllowance", allowance.state);
     this.put("cooldown", Date.now() + 30000);
     let delivery: "accepted" | "invalid_target" | "unavailable" = "unavailable";
     try {

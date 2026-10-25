@@ -6,6 +6,7 @@ import {
 import { getMessaging, type Message } from "firebase-admin/messaging";
 
 import type { RelayState } from "./state.js";
+import { takeWake, type WakeAllowance } from "./wake-allowance.js";
 
 export type Wake = {
   requestId: string;
@@ -65,7 +66,7 @@ export function firebaseDelivery(
 export class PushRegistry {
   private targets: Record<string, { fid: string; generation?: string }> =
     Object.create(null);
-  private readonly cooldown = new Map<string, number>();
+  private readonly cooldown = new Map<string, WakeAllowance>();
   private readonly state: RelayState;
   private window = 0;
   private sends = 0;
@@ -74,6 +75,7 @@ export class PushRegistry {
     private readonly send?: Sender,
     private readonly now = Date.now,
     private readonly cooldownMs = 30000,
+    private readonly wakeBurst: 1 | 2 = 2,
   ) {
     this.state = state;
     this.targets = state.targets();
@@ -96,7 +98,12 @@ export class PushRegistry {
     delete this.targets[id];
   }
   retryAfterMs(id: string): number {
-    return Math.max(0, (this.cooldown.get(id) ?? 0) - this.now());
+    return takeWake(
+      this.now(),
+      this.cooldown.get(id),
+      this.cooldownMs,
+      this.wakeBurst,
+    ).retryAfterMs;
   }
   async wake(
     id: string,
@@ -107,16 +114,23 @@ export class PushRegistry {
     if (!fid || !this.send) return "unregistered";
     const now = this.now();
     if (request.expires * 1000 <= now) return "unavailable";
-    if (this.retryAfterMs(id) > 0) return "coalesced";
+    const allowance = takeWake(
+      now,
+      this.cooldown.get(id),
+      this.cooldownMs,
+      this.wakeBurst,
+    );
+    if (allowance.retryAfterMs > 0) return "coalesced";
     if (this.window <= now) {
       this.window = now + 60000;
       this.sends = 0;
     }
     if (this.sends >= 100) return "unavailable";
     this.sends++;
-    this.cooldown.set(id, now + this.cooldownMs);
-    for (const [key, until] of this.cooldown)
-      if (until <= now) this.cooldown.delete(key);
+    this.cooldown.set(id, allowance.state);
+    for (const [key, value] of this.cooldown)
+      if (value.at + this.wakeBurst * this.cooldownMs <= now)
+        this.cooldown.delete(key);
     let result: Delivery;
     try {
       result = await this.send(fid, {

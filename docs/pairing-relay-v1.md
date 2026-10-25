@@ -172,3 +172,22 @@ with the Pixel 9 app in the background. No phone update is needed.
 Regression coverage exercises fresh request delivery after a completed earlier
 route, rejection of the stale request ID, cancellation on departure/revocation/
 phone arrival, expiry and the browser's waiting/delivery messages.
+
+## Prepared sessions and quick reconnects (2026-10-25)
+
+Android 0.8.0 advertises the optional `connectionPreparation: 1` extension in
+its authenticated device report. The existing canary/features exchange can stay
+open for up to 30 seconds and receive the unchanged control-start command on the
+same encrypted lane. Old viewers still close the check normally; viewers do not
+require this extension from public 0.7.0 hosts. See
+[connection preparation](connection-delay.md#prepared-session-implementation--android-080--code-6).
+
+The per-pair fixed push cooldown above is replaced with a two-request token
+allowance, replenishing one token per 30 seconds. Two fresh authenticated
+requests may send immediately; subsequent requests use the existing queued
+wake, expiry, cancellation and policy checks. Node and Cloudflare use the same
+calculation. Cloudflare persists the tokens and carries an existing numeric
+cooldown forward as one consumed request. The legacy numeric field remains
+updated for conservative code rollback. Global and per-installation send
+budgets are unchanged. New native hints queue behind prior worker teardown;
+they cannot cancel active input, reuse old request IDs or extend expired grants.

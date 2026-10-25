@@ -69,11 +69,13 @@ it("coalesces repeated wakes and refuses expired requests before sending", async
     "unavailable",
   );
   expect(await registry.wake(id, hint())).toBe("accepted");
+  expect(registry.retryAfterMs(id)).toBe(0);
+  expect(await registry.wake(id, hint())).toBe("accepted");
   expect(registry.retryAfterMs(id)).toBe(30000);
   now += 5000;
   expect(await registry.wake(id, hint())).toBe("coalesced");
   expect(registry.retryAfterMs(id)).toBe(25000);
-  expect(send).toHaveBeenCalledTimes(1);
+  expect(send).toHaveBeenCalledTimes(2);
   now += 31000;
   expect(registry.retryAfterMs(id)).toBe(0);
   expect(await registry.wake(id, hint())).toBe("accepted");
