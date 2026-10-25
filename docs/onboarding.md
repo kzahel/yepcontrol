@@ -124,3 +124,13 @@ An independent local run passed the complete same sequence, and the unchanged
 CI retry passed it too. The intermittent timeout's cause is not established;
 the check was not disabled or weakened. The local sample decoded 61 H.264
 frames in 5.010 seconds and passed disarm/removal without browser errors.
+
+The first two code-9 release attempts stopped at initial native approval, once
+in normal hosted pairing and once in the control fixture after hosted pairing
+had passed. An independent code-9 hosted/FCM run passed. The fixture previously
+treated an accessibility-cached button disappearing as proof approval started
+and could retry using stale geometry. It now scrolls the action fully into view
+and observes the actual native view tree or a newly stored pair before retrying.
+It still taps the real approval button and requires the signed pairing exchange;
+no production permission or pairing logic was changed by this fixture update.
+The earlier CI failures remain recorded rather than counted as passing runs.

@@ -3,8 +3,12 @@ package dev.remoteaccess.app
 import android.app.UiAutomation
 import android.content.Intent
 import android.net.Uri
+import android.view.View
+import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Configurator
@@ -67,8 +71,8 @@ class HostedPairingTest {
 
     private fun click(id: String) {
         if (id in setOf("open_settings", "open_activity", "open_devices")) tap(By.res("${context.packageName}:id/navigation_menu"))
-        if (id == "remove_device") {
-            // The device detail is taller than lower-density CI viewports. A
+        if (id in setOf("remove_device", "grant_device")) {
+            // Details and approval can be taller than lower-density CI viewports. A
             // partially clipped accessibility node is not a reliable tap target.
             val body = UiScrollable(UiSelector().scrollable(true))
             if (body.exists()) body.scrollToEnd(5)
@@ -76,16 +80,33 @@ class HostedPairingTest {
         }
         val selector = By.res("${context.packageName}:id/$id")
         if (id == "grant_device") {
-            // A stale accessibility node can report a click without invoking
-            // the button. Confirm that approval started before waiting for the
-            // network result. Once started, the app removes the button and its
-            // granting guard prevents a second enrollment operation.
+            val existingPairs = store.snapshot.devices.map { it.id }.toSet()
+            // Accessibility caches can retain the removed button after the
+            // actual UI has advanced. Another tap at its former position can
+            // hit Cancel. Observe the real view tree before attempting a retry;
+            // the initial action still goes through the normal UI gesture.
+            fun approvalStarted(): Boolean {
+                if (store.snapshot.devices.any { !it.revoked && it.id !in existingPairs }) return true
+                var started = false
+                InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                    val activity =
+                        ActivityLifecycleMonitorRegistry
+                            .getInstance()
+                            .getActivitiesInStage(Stage.RESUMED)
+                            .filterIsInstance<MainActivity>()
+                            .singleOrNull()
+                    started = activity != null &&
+                        activity.findViewById<TextView>(R.id.page_title)?.text == "Allow this browser?" &&
+                        activity.findViewById<View>(R.id.grant_device) == null
+                }
+                return started
+            }
             waitFor {
-                if (!device.hasObject(selector)) {
+                if (approvalStarted()) {
                     true
                 } else {
                     tap(selector)
-                    device.wait(Until.gone(selector), 1500)
+                    approvalStarted()
                 }
             }
         } else {
