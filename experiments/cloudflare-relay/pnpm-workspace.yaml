@@ -1,1 +1,5 @@
 packages: []
+
+# Miniflare pins an older undici; retain the runtime pin while applying its security fixes.
+overrides:
+  undici: 7.30.1

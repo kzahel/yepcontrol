@@ -14,7 +14,9 @@ import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.BySelector
 import androidx.test.uiautomator.Configurator
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import androidx.work.WorkManager
 import dev.remoteaccess.app.control.ControlSession
@@ -61,10 +63,27 @@ class LocalSettingsProtectionTest {
 
     private fun view(selector: BySelector) = assertNotNull(device.wait(Until.findObject(selector), 10000))
 
+    private fun <T> withView(
+        selector: BySelector,
+        action: (UiObject2) -> T,
+    ): T {
+        val deadline = SystemClock.elapsedRealtime() + 10000
+        while (SystemClock.elapsedRealtime() < deadline) {
+            try {
+                device.findObject(selector)?.let { return action(it) }
+            } catch (_: StaleObjectException) {
+                // Readiness/store refreshes can replace a node after lookup.
+                // Reacquire UI nodes only; remote commands must never be retried here.
+            }
+            Thread.sleep(100)
+        }
+        error("Native control did not become available: $selector")
+    }
+
     private fun selector(id: String) = By.res("${context.packageName}:id/$id")
 
     private fun click(id: String) {
-        view(selector(id)).click()
+        withView(selector(id)) { it.click() }
         instrumentation.waitForIdleSync()
     }
 
@@ -119,7 +138,7 @@ class LocalSettingsProtectionTest {
         id: String,
         scene: Int,
     ): ByteArray {
-        val bounds = view(selector(id)).visibleBounds
+        val bounds = withView(selector(id)) { it.visibleBounds }
         return command(
             4,
             ByteBuffer
@@ -174,7 +193,7 @@ class LocalSettingsProtectionTest {
         try {
             click("navigation_menu")
             click("open_devices")
-            view(By.descStartsWith("Security fixture. ")).click()
+            withView(By.descStartsWith("Security fixture. ")) { it.click() }
             view(selector("unlock_settings"))
             assertFalse(status().getBoolean("localSettings"))
 
@@ -194,7 +213,7 @@ class LocalSettingsProtectionTest {
             view(selector("allow_unlock"))
             instrumentation.runOnMainSync { assertFalse(assertNotNull(ScreenAccessService.current).inputInFlight) }
             assertTrue(status().getBoolean("localSettings"))
-            assertTrue(view(selector("local_settings_notice")).text.contains("cannot pair another device"))
+            assertTrue(withView(selector("local_settings_notice")) { it.text }.contains("cannot pair another device"))
             result(4, tap("allow_unlock", capture()))
             result(4, command(11, touch(scene, 1)))
             result(
@@ -248,8 +267,7 @@ class LocalSettingsProtectionTest {
             result(4, tap("save_pin", capture()))
             assertFalse(vault.saved())
             click("save_pin")
-            val pin = view(selector("save_pin_value"))
-            pin.click()
+            click("save_pin_value")
             result(4, command(7, "123456".toByteArray()))
             instrumentation.runOnMainSync {
                 val root = WindowInspector.getGlobalWindowViews().first { it.findViewById<View>(R.id.save_pin_value) != null }
@@ -263,7 +281,7 @@ class LocalSettingsProtectionTest {
             }
             instrumentation.waitForIdleSync()
             device.waitForIdle()
-            view(By.res("android:id/button1")).click()
+            withView(By.res("android:id/button1")) { it.click() }
             try {
                 waitFor { vault.saved() }
             } catch (error: Throwable) {
@@ -278,7 +296,7 @@ class LocalSettingsProtectionTest {
                 throw AssertionError("Synthetic PIN save failed: $diagnostic", error)
             }
             click("save_pin")
-            val forget = view(By.res("android:id/button1")).visibleBounds
+            val forget = withView(By.res("android:id/button1")) { it.visibleBounds }
             result(
                 4,
                 command(
@@ -292,7 +310,7 @@ class LocalSettingsProtectionTest {
                 ),
             )
             assertTrue(vault.saved())
-            view(By.res("android:id/button1")).click()
+            withView(By.res("android:id/button1")) { it.click() }
             waitFor { !vault.saved() }
             result(0, command(6, byteArrayOf(2))) // Home also exits when the PIN editor left an IME open.
             waitFor { !LocalSettingsProtection.blocked }

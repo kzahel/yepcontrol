@@ -25,6 +25,9 @@ uses real loopback WebSockets for transport, then disposes the runtime and remov
 Wrangler 4.149.0 uses Miniflare 5.20261006.1-alpha; this experiment pins the same
 version and its development-only eviction API. Revisit that tooling before
 promoting any code. Production dependencies are unchanged.
+The workspace overrides Miniflare's exact `undici` pin to
+[`7.30.1`](https://github.com/nodejs/undici/releases/tag/v7.30.1) for its security
+fixes, without changing the pinned emulator runtime (reviewed 2026-10-25).
 
 ## What passed locally
 
