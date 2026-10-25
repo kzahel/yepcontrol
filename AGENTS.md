@@ -219,3 +219,11 @@ Changes in review; initial automated checks, Google approval and actual public
 availability must be distinguished. See `docs/distribution/android-production.md`.
 The CI publisher remains scoped to internal testing. This does not authorize
 unrelated infrastructure changes or new physical-phone lock/debugging changes.
+
+## Public Play availability — 2026-10-25
+
+The owner reported approval, and a signed-out public-listing check confirms
+YepControl is live with Install and no tester enrollment. Version 0.7.0/code 5
+is now a public release. Preserve compatibility with that installed app when
+changing the viewer, relay or stored formats; the historical pre-release policy
+above no longer applies. See `docs/distribution/android-production.md`.

@@ -67,7 +67,7 @@ export function ViewerApp({
         <ViewerHeading name="Your phones" status="Loading saved phones…" />
       </main>
     );
-  else if (route === "/" || route === "/viewer.html")
+  else if (route === "/" || route === "/phones" || route === "/viewer.html")
     content = <PhoneList phones={phones} error={error} />;
   else if (route === "/pair" && !error) content = <PairPhone />;
   else if (phone && !error && details) content = <PhoneDetails phone={phone} />;

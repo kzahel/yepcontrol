@@ -3,16 +3,15 @@
 View and control your Android phone from a browser. Pair by scanning a QR code,
 approve access on the phone, and connect through an end-to-end encrypted session.
 
-[Open YepControl](https://yepcontrol.com) · [Privacy policy](https://yepcontrol.com/privacy/)
+[Get it on Google Play](https://play.google.com/store/apps/details?id=com.yepcontrol.app) · [Open YepControl](https://yepcontrol.com) · [Privacy policy](https://yepcontrol.com/privacy/)
 
 - Screen viewing, smooth video, touch gestures, text entry and navigation.
 - Multiple phones and browsers, with per-browser permissions and revocation.
 - Optional background wake and saved-PIN unlock.
 - Android 11+; application ID `com.yepcontrol.app`.
 
-**Play release:** version 0.7.0 has been submitted for public production release
-and awaits Google review. It remains available to invited internal testers;
-public availability is not yet confirmed. See the
+**Play release:** version 0.7.0 is publicly available on Google Play, verified
+2026-10-25 from the signed-out listing with Install and no tester enrollment. See the
 [production release record](docs/distribution/android-production.md).
 
 Screen control requires Android's screen-access permission; smooth video asks
@@ -60,6 +59,7 @@ pnpm exec playwright install chromium
 
 | Command | Coverage |
 | --- | --- |
+| `pnpm test:public-site` | Public homepage, installation, QR links and returning browsers. |
 | `pnpm test:viewer-layout` | Responsive viewer layout in isolated Chromium. |
 | `pnpm test:viewer-phones` | Browser phone storage, multiple phones and tabs. |
 | `pnpm test:interop` | Browser ↔ Android Keystore interoperability. |

@@ -82,6 +82,10 @@ function options(
         scriptPath: ".local/bundle/worker.js",
         compatibilityDate: "2026-10-01",
         bindings,
+        serviceBindings: {
+          ASSETS: async (request: Request) =>
+            new Response(new URL(request.url).pathname),
+        },
         durableObjects: {
           PAIRINGS: { className: "Pairing", useSQLite: true },
           ADMISSION: { className: "Admission", useSQLite: true },
@@ -183,6 +187,20 @@ try {
     "Migration is disabled in production",
   );
   const live = await mf.getWorker("relay");
+  for (const [route, asset] of [
+    ["/", "/index.html"],
+    ["/enroll", "/install.html"],
+    ["/install", "/install.html"],
+    ["/phones", "/viewer.html"],
+    ["/pair", "/viewer.html"],
+    ["/robots.txt", "/robots.txt"],
+    ["/sitemap.xml", "/sitemap.xml"],
+    ["/.well-known/assetlinks.json", "/.well-known/assetlinks.json"],
+  ]) {
+    const response = await live.fetch(origin + route);
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), asset);
+  }
   const health = await live.fetch(origin + "/health");
   assert.equal(
     ((await health.json()) as { admission: string }).admission,

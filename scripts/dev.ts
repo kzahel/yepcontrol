@@ -3,6 +3,7 @@ import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
+import { viewerAssetPath } from "../web/routes.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const httpsPort = Number(process.env.DEV_HTTPS_PORT ?? "443");
@@ -61,12 +62,17 @@ const viewer = await createServer({
         server.middlewares.use((req, _res, next) => {
           const route = req.url?.split("?")[0];
           if (
-            route === "/" ||
-            route === "/pair" ||
-            route?.startsWith("/phones/")
+            route &&
+            (route === "/" ||
+              route === "/phones" ||
+              route === "/pair" ||
+              route.startsWith("/phones/") ||
+              route === "/install" ||
+              route === "/enroll" ||
+              route === "/privacy" ||
+              route === "/privacy/")
           )
-            req.url = "/viewer.html";
-          if (route === "/enroll") req.url = "/install.html";
+            req.url = viewerAssetPath(route);
           next();
         });
       },

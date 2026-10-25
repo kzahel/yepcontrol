@@ -1,0 +1,181 @@
+@import "./viewer.css";
+
+.public-page {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+.public-header,
+.public-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 0;
+}
+.public-header > a:last-child {
+  font-size: 0.9375rem;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--text);
+}
+.public-main {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.hero {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  align-items: center;
+  gap: 64px;
+  padding: 64px 0;
+}
+.eyebrow {
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  margin: 0 0 20px;
+}
+.public-page h1 {
+  font-size: clamp(2.2rem, 5vw, 3.7rem);
+  line-height: 1.12;
+  letter-spacing: -0.045em;
+  white-space: normal;
+  overflow: visible;
+}
+.intro {
+  max-width: 40em;
+  font-size: 1.125rem;
+  color: var(--muted);
+  margin: 24px 0;
+}
+.public-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+.public-actions .button-link {
+  margin: 0;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.public-actions .secondary {
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.setup-card {
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+.setup-card h2 {
+  font-size: 1.125rem;
+  margin: 0 0 28px;
+}
+.setup-steps {
+  counter-reset: steps;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 28px;
+}
+.setup-steps li {
+  counter-increment: steps;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.setup-steps li::before {
+  content: counter(steps);
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--selected);
+  color: var(--accent);
+  font-weight: 650;
+}
+.setup-steps h3,
+.public-features h2 {
+  font-size: 1rem;
+  margin: 2px 0 6px;
+}
+.setup-steps p,
+.public-features p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+.public-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 36px;
+  padding: 36px 0;
+  border-top: 1px solid var(--border);
+}
+.public-limits,
+.public-footer {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.public-limits {
+  max-width: 75em;
+  margin: 12px 0 40px;
+}
+.public-footer {
+  border-top: 1px solid var(--border);
+}
+.install-main {
+  max-width: 640px;
+  margin: 40px auto 64px;
+}
+.install-main h1 {
+  font-size: clamp(2rem, 5vw, 2.8rem);
+}
+.install-main .setup-card {
+  margin-top: 32px;
+}
+.install-main .installed-help {
+  margin: 28px 0;
+}
+@media (max-width: 760px) {
+  .public-page {
+    padding: 0 20px;
+  }
+  .public-header {
+    padding: 20px 0;
+  }
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 32px 0;
+  }
+  .public-features {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .public-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .install-main {
+    margin-top: 28px;
+  }
+}

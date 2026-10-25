@@ -102,6 +102,7 @@ jobs:
           done
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm build
+      - run: pnpm test:public-site
       - run: pnpm test:viewer-layout
       - run: pnpm test:viewer-phones
   browser-android-interop:

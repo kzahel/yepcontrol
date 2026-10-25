@@ -80,6 +80,7 @@ const server = await createServer({
           }
           if (
             req.url === "/" ||
+            req.url === "/phones" ||
             req.url === "/pair" ||
             req.url?.startsWith("/phones/")
           ) {

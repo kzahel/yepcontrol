@@ -46,9 +46,13 @@ export function AppShell({
     <nav className="sidebar-navigation" aria-label="Main navigation">
       <div className="sidebar-top-links">
         <a
-          href="/"
+          href="/phones"
           className="sidebar-link"
-          aria-current={location.pathname === "/" ? "page" : undefined}
+          aria-current={
+            location.pathname === "/" || location.pathname === "/phones"
+              ? "page"
+              : undefined
+          }
         >
           <ControlIcon name="phones" />
           <span>All phones</span>
@@ -109,6 +113,9 @@ export function AppShell({
         )}
       </div>
       <div className="sidebar-footer">
+        <a className="sidebar-link" href="/install">
+          Get the Android app
+        </a>
         <a className="sidebar-link" href="/privacy/">
           Privacy policy
         </a>

@@ -88,3 +88,15 @@ After review, verify the production release is available in Console and the publ
 listing opens without tester enrollment. Preserve any policy feedback and address
 it before submitting another candidate. Run a Play-installed acceptance check within existing
 device authorization; emulator/debug evidence does not substitute for that check.
+
+## Public availability — 2026-10-25
+
+The owner reported Google approval. An anonymous HTTPS fetch of the
+[public listing](https://play.google.com/store/apps/details?id=com.yepcontrol.app&hl=en&gl=US)
+confirms **YepControl – Remote Phone**, developer **Graehl Arts**, **Install**,
+Tools, Everyone / Users Interact, and the first-public-release notes. The store
+shows an update date of Oct 23, 2026. No tester enrollment or Google sign-in is
+needed to view the listing. This establishes public availability; the exact
+review-completion time was not inspected in Console. The promoted candidate
+remains the existing signed 0.7.0/code-5 bundle above. Play-installed physical
+acceptance and natural overnight qualification remain separate.

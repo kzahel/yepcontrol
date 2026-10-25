@@ -45,7 +45,8 @@ async function api(
 export function PairPhone() {
   const [invitation, setInvitation] = useState<Invitation>();
   const [status, setStatus] = useState("Creating a pairing code…");
-  const steps = "Open YepControl on your phone and tap Scan pairing code.";
+  const steps =
+    "Scan with your phone’s camera to open or install YepControl. Already installed? Open the app and tap Scan pairing code.";
   const [failure, setFailure] = useState<"code" | "unconfirmed">();
   const pair = useCallback(async () => {
     setFailure(undefined);
@@ -176,6 +177,7 @@ export function PairPhone() {
             viewBox={`-4 -4 ${qr.size + 8} ${qr.size + 8}`}
             width="360"
             height="360"
+            shapeRendering="crispEdges"
           >
             <title>Scan to pair this browser</title>
             <rect
@@ -195,6 +197,12 @@ export function PairPhone() {
             />
           </svg>
           <p>{steps}</p>
+          <a
+            href="https://play.google.com/store/apps/details?id=com.yepcontrol.app"
+            rel="noreferrer"
+          >
+            Get YepControl on Google Play
+          </a>
           <p className="hint">A new code appears every five minutes.</p>
         </section>
       )}

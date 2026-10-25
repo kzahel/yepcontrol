@@ -393,7 +393,7 @@ try {
     if (new URL(fallback.url()).hash)
       throw new Error("Install page retained invitation fragment");
     const play = await fallback
-      .getByRole("link", { name: "Check Google Play" })
+      .getByRole("link", { name: "Install from Google Play" })
       .getAttribute("href");
     if (
       play !==

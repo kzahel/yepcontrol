@@ -278,3 +278,11 @@ historical internal-only scope and earlier observed review gate above. Google
 approval and public availability are not yet confirmed. See the
 [production release record](android-production.md) for provenance, declarations,
 review media and remaining acceptance limits.
+
+## Public listing verified — 2026-10-25
+
+Google approved the production submission. The public listing now shows the
+product name and Install without sign-in or tester enrollment. This supersedes
+the review-pending and invitation-only descriptions above; see the
+[production receipt](android-production.md#public-availability--2026-10-25).
+Play-installed device acceptance remains a separate check.

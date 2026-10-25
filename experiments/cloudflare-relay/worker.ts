@@ -1,5 +1,6 @@
 /** Hosted relay. Production and the closed proof use separate Workers/state. */
 import { DurableObject } from "cloudflare:workers";
+import { viewerAssetPath } from "../../web/routes.js";
 import {
   authBytes,
   createBytes,
@@ -196,15 +197,7 @@ const worker = {
       !url.pathname.startsWith("/_proof/")
     ) {
       if (!env.ASSETS) return json({ error: "No viewer" }, 404);
-      if (url.pathname === "/enroll" || url.pathname === "/install")
-        url.pathname = "/install.html";
-      else if (url.pathname === "/privacy" || url.pathname === "/privacy/")
-        url.pathname = "/privacy/index.html";
-      else if (
-        !url.pathname.startsWith("/assets/") &&
-        !url.pathname.includes(".")
-      )
-        url.pathname = "/viewer.html";
+      url.pathname = viewerAssetPath(url.pathname);
       return env.ASSETS.fetch(new Request(url, req));
     }
     const api = url.pathname.match(

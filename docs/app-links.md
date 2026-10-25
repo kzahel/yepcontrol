@@ -41,10 +41,13 @@ stores it or sends it to analytics. After installing, open the app and scan a
 fresh code. This is not deferred deep linking; installation does not resume or
 approve a pairing. Scanner/browser behavior can vary.
 
-**The internal beta is available to invited testers.** Accept the tester
-invitation with the Google account used on the phone before opening the Play
-listing. The install page explains this restriction. Public availability and
-Google review remain separate from this internal release.
+**Public availability verified 2026-10-25.** The Play listing opens signed out
+with the public product name and Install, without tester enrollment. The install
+page now links directly to the public listing and explains the fresh scan after
+installation. The existing HTTPS App Link and Android binary are unchanged;
+a scanner may still open the fallback browser page even with the app installed.
+Use the in-app scanner in that case. Play-installed physical App Link acceptance
+remains separate from the previously verified owned-emulator behavior.
 
 ## Firebase and signing
 
@@ -152,3 +155,29 @@ intent; it does not repeat the earlier verified-App-Link acceptance above.
 
 Private receipts stay in `.local/sg2-proof/`. No physical phone, Play release or
 deployment is changed by this verification.
+
+## Public website and search — 2026-10-25
+
+The root now serves product HTML with a prominent public Play link, QR setup
+steps, product title/description, canonical/social metadata and WebSite microdata.
+Browsers with saved phones load their existing library at the same root; `/phones`
+also opens it directly. No pairing authority, origin, IndexedDB format or Android
+App Link changes. The former root symlink to the preserved spike is replaced by
+production HTML; `spike/` remains unchanged.
+
+`/enroll` and `/install` serve the same public installation guide with no tester
+requirement. The invitation fragment is cleared, never persisted or appended to
+the Play link. Both public pages and their install links work without JavaScript;
+fragment clearing requires JavaScript, while the no-referrer policy and fixed
+Play URL prevent forwarding it in either case. Native enrollment still requires
+Grant. Private viewer/pairing/install routes carry `noindex`; the public sitemap
+contains only the product homepage and privacy policy. A public homepage meta tag
+supports the owner's Search Console verification, without adding analytics.
+
+`pnpm test:public-site` exercises the built assets under the hosted CSP in isolated
+Chromium: initial HTML/metadata, mobile/desktop layout, Play CTA above the fold,
+decoded pairing QR, fragment clearing, exact Play URL/no referrer, no-JavaScript
+installation links and returning saved-phone navigation. The hosted Worker tests
+check the actual asset routing, including App Links and crawler files. The existing
+browser layout/phone suites remain separate. These checks do not establish
+Play-installed physical App Link handling or changed Google search results.

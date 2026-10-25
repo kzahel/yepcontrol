@@ -1,1 +1,61 @@
-../spike/web/index.html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="google-site-verification" content="59wq-zjYWqVW51OXe5tIJNJqxSWkBCUY_iwPSiNia7A">
+  <title>YepControl – Control Your Android Phone from a Browser</title>
+  <meta name="description" content="Remotely view and control your Android phone from a browser. Free Android app, encrypted connections, and simple QR pairing. No account required.">
+  <link rel="canonical" href="https://yepcontrol.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="YepControl">
+  <meta property="og:title" content="YepControl – Control Your Android Phone from a Browser">
+  <meta property="og:description" content="Keep your Android phone within reach. Free, encrypted remote viewing and control, with simple QR pairing and no account required.">
+  <meta property="og:url" content="https://yepcontrol.com/">
+  <meta property="og:image" content="https://yepcontrol.com/app-icon.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <script src="/appearance.js"></script>
+  <link rel="stylesheet" href="/src/public.css">
+</head>
+<body>
+  <div id="welcome" class="public-page">
+    <header class="public-header" itemscope itemtype="https://schema.org/WebSite">
+      <link itemprop="url" href="https://yepcontrol.com/">
+      <a class="brand" href="/" aria-label="YepControl home"><img src="/icon.svg" width="36" height="36" alt=""><span itemprop="name">YepControl</span></a>
+      <a href="/phones">Your phones <span aria-hidden="true">↗</span></a>
+    </header>
+    <main class="public-main">
+      <section class="hero" aria-labelledby="intro-title">
+        <div>
+          <p class="eyebrow">Android 11+ · Free · No account required</p>
+          <h1 id="intro-title">Your Android phone.<br>Within reach.</h1>
+          <p class="intro">View and control your Android phone from a browser, wherever you are. Check an app on a spare phone or keep a dedicated device close by.</p>
+          <div class="public-actions">
+            <a class="button-link" href="https://play.google.com/store/apps/details?id=com.yepcontrol.app" rel="noreferrer">Get it on Google Play <span aria-hidden="true">↗</span></a>
+            <a class="button-link secondary" href="/pair">Connect a phone</a>
+          </div>
+          <p class="hint">Install the app on the phone you want to control.<br>Use this browser to connect to it.</p>
+        </div>
+        <section class="setup-card" aria-labelledby="setup-title">
+          <h2 id="setup-title">Three steps. Then you’re there.</h2>
+          <ol class="setup-steps">
+            <li><div><h3>Install on your phone</h3><p>Get YepControl from Google Play on the Android phone you want to reach.</p></div></li>
+            <li><div><h3>Pair with this browser</h3><p>Choose Connect a phone. Scan the code with YepControl, then tap Grant on your phone.</p></div></li>
+            <li><div><h3>Connect when you need it</h3><p>Open your saved phone here to view its screen, tap, swipe and type.</p></div></li>
+          </ol>
+        </section>
+      </section>
+      <section class="public-features" aria-label="What YepControl offers">
+        <article><h2>A browser is all you need</h2><p>Reach your phone from a computer, tablet or another phone. No desktop app to install.</p></article>
+        <article><h2>Encrypted between your devices</h2><p>Screen content, controls and typed text are end-to-end encrypted between your phone and approved browser.</p></article>
+        <article><h2>You decide who connects</h2><p>Approve each browser on the phone. Pause access or remove a paired browser whenever you want.</p></article>
+      </section>
+      <p class="public-limits">Screen access needs your permission on the phone. Smooth video uses Android’s screen-sharing consent. Protected screens may be unavailable, and Android can delay background connections. After a restart, unlock the phone locally first.</p>
+    </main>
+    <footer class="public-footer"><span>YepControl · Remote access for your Android phone</span><a href="/privacy/">Privacy policy</a></footer>
+  </div>
+  <div id="root"></div>
+  <script type="module" src="/src/home.ts"></script>
+</body>
+</html>
