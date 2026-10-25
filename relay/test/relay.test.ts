@@ -563,7 +563,15 @@ it("admits two immediate authenticated wakes, then queues the next fresh request
   await third.login(viewer, "viewer");
   expect(await third.json()).toMatchObject({ delivery: "coalesced" });
   expect(sent).toHaveLength(2);
-  expect(await third.json()).toMatchObject({ delivery: "accepted" });
+  // A timer may run just before fractional refill completes and report its
+  // continued wait again. Require eventual delivery without assuming that
+  // Node's real timers produce exactly one intermediate status.
+  let result = await third.json();
+  while (result.delivery === "coalesced") {
+    expect(result).toMatchObject({ type: "contacting" });
+    result = await third.json();
+  }
+  expect(result).toMatchObject({ delivery: "accepted" });
   expect(new Set(sent).size).toBe(3);
 });
 
