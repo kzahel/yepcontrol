@@ -43,6 +43,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
+import com.google.mlkit.common.MlKitException
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import dev.remoteaccess.app.control.LocalSettingsProtection
@@ -574,7 +575,8 @@ class MainActivity : ComponentActivity() {
         if (isDestroyed || isFinishing || !loaded || !scanner.take(request)) return
         observedScan = null
         request.task = null
-        if (request.ignored || page != request.page || task.isCanceled) {
+        val cancelled = task.isCanceled || (task.exception as? MlKitException)?.errorCode == MlKitException.CODE_SCANNER_CANCELLED
+        if (request.ignored || page != request.page || cancelled) {
             render()
         } else if (task.isSuccessful) {
             showInvitation(task.result)

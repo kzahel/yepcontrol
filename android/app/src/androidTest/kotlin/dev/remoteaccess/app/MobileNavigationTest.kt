@@ -14,6 +14,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.tasks.TaskCompletionSource
+import com.google.mlkit.common.MlKitException
 import dev.remoteaccess.protocol.Crypto
 import dev.remoteaccess.protocol.JcaIdentity
 import org.json.JSONObject
@@ -151,6 +152,16 @@ class MobileNavigationTest {
             click("scan_pairing_code")
             assertTrue(device.wait(Until.hasObject(progress), 1000))
             instrumentation.runOnMainSync { cancellation.cancel() }
+            assertTrue(device.wait(Until.hasObject(enabled(true)), 10000))
+            assertFalse(device.hasObject(By.textStartsWith("Couldn’t open the scanner.")))
+
+            // Play services can report the scanner's Close/Back action as this
+            // documented failure rather than cancelling its Task.
+            next = TaskCompletionSource()
+            click("scan_pairing_code")
+            instrumentation.runOnMainSync {
+                next.setException(MlKitException("Fixture scanner closed", MlKitException.CODE_SCANNER_CANCELLED))
+            }
             assertTrue(device.wait(Until.hasObject(enabled(true)), 10000))
             assertFalse(device.hasObject(By.textStartsWith("Couldn’t open the scanner.")))
 

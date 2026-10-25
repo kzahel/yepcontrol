@@ -314,3 +314,24 @@ certificate SHA-256
 The existing pairing and screen/background permissions survived the update.
 See [physical acceptance](../connection-delay.md) and
 [production promotion](android-production.md) for the separate receipts.
+
+## Android 0.8.1 / code 7 — 2026-10-25
+
+Source `95320eeb88d48d04f580e14a0467f6a68f1b4072` passed complete
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40234299551) and
+the [release/signing workflow](https://github.com/kzahel/yepcontrol/actions/runs/40234601316),
+including native storage/navigation, hosted pairing/process-absent FCM and
+encrypted screen/control, video, held input and rotation smoke acceptance.
+The signed AAB SHA-256 is
+`6c8887bdd913bd37e3890318544bae3cc15702ca2c36f5ff0ae04b1dc81f71d7`.
+The [internal publisher](https://github.com/kzahel/yepcontrol/actions/runs/40235976235)
+verified that exact artifact and committed code 7 to internal testing.
+
+The update clarifies the app's controlled-phone role, makes the scanner action
+prominent and adds pending/cancellation/retry/lifecycle handling. The existing
+protocol, data and signing identity remain compatible. See
+[onboarding scope and verification limits](../onboarding.md). Play-installed
+physical acceptance and production submission are recorded separately when
+established. Physical testing found that closing the real Google scanner
+reported its dedicated cancellation error and incorrectly showed a failure
+notice. Code 7 was not promoted publicly; the correction is in 0.8.2/code 8.

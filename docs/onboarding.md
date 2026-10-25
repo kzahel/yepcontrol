@@ -55,6 +55,7 @@ of the owner's attempt or a guarantee that every scanner launch is immediate.
 Official sources reviewed 2026-10-25:
 
 - [Google code scanner: install-time downloads and task outcomes](https://developers.google.com/ml-kit/vision/barcode-scanning/code-scanner).
+- [ML Kit scanner cancellation code](https://developers.google.com/android/reference/com/google/mlkit/common/MlKitException#CODE_SCANNER_CANCELLED).
 - [Chrome Android intents: explicit user gesture, package and public fallback](https://developer.chrome.com/docs/android/intents).
 
 ## Verification
@@ -92,6 +93,16 @@ New scanner UI and its
 install-time module request need an Android update; website improvements also
 work with the existing public 0.7.0 and internal 0.8.0 apps.
 
-The Android candidate is **0.8.1/code 7**, using the existing signing identity and
-storage/protocol contracts. This source record does not establish Play delivery,
-physical acceptance or production availability of that update.
+Internal **0.8.1/code 7** was installed through Google Play on the Pixel 7a.
+A fresh pairing first opened through Chrome's explicit app handoff in the older
+0.8.0 app and reached browser readiness. That pairing and the native permissions
+survived the update; the browser connected and its Home action was independently
+confirmed in Android's focused window. The real Google scanner opened, but
+closing it exposed a misleading failure notice. Play services can return
+`MlKitException.CODE_SCANNER_CANCELLED` rather than a cancelled Task. Code 7
+was not promoted publicly.
+
+The **0.8.2/code 8** candidate treats that documented result as normal
+cancellation, with an added native UI regression check. It retains the same
+signing identity and storage/protocol contracts. Release and physical receipts
+are recorded separately when established.
