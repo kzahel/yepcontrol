@@ -80,8 +80,10 @@ stay in ignored `.local/` directories.
 
 Emulator and Pixel 7a tests cover encrypted pairing, process-absent FCM wake,
 viewing, input, video, direct transport and relay recovery. Emulator tests also
-cover PIN unlock and reboot recovery. Play-installed builds, natural overnight
-availability and broader device qualification remain pending. See
+cover PIN unlock and reboot recovery. A Play-installed 0.7.0 Pixel 7a smoke check
+verifies viewing, navigation, background reconnect and consented smooth video;
+it also reproduces a [roughly 30-second connection delay](docs/connection-delay.md).
+Natural overnight availability and broader device qualification remain pending. See
 [control acceptance](docs/control-acceptance.md) and the
 [beta verification record](docs/distribution/android-beta.md).
 

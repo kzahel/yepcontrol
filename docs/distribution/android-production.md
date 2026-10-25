@@ -100,3 +100,14 @@ needed to view the listing. This establishes public availability; the exact
 review-completion time was not inspected in Console. The promoted candidate
 remains the existing signed 0.7.0/code-5 bundle above. Play-installed physical
 acceptance and natural overnight qualification remain separate.
+
+## Play-installed smoke check — 2026-10-25
+
+The attached Pixel 7a now passes basic computer-browser viewing/navigation,
+background wake/reconnect and consented smooth video using Play-installed
+**0.7.0/code 5**, with the expected Play signer and installer. This account is
+enrolled in internal testing, so this checks the same promoted binary through
+Play rather than independently proving production-track delivery. The run also
+reproduces an avoidable roughly 30-second check-to-control wait. See the
+[timings, cause and qualification limits](../connection-delay.md). This does
+not replace natural overnight, physical credential/reboot or broader acceptance.
