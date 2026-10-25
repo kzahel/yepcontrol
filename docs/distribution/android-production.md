@@ -111,3 +111,32 @@ Play rather than independently proving production-track delivery. The run also
 reproduces an avoidable roughly 30-second check-to-control wait. See the
 [timings, cause and qualification limits](../connection-delay.md). This does
 not replace natural overnight, physical credential/reboot or broader acceptance.
+
+## Android 0.8.0 production preparation — 2026-10-25
+
+The owner authorized autonomous production deployment and publication after
+physical acceptance. The source, signed AAB hash and internal publication
+receipts are in [the 0.8.0 beta record](android-beta.md#android-080--code-6--2026-10-25).
+The attached Pixel 7a received **0.8.0/code 6 through Google Play** as an in-place
+update and passed [prepared-session and control acceptance](../connection-delay.md#production-and-play-installed-acceptance--2026-10-25)
+against the new production relay. Pairing and native grants survived the update.
+
+The exact internal code-6 bundle was promoted into a production release draft,
+with **100% rollout / all targeted countries**, the connection-improvement notes
+and no supported-device losses. Console reported only the existing nonblocking
+missing deobfuscation/native-symbol warnings. The rollout was saved to Publishing
+overview; managed publishing remains off. Automated quick checks completed and
+Console displayed **Your changes can now be sent for review**.
+
+At **18:54 UTC**, the final **Send changes for review** confirmation repeatedly
+closed without an error or a submission receipt. A fresh tab and native browser
+input did not change the persisted result: **Changes not yet submitted for
+review / Production / 0.8.0 / Start full rollout**. Submission activity still
+contained only the earlier published 0.7.0 submission. The owner was asked to
+try the ready final control; the tested release remains saved.
+**Production submission, Google approval and public availability of 0.8.0 are
+not yet established.** Internal 0.8.0 and the production website/relay are live.
+
+No signing keys, service-account permissions, Console declarations, store
+listing or CI publication track were changed for this promotion. Private
+screenshots and release receipts remain in ignored `.local/prepared-release/`.

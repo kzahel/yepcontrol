@@ -166,7 +166,7 @@ open during promotion. The owned Android acceptance run measured promotion in
 WebRTC, H.264 (36 decoded frames in 5.006 seconds), tap/text, held/multitouch
 input, watchdog release, direct loss/relay recovery, disarm and removal.
 This is owned-emulator evidence; Play-installed 0.8.0 physical and publication
-receipts are recorded separately after acceptance.
+receipts are recorded in the following section.
 
 To test a built viewer against the real relay before deploying static assets:
 
@@ -184,7 +184,51 @@ The candidate viewer also passed on the attached Pixel 7a's unchanged
 Play-installed **0.7.0/code 5**: page load sent no application socket/wake,
 foreground control worked, and explicit background Connect reached phone-route
 readiness in **1.616 s** (socket opened at 50.321 s, ready at 51.937 s).
-Its pairing is retained privately for an in-place 0.8.0 update check.
+Its pairing was retained privately for the in-place 0.8.0 update check below.
 The standalone hosted fixture now accepts an already-established retained
 canary lease rather than waiting for a transient pre-handshake status to reappear;
 actual browser readiness remains required before that test advances.
+
+## Production and Play-installed acceptance — 2026-10-25
+
+Production now runs `relay-v0.2.0`, source
+`bd25a918260cd67363093d93869851cc2e6bbe41`, Worker
+`a74dc0af-6e88-4869-ad08-34f066427646`. The matching signed Android
+0.8.0/code-6 candidate passed CI and was published internally, then installed
+as an in-place **Google Play update on the attached Pixel 7a**. Installer,
+version and unchanged Google Play signing certificate were verified. The
+existing persistent browser pairing and native permissions remained usable.
+[Build and signing receipts](distribution/android-beta.md#android-080--code-6--2026-10-25).
+
+Against the actual production website and relay:
+
+- First explicit control after the update refreshed the authenticated phone
+  report; later page loads prepared automatically. A foreground preparation
+  reached phone-route readiness in 206 ms; a separate background FCM run
+  reached it in 877 ms from socket opening.
+- Connect from **Ready to connect** reached **Connected securely in 390 ms**,
+  retaining the same socket and without another wake request.
+- Clicking while the page still said **Checking connection…** reached control
+  in **814 ms**, with one socket. Another rapid in-flight run hit the intentional
+  wake budget and waited 11.354 s overall; its queued wake then completed and
+  promoted on the same socket. Repeated fresh requests remain bounded.
+- Home/Recents navigation and opening Settings from the remote app picker worked;
+  Android's focused window confirmed Settings. Consented smooth video used
+  direct WebRTC at 1080×2400, with 11 and 12 decoded frames in successive
+  five-second sampling windows. Control/video survived beyond the preparation
+  timer, proving promotion does not retain its idle expiry.
+- Cancelling preparation released the lane. With the browser clock deliberately
+  paused after readiness, the **phone independently ended preparation after
+  30.298 s** from phone-route readiness (socket close at 30.663 s, readiness
+  at 0.365 s). The viewer reported connection ended and made no automatic wake.
+
+These timings describe individual acceptance samples, not latency guarantees.
+No physical PIN, reboot, lock/debugging or network settings were changed.
+Natural unplugged overnight availability and broader device coverage remain
+separate qualification. Private captures and timings stay in ignored
+`.local/prepared-release/`.
+
+After acceptance, the temporary test pairing was removed on the phone, projection
+was confirmed stopped and isolated test-browser processes exited. The updated
+Play app and its normal permissions remain installed. No unrelated applications
+or services were changed.

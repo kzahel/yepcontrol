@@ -164,3 +164,30 @@ spare-phone example and version callout. Prominent GitHub/MIT links and Google's
 official Play badge appear on the public homepage and installation guide.
 Live mobile/desktop checks verify the copy, links, exact badge, QR fallback and
 existing viewer routes. Android and the relay protocol are unchanged.
+
+## Prepared connections — 2026-10-25
+
+[`relay-v0.2.0`](https://github.com/kzahel/yepcontrol/tree/relay-v0.2.0), source
+`bd25a918260cd67363093d93869851cc2e6bbe41`, passed complete
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40218672360),
+[tag build](https://github.com/kzahel/yepcontrol/actions/runs/40219050566) and
+[production deployment](https://github.com/kzahel/yepcontrol/actions/runs/40219050461).
+Live health confirms Worker `a74dc0af-6e88-4869-ad08-34f066427646`, version
+0.2.0, the exact source revision and public admission.
+
+The viewer retains an authenticated readiness lane for promotion to control,
+including a Connect click during startup. Preparation is bounded and only used
+when the authenticated phone report advertises support. Public Android 0.7.0
+uses one explicit connection without an automatic preceding wake. The relay
+allows two immediate authenticated requests per pair, replenishing one every
+30 seconds, while preserving global and per-installation limits. Persisted old
+cooldowns remain readable and the rollback field remains current. See
+[the implementation and measured acceptance](connection-delay.md).
+
+Against production, the Play-installed 0.7.0 Pixel 7a passed explicit control,
+Settings launch and two immediate background reconnects (879 ms and 711 ms to
+phone-route readiness). A third rapid request was coalesced and cancelled.
+The existing pairing also survived a browser restart using its persistent
+profile. Exporting/importing a Playwright storage snapshot did not preserve the
+nonextractable CryptoKey correctly; that fixture was replaced and revoked.
+This was a test-harness failure, not evidence of an application storage loss.

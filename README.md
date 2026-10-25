@@ -12,7 +12,9 @@ approve access on the phone, and connect through an end-to-end encrypted session
 
 **Play release:** version 0.7.0 is publicly available on Google Play, verified
 2026-10-25 from the signed-out listing with Install and no tester enrollment. See the
-[production release record](docs/distribution/android-production.md).
+[production release record](docs/distribution/android-production.md). Android
+0.8.0/code 6 is installed and tested from Play internal testing; its production
+submission is tracked in that record.
 
 Screen control requires Android's screen-access permission; smooth video asks
 for screen-sharing consent. After a reboot, the phone needs its first local
@@ -81,8 +83,10 @@ stay in ignored `.local/` directories.
 Emulator and Pixel 7a tests cover encrypted pairing, process-absent FCM wake,
 viewing, input, video, direct transport and relay recovery. Emulator tests also
 cover PIN unlock and reboot recovery. A Play-installed 0.7.0 Pixel 7a smoke check
-verifies viewing, navigation, background reconnect and consented smooth video;
-it also reproduces a [roughly 30-second connection delay](docs/connection-delay.md).
+verified viewing, navigation, background reconnect and consented smooth video.
+The in-place Play update to 0.8.0 preserves its pairing and removes the
+[roughly 30-second check-to-control delay](docs/connection-delay.md), with
+390 ms prepared promotion and bounded idle expiry on the Pixel 7a.
 Natural overnight availability and broader device qualification remain pending. See
 [control acceptance](docs/control-acceptance.md) and the
 [beta verification record](docs/distribution/android-beta.md).

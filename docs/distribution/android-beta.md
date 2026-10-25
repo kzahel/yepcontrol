@@ -5,8 +5,9 @@ Owner-authorized 2026-10-21. Initial settings: **YepControl – Remote Phone**,
 account, intended audience 13–15 / 16–17 / 18+. Content rating is assigned from
 the truthful utility questionnaire, separately from intended audience.
 The first track is internal testing. Verify the Play-installed build on the
-owned test phone before expanding to a closed beta. Production rollout is not
-authorized by this work.
+owned test phone before expanding to a closed beta. This initial scope did not authorize production rollout; later
+publication authorization and releases are in the
+[production record](android-production.md).
 
 Store copy is in [listing.en-US.txt](listing.en-US.txt), editable artwork in
 [artwork](../../artwork/README.md), and the privacy URL is
@@ -286,3 +287,30 @@ product name and Install without sign-in or tester enrollment. This supersedes
 the review-pending and invitation-only descriptions above; see the
 [production receipt](android-production.md#public-availability--2026-10-25).
 Play-installed device acceptance remains a separate check.
+
+## Android 0.8.0 / code 6 — 2026-10-25
+
+The owner authorized implementation, Pixel 7a testing, production deployment and
+public Android publication. Source `bd25a918260cd67363093d93869851cc2e6bbe41`
+passed [Checks](https://github.com/kzahel/yepcontrol/actions/runs/40218672360).
+The [signed Android build](https://github.com/kzahel/yepcontrol/actions/runs/40218672383)
+passed on attempt 2 without a source change. Attempt 1 timed out waiting for the
+emulator app picker after passing earlier video/input checks; the unchanged
+retry passed the full suite. An independent local serial-video profile and
+physical Settings launch also passed. This does not establish that the
+intermittent emulator timeout has been diagnosed.
+
+The signed AAB is 27,822,257 bytes, SHA-256
+`2d13235295cf6da7c179d709544514be1c42607c184b608debf701816d0d491f`.
+The [internal publisher](https://github.com/kzahel/yepcontrol/actions/runs/40221360844)
+accepted this exact candidate as code 6. Console showed Active / Available to
+internal testers at 18:28 UTC. The CI publisher remains testing-only.
+
+The Pixel 7a received the in-place update through Google Play's internal-test
+download link. PackageManager reports 0.8.0/code 6 and installer
+`com.android.vending`; the installed base APK has the unchanged Play signing
+certificate SHA-256
+`c17ef33584f126cb2366780acf88949e5cbe6e12925961f86b8588ba727df0ad`.
+The existing pairing and screen/background permissions survived the update.
+See [physical acceptance](../connection-delay.md) and
+[production promotion](android-production.md) for the separate receipts.
