@@ -274,7 +274,7 @@ export async function mobileAcceptance(f: Fixture) {
     await writeFile(path.join(f.state, "database-tests.log"), dbTests, {
       mode: 0o600,
     });
-    assert.match(dbTests, /OK \(3 tests\)/);
+    assert.match(dbTests, /OK \(6 tests\)/);
     await startNative();
     console.log("Native Room tests passed");
     await command("home");
@@ -294,8 +294,8 @@ export async function mobileAcceptance(f: Fixture) {
     );
     assert.equal(
       website?.data,
-      f.origin,
-      "Public website QR should navigate, not grant access",
+      `${f.origin}/pair`,
+      "Browser setup QR should open the controlling browser's code, not grant access",
     );
     await command("close-setup");
     const a = await pair();

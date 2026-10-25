@@ -40,19 +40,24 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.PackageManagerCompat
 import androidx.core.content.UnusedAppRestrictionsConstants
 import androidx.core.net.toUri
-import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import androidx.lifecycle.ViewModelProvider
+import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.Tasks
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import dev.remoteaccess.app.control.LocalSettingsProtection
 import dev.remoteaccess.app.control.ScreenAccessService
 import dev.remoteaccess.app.unlock.PinVault
 import dev.remoteaccess.app.unlock.UnlockSetup
+import java.lang.ref.WeakReference
 import java.text.DateFormat
 import java.util.Date
 
 /** Plain native management UI. Authority and sessions belong to the application, not this activity. */
 class MainActivity : ComponentActivity() {
     private val store by lazy { HostStore.get(this) }
+    private val scanner by lazy { ViewModelProvider(this)[PairingScanner::class.java] }
+    private var observedScan: PairingScanner.Request? = null
     private lateinit var shell: ManagementShell
     private val backStack = mutableListOf<String>()
     private var page = "home"
@@ -110,6 +115,7 @@ class MainActivity : ComponentActivity() {
                 // A recreated post-pairing page must not reopen its consumed App Link.
                 val invitation = if (savedInstanceState == null) intent.dataString else null
                 invitation?.let { showInvitation(it) } ?: render()
+                resumeScanner()
                 refreshSystemReadiness()
             }
         }
@@ -203,6 +209,7 @@ class MainActivity : ComponentActivity() {
 
     private fun goBack() {
         if (shell.closeDrawer()) return
+        scanner.ignore()
         if (backStack.isNotEmpty()) {
             page = backStack.removeAt(backStack.lastIndex)
             notice = null
@@ -219,6 +226,7 @@ class MainActivity : ComponentActivity() {
         value: String,
         id: String? = null,
     ) {
+        if (page != value) scanner.ignore()
         if (value in setOf("home", "devices", "activity", "settings")) {
             backStack.clear()
         } else if (page != value) {
@@ -240,17 +248,17 @@ class MainActivity : ComponentActivity() {
             when (page) {
                 "settings" -> "Settings"
                 "features" -> "Set up this phone"
-                "pair" -> "Add device"
+                "pair" -> "Allow a browser"
                 "activity" -> "Activity"
-                "devices" -> "Devices"
+                "devices" -> "Allowed browsers"
                 "device" -> deviceId?.let(store::device)?.nickname ?: "Device"
                 "background" -> "Connection details"
                 "appearance" -> "Appearance"
                 "about" -> "About"
-                "grant" -> "Allow this device?"
+                "grant" -> "Allow this browser?"
                 "unlock" -> "Unlocking"
                 "saved-pin" -> "Saved PIN"
-                else -> "Home"
+                else -> "This phone"
             },
         )
         val layout = shell.body
@@ -293,7 +301,7 @@ class MainActivity : ComponentActivity() {
         val status =
             when {
                 !state.settings.armed -> "Remote access is off"
-                devices.isEmpty() -> "Scan a pairing code to get started"
+                devices.isEmpty() -> "Allow a browser to view and control this phone"
                 live != null -> "${store.device(live.deviceId)?.nickname ?: "Device"} · ${sessionStatus(live.status)}"
                 devices.none { it.enabled } -> "Access is paused for all paired devices"
                 !state.settings.automatic -> "Available while this app is open"
@@ -304,6 +312,7 @@ class MainActivity : ComponentActivity() {
                 devices.any { it.enabled && (!it.synced || !it.wakeReady) } -> "Updating connection setup…"
                 else -> "Ready for connection requests"
             }
+        text(layout, "This app lets other devices control this phone. Use a browser on the other device.", 14f)
         val access = section(layout)
         toggle(access, "Allow remote access", state.settings.armed, R.id.access_toggle) { enabled ->
             change { it.settings(armed = enabled) }
@@ -329,20 +338,22 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (state.settings.armed && devices.isNotEmpty() && devices.none { it.enabled }) {
-            row(layout, "Devices", "Choose which devices can connect", R.id.manage_access) { navigate("devices") }
+            row(layout, "Allowed browsers", "Choose who can control this phone", R.id.manage_access) { navigate("devices") }
         }
         if (devices.isEmpty()) {
             scanTile(layout)
-            row(layout, "Open the website on another device", "Website, share link and QR code", R.id.pair_device) { navigate("pair") }
+            row(layout, "Set up the other device", "Open its browser and show a pairing code", R.id.pair_device) { navigate("pair") }
         } else {
-            text(layout, "Devices", 14f).setPadding(dp(4), dp(8), 0, dp(4))
+            button(layout, "Allow another browser", R.id.pair_device) { navigate("pair") }
+            text(layout, "Allowed browsers", 14f).setPadding(dp(4), dp(8), 0, dp(4))
             devices.take(3).forEach { device -> row(layout, device.nickname, deviceSummary(device)) { navigate("device", device.id) } }
-            button(layout, "All devices", R.id.all_devices) { navigate("devices") }
-            row(layout, "Add device", "Pair another browser or device", R.id.pair_device) { navigate("pair") }
+            button(layout, "All browsers", R.id.all_devices) { navigate("devices") }
         }
     }
 
     private fun pairing(layout: LinearLayout) {
+        text(layout, "Let another device control this phone", 20f)
+        text(layout, "The other device only needs a browser. It does not need the Android app.", 14f)
         scanTile(layout)
         websiteRow(layout)
     }
@@ -366,8 +377,8 @@ class MainActivity : ComponentActivity() {
                     )
                 isClickable = true
                 isFocusable = true
-                isEnabled = !busy
-                contentDescription = "Scan pairing code"
+                isEnabled = !busy && scanner.pending == null
+                contentDescription = if (scanner.pending != null) "Opening scanner" else "Scan browser’s code"
                 setOnClickListener { scanPairingCode() }
             }
         tile.addView(
@@ -378,22 +389,50 @@ class MainActivity : ComponentActivity() {
             },
             LinearLayout.LayoutParams(dp(72), dp(72)),
         )
-        text(tile, "Scan pairing code", 20f).apply {
+        text(tile, if (scanner.pending != null) "Opening scanner…" else "Scan browser’s code", 20f).apply {
             gravity = Gravity.CENTER
             isAccessibilityHeading = false
         }
         val host = Website.current(this).removePrefix("https://")
-        text(tile, "Open $host on your computer, then scan its code", 14f).gravity = Gravity.CENTER
+        text(tile, "On the other device, open $host/pair. Use this phone to scan the code shown there, then tap Allow.", 14f).gravity =
+            Gravity.CENTER
+        scanner.pending?.takeUnless { it.ignored }?.let { request ->
+            val progress =
+                LinearLayout(this).apply {
+                    id = R.id.scanner_progress
+                    gravity = Gravity.CENTER_VERTICAL
+                    accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+                }
+            progress.addView(
+                ProgressBar(this, null, android.R.attr.progressBarStyleSmall),
+                LinearLayout.LayoutParams(dp(24), dp(24)).apply {
+                    marginEnd =
+                        dp(12)
+                },
+            )
+            text(
+                progress,
+                if (android.os.SystemClock.elapsedRealtime() - request.started >
+                    2000
+                ) {
+                    "Android may be downloading the scanner for first use. Keep this phone online."
+                } else {
+                    "Opening the scanner on this phone…"
+                },
+                14f,
+            )
+            tile.addView(progress, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+        }
         layout.addView(tile, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
     }
 
     /** The public website link, with copy, share and an optional QR to open it on another device. */
     private fun websiteRow(layout: LinearLayout) {
-        val website = Website.current(this)
+        val website = "${Website.current(this)}/pair"
         val card = section(layout)
         val line = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        text(labels, "Website", 14f).setPadding(0, dp(2), 0, 0)
+        text(labels, "Open on the other device", 14f).setPadding(0, dp(2), 0, 0)
         text(labels, website.removePrefix("https://")).apply {
             id = R.id.sharing_website
             maxLines = 1
@@ -427,26 +466,35 @@ class MainActivity : ComponentActivity() {
             },
             LinearLayout.LayoutParams(dp(48), dp(48)),
         )
-        icon(R.id.copy_website, R.drawable.ic_copy, "Copy link") {
-            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("YepControl website", website))
+        icon(R.id.copy_website, R.drawable.ic_copy, "Copy browser setup link") {
+            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("YepControl browser setup", website))
+            shell.message("Browser setup link copied")
         }
-        icon(R.id.share_website, R.drawable.ic_share, "Share link") {
+        icon(R.id.share_website, R.drawable.ic_share, "Share browser setup link") {
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, website), null))
         }
-        icon(R.id.show_website_qr, R.drawable.ic_qr, if (websiteQr) "Hide website QR" else "Show website QR") {
+        icon(R.id.show_website_qr, R.drawable.ic_qr, if (websiteQr) "Hide browser setup QR" else "Show browser setup QR") {
             websiteQr = !websiteQr
             render()
         }
         card.addView(line)
         if (websiteQr) {
+            text(
+                card,
+                "Scan this with the other device to open its browser setup. Then use this phone to scan the pairing code it shows. This shortcut does not grant access.",
+                14f,
+            )
             val matrix = QRCodeWriter().encode(website, BarcodeFormat.QR_CODE, 512, 512)
             val pixels = IntArray(512 * 512) { at -> if (matrix[at % 512, at / 512]) Color.BLACK else Color.WHITE }
             card.addView(
                 ImageView(this).apply {
                     id = R.id.website_qr
-                    contentDescription = "Website QR code. Opens $website; does not grant access."
+                    contentDescription = "Browser setup shortcut. Opens $website on the other device; does not grant access."
                     setBackgroundColor(Color.WHITE)
                     setImageBitmap(Bitmap.createBitmap(pixels, 512, 512, Bitmap.Config.ARGB_8888))
+                    post {
+                        if (isAttachedToWindow) requestRectangleOnScreen(android.graphics.Rect(0, 0, width, height), true)
+                    }
                 },
                 LinearLayout.LayoutParams(-1, dp(240)).apply { topMargin = dp(8) },
             )
@@ -487,19 +535,54 @@ class MainActivity : ComponentActivity() {
                 render()
             }
         }
-        button(layout, "Add device", R.id.pair_device) { navigate("pair") }
+        button(layout, "Allow another browser", R.id.pair_device) { navigate("pair") }
     }
 
     private fun scanPairingCode() {
-        GmsBarcodeScanning
-            .getClient(this)
-            .startScan()
-            .addOnSuccessListener { code ->
-                showInvitation(code.rawValue ?: "")
-            }.addOnFailureListener {
-                notice = "Couldn’t open the scanner. Check that Google Play services is up to date and try again."
-                render()
-            }
+        if (busy || scanner.pending != null) return
+        if (page != "pair") navigate("pair")
+        scanner.begin(page) ?: return
+        notice = null
+        render()
+        handler.post { if (!isDestroyed && !isFinishing) resumeScanner() }
+        handler.postDelayed({ if (!isDestroyed && listening && scanner.pending != null) render() }, 2100)
+    }
+
+    private fun resumeScanner() {
+        val request = scanner.pending ?: return
+        if (request.ignored && request.task == null) {
+            scanner.take(request)
+            render()
+            return
+        }
+        if (observedScan === request) return
+        observedScan = request
+        val task =
+            request.task ?: try {
+                scanner.open(this)
+            } catch (error: Exception) {
+                Tasks.forException<String>(error)
+            }.also { request.task = it }
+        val owner = WeakReference(this)
+        task.addOnCompleteListener { completed -> owner.get()?.finishScanner(request, completed) }
+    }
+
+    private fun finishScanner(
+        request: PairingScanner.Request,
+        task: Task<String>,
+    ) {
+        if (isDestroyed || isFinishing || !loaded || !scanner.take(request)) return
+        observedScan = null
+        request.task = null
+        if (request.ignored || page != request.page || task.isCanceled) {
+            render()
+        } else if (task.isSuccessful) {
+            showInvitation(task.result)
+        } else {
+            notice =
+                "Couldn’t open the scanner. Keep this phone online, check Google Play services and try again. You can also open a pairing link from the other browser."
+            render()
+        }
     }
 
     private fun features(layout: LinearLayout) {
@@ -904,6 +987,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showInvitation(uri: String) {
+        scanner.ignore()
         try {
             check(!busy)
             pending = null
@@ -947,8 +1031,8 @@ class MainActivity : ComponentActivity() {
             text(progress, "Connecting to $name…").accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
             layout.addView(progress, LinearLayout.LayoutParams(-1, dp(52)))
         } else {
-            text(layout, "This name is supplied by the other device. Only allow a code you just created yourself.", 14f)
-            text(layout, "This adds access. Earlier pairings keep their access until you remove them in Devices.", 14f)
+            text(layout, "This name is supplied by the other device. Only allow a browser you chose to connect.", 14f)
+            text(layout, "This adds access. Earlier pairings keep their access until you remove them in Allowed browsers.", 14f)
             button(layout, getString(R.string.grant_device), R.id.grant_device) { allow(invitation) }
         }
         button(layout, "Cancel", R.id.cancel_grant) {
@@ -983,7 +1067,8 @@ class MainActivity : ComponentActivity() {
                 backStack.clear()
                 if (paired == null) {
                     page = "home" // A pairing code is single-use; the other device must create a new one.
-                    notice = "Pairing wasn’t confirmed. Check Devices for an added entry before trying again. Another pairing adds access."
+                    notice =
+                        "Pairing wasn’t confirmed. Check Allowed browsers for an added entry before trying again. Another pairing adds access."
                 } else {
                     backStack.add("home")
                     page = if (firstDevice) "features" else "device"

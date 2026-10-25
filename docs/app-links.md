@@ -24,7 +24,7 @@ activity; a QR cannot choose another service. Both scanning and incoming links
 apply this policy. The approval screen always displays the host and explains
 that the device name is supplied by the other device.
 The fragment contains the short-lived secret and never goes to HTTP servers.
-The app still requires explicit **Grant** after a scan or link open.
+The app still requires explicit **Allow** after a scan or link open.
 
 Android declares an auto-verified HTTPS filter only for
 `https://yepcontrol.com/enroll`. The website directly serves JSON at
@@ -194,3 +194,15 @@ acceptance receipt, including after refreshing Search Console and one retry.
 The manual recrawl is therefore unconfirmed; the successfully processed sitemap
 is the confirmed discovery submission. No change to search-result text or the
 incorrect AI Overview is claimed.
+
+## Role-aware onboarding and optional scanning — 2026-10-25
+
+The website retains explicit controller and controlled-phone installation paths.
+The app's public QR now opens `/pair` on the controlling device; it is clearly a
+shortcut to browser setup rather than a grant. The controlling browser can
+provide either its QR or a user-copied invitation App Link. An installed host
+still requires local Allow. The fallback can offer an explicit package-pinned
+Android intent for a valid invitation held only in memory; history is scrubbed,
+and the fixed Play fallback receives no invitation. Installation never resumes
+or approves pairing automatically. This supersedes the older scan-only fallback
+copy above. See [onboarding behavior and verification](onboarding.md).

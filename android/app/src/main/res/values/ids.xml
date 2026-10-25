@@ -21,6 +21,7 @@
     <item name="show_website_qr" type="id" />
     <item name="website_qr" type="id" />
     <item name="scan_pairing_code" type="id" />
+    <item name="scanner_progress" type="id" />
     <item name="open_features" type="id" />
     <item name="skip_features" type="id" />
     <item name="grant_device" type="id"/>

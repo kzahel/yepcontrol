@@ -506,7 +506,9 @@ try {
           : { state: "pending" },
       });
   });
-  await other.getByRole("link", { name: "Add phone", exact: true }).click();
+  await other
+    .getByRole("link", { name: "Control a phone", exact: true })
+    .click();
   await expect(
     other.getByText(/Pairing adds access\. Earlier pairings/),
   ).toBeVisible();
@@ -595,7 +597,7 @@ try {
     "Pairing could not be confirmed.",
   );
   await expect(interrupted.getByRole("alert")).toHaveText(
-    "Check Devices in YepControl on the phone for an added entry before trying again.",
+    "Check YepControl on the phone for an added browser before trying again.",
   );
   await expect(
     interrupted.getByRole("button", { name: "New code", exact: true }),

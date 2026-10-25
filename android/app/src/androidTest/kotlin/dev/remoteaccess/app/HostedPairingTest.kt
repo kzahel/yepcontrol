@@ -283,15 +283,15 @@ class HostedPairingTest {
                     device.setOrientationNatural()
                     title(paired.nickname)
                     device.pressBack()
-                    title("Home")
+                    title("This phone")
                     assertTrue(device.wait(Until.hasObject(By.res("${context.packageName}:id/host_status")), 10000))
                     assertFalse(device.hasObject(By.res("${context.packageName}:id/scan_pairing_code")))
                     assertFalse(device.hasObject(By.res("${context.packageName}:id/sharing_website")))
                     click("pair_device")
-                    title("Add device")
+                    title("Allow a browser")
                     assertTrue(device.hasObject(By.res("${context.packageName}:id/sharing_website")))
                     device.pressBack()
-                    title("Home")
+                    title("This phone")
                 }
                 "home" -> start()
                 "control-ready" -> {
@@ -436,7 +436,7 @@ class HostedPairingTest {
                 "setup" -> {
                     start()
                     click("pair_device")
-                    title("Add device")
+                    title("Allow a browser")
                     val scan = assertNotNull(device.wait(Until.findObject(By.res("${context.packageName}:id/scan_pairing_code")), 10000))
                     assertTrue(scan.isEnabled)
                     click("copy_website")
@@ -445,7 +445,7 @@ class HostedPairingTest {
                         clipboard.primaryClip
                             ?.getItemAt(0)
                             ?.text
-                            ?.toString() == BuildConfig.SHARING_WEBSITE
+                            ?.toString() == "${BuildConfig.SHARING_WEBSITE}/pair"
                     }
                 }
                 "website-qr" -> click("show_website_qr")

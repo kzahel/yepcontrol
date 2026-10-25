@@ -410,3 +410,13 @@ were visually reviewed. Android debug/test builds, Android lint/ktlint,
 TypeScript checking, the changed runner's Biome check and `git diff --check`
 passed. These runs used owned emulators and isolated Chromium; both test devices
 were revoked and the runner processes closed.
+
+## Distinct phone and browser roles — 2026-10-25
+
+The onboarding candidate labels the native app **This phone**, **Allowed browsers**
+and **Allow a browser**; its purpose is allowing control of this phone. The web
+controller separately lists **Your phones** and offers **Control a phone**. Both
+website entry roles and the public Play installation action remain visible.
+Native share/copy/QR shortcuts point directly to browser pairing at `/pair`.
+Scanner pending state survives recreation, suppresses duplicate starts and ignores
+late results after leaving. See [the pairing flow and checks](onboarding.md).

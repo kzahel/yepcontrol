@@ -96,7 +96,7 @@ export function ForgetPhone({ phone }: { phone: SavedPhone }) {
         <h2>Forget {name}?</h2>
         <p>
           This only removes the entry from this browser. To stop this browser’s
-          access, remove its entries in Devices in YepControl on the phone.
+          access, remove its entries in YepControl on the phone.
         </p>
         <div className="dialog-actions">
           <button

@@ -60,11 +60,11 @@ export function AppShell({
         <a
           href="/pair"
           className="sidebar-link"
-          aria-label="Pair another phone"
+          aria-label="Control another phone"
           aria-current={location.pathname === "/pair" ? "page" : undefined}
         >
           <ControlIcon name="plus" />
-          <span>Add phone</span>
+          <span>Control a phone</span>
         </a>
       </div>
       <div className="sidebar-phone-list">
@@ -114,7 +114,7 @@ export function AppShell({
       </div>
       <div className="sidebar-footer">
         <a className="sidebar-link" href="/install">
-          Get the Android app
+          Set up a phone to be controlled
         </a>
         <a className="sidebar-link" href="/privacy/">
           Privacy policy

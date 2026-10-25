@@ -29,7 +29,7 @@ export function ViewerApp({
   const details = !!match?.[2];
   const phone = phones?.find((entry) => entry.id === id);
   useEffect(() => {
-    document.title = `${phone ? phoneName(phone) : route === "/pair" ? "Add phone" : "Your phones"} · YepControl`;
+    document.title = `${phone ? phoneName(phone) : route === "/pair" ? "Control a phone" : "Your phones"} · YepControl`;
   }, [phone]);
   useEffect(() => {
     let stopped = false;
@@ -93,7 +93,7 @@ export function ViewerApp({
         />
         {!error && (
           <a className="button-link" href="/pair">
-            Add phone
+            Control a phone
           </a>
         )}
       </main>

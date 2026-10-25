@@ -45,6 +45,20 @@ class EnrollmentLinkTest {
         val fragment = encoded(invitation().toString().toByteArray(Charsets.UTF_8))
         assertEquals(origin, Enrollment(link(), origin).origin)
         assertEquals("Chrome on macOS", Enrollment(link(), origin).name)
+        val pairingLink = link()
+        val play = "https://play.google.com/store/apps/details?id=com.yepcontrol.app"
+        val handoff =
+            Intent.parseUri(
+                "${pairingLink.replaceFirst(
+                    "https:",
+                    "intent:",
+                )}#Intent;scheme=https;package=com.yepcontrol.app;S.browser_fallback_url=${android.net.Uri.encode(play)};end",
+                Intent.URI_INTENT_SCHEME,
+            )
+        assertEquals(pairingLink, handoff.dataString, "Android handoff must preserve the complete invitation fragment")
+        assertEquals("com.yepcontrol.app", handoff.`package`)
+        assertEquals(play, handoff.getStringExtra("browser_fallback_url"))
+        assertEquals(origin, Enrollment(requireNotNull(handoff.dataString), origin).origin)
         for (bad in listOf(
             "https://other.example/enroll#$fragment",
             "${origin.replaceFirst("https:", "http:")}/enroll#$fragment",

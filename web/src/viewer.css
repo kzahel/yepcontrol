@@ -956,3 +956,18 @@ a {
 [data-labels] .smooth-label {
   display: none;
 }
+
+.pairing-role {
+  margin: 0 0 16px;
+  font-size: 1rem;
+}
+.pairing-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+.pairing-link {
+  width: 100%;
+}

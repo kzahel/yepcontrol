@@ -45,11 +45,17 @@ async function api(
 export function PairPhone() {
   const [invitation, setInvitation] = useState<Invitation>();
   const [status, setStatus] = useState("Creating a pairing code…");
+  const [linkNotice, setLinkNotice] = useState("");
+  const [showLink, setShowLink] = useState(false);
   const steps =
-    "Scan with your phone’s camera to open or install YepControl. Already installed? Open the app and tap Scan pairing code.";
+    "On the phone you want to control, open YepControl’s scanner, scan this code and tap Allow.";
   const [failure, setFailure] = useState<"code" | "unconfirmed">();
   const pair = useCallback(async () => {
     setFailure(undefined);
+    setInvitation(undefined);
+    setStatus("Creating a pairing code…");
+    setLinkNotice("");
+    setShowLink(false);
     try {
       const identity = await browserIdentity();
       const i: Invitation = {
@@ -67,7 +73,7 @@ export function PairPhone() {
         signature: b64(await identity.sign(createBytes(i.origin, i))),
       });
       setInvitation(i);
-      setStatus("Scan this code with your phone");
+      setStatus("Waiting for approval on the phone you want to control");
     } catch (error) {
       setInvitation(undefined);
       setFailure("code");
@@ -156,21 +162,60 @@ export function PairPhone() {
   const qr = invitation
     ? encode(encodeInvitation(invitation), { ecc: "M" })
     : undefined;
+  async function copyPairingLink(value: Invitation) {
+    try {
+      await navigator.clipboard.writeText(encodeInvitation(value));
+      setLinkNotice(
+        "Pairing link copied. Open it on the phone you want to control.",
+      );
+    } catch {
+      setShowLink(true);
+      setLinkNotice(
+        "Copy this link and open it on the phone you want to control.",
+      );
+    }
+  }
   return (
     <main>
-      <ViewerHeading name="Add phone" status={status} />
-      <p className="hint">
-        Pairing adds access. Earlier pairings keep their access until you remove
-        them in Devices in YepControl on the phone.
+      <ViewerHeading name="Control a phone" status={status} />
+      <p className="pairing-role">
+        This browser will control the phone. You do not need the Android app on
+        this device.
       </p>
       {failure === "unconfirmed" && (
         <p role="alert">
-          Check Devices in YepControl on the phone for an added entry before
-          trying again.
+          Check YepControl on the phone for an added browser before trying
+          again.
         </p>
       )}
       {qr && invitation && (
         <section className="pairing-code" aria-label="Pairing code">
+          <p>{steps}</p>
+          <div className="pairing-link-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void copyPairingLink(invitation)}
+            >
+              Copy pairing link instead
+            </button>
+          </div>
+          <p className="hint" aria-live="polite">
+            {linkNotice}
+          </p>
+          {showLink && (
+            <input
+              className="pairing-link"
+              aria-label="Pairing link"
+              readOnly
+              value={encodeInvitation(invitation)}
+              onFocus={(event) => event.currentTarget.select()}
+            />
+          )}
+          <p className="hint">
+            Only send this link to the phone’s owner. It expires with this code
+            and still requires Allow on the phone.
+          </p>
           <svg
             role="img"
             aria-label="Scan to pair this browser"
@@ -195,16 +240,20 @@ export function PairPhone() {
                 .join("")}
             />
           </svg>
-          <p>{steps}</p>
+
           <a
             href="https://play.google.com/store/apps/details?id=com.yepcontrol.app"
             rel="noreferrer"
           >
-            Get YepControl on Google Play
+            Install YepControl on the phone being controlled
           </a>
           <p className="hint">A new code appears every five minutes.</p>
         </section>
       )}
+      <p className="hint">
+        Pairing adds access. Earlier pairings keep their access until you remove
+        them in YepControl on the phone.
+      </p>
       {failure && (
         <button type="button" onClick={() => void pair()}>
           New code

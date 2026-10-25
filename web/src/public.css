@@ -194,3 +194,22 @@
     margin-top: 28px;
   }
 }
+
+.role-option {
+  margin: 20px 0;
+}
+.role-option h2 {
+  font-size: 1.125rem;
+  margin-bottom: 4px;
+}
+.role-option p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+.role-option .public-actions {
+  margin: 0;
+}
+.open-source > a:first-child {
+  font-weight: 650;
+}

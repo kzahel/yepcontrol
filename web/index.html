@@ -29,21 +29,28 @@
       <section class="hero" aria-label="Get YepControl">
         <div>
           <p class="eyebrow">Free · No account required</p>
-          <p class="intro">View and control your Android phone from a browser, wherever you are.</p>
-          <div class="public-actions">
-            <a class="play-link" href="https://play.google.com/store/apps/details?id=com.yepcontrol.app" rel="noreferrer"><img src="/google-play-badge.png" width="200" height="77" alt="Get it on Google Play"></a>
-            <a class="button-link secondary" href="/pair">Connect a phone</a>
-            <a class="button-link secondary" href="https://github.com/kzahel/yepcontrol">View on GitHub <span aria-hidden="true">↗</span></a>
-          </div>
-          <p class="open-source">Open source · <a href="https://github.com/kzahel/yepcontrol/blob/main/LICENSE">MIT license</a></p>
-          <p class="hint">Install the app on the phone you want to control.<br>Use this browser to connect to it.</p>
+          <p class="intro">View and control Android phones from a browser.</p>
+          <section class="role-option" aria-labelledby="controller-title">
+            <h2 id="controller-title">Control another phone</h2>
+            <p>Use this browser. No app needed on this device.</p>
+            <a class="button-link" href="/pair">Control a phone</a>
+          </section>
+          <section class="role-option" aria-labelledby="host-title">
+            <h2 id="host-title">Let this phone be controlled</h2>
+            <p>Install YepControl on the Android phone you want to reach.</p>
+            <div class="public-actions">
+              <a class="play-link" href="https://play.google.com/store/apps/details?id=com.yepcontrol.app" rel="noreferrer"><img src="/google-play-badge.png" width="200" height="77" alt="Get it on Google Play"></a>
+              <a href="/install">Set up the Android app</a>
+            </div>
+          </section>
+          <p class="open-source"><a href="https://github.com/kzahel/yepcontrol">View on GitHub <span aria-hidden="true">↗</span></a> · <a href="https://github.com/kzahel/yepcontrol/blob/main/LICENSE">MIT license</a></p>
         </div>
         <section class="setup-card" aria-labelledby="setup-title">
-          <h2 id="setup-title">Three steps. Then you’re there.</h2>
+          <h2 id="setup-title">Which device does what?</h2>
           <ol class="setup-steps">
-            <li><div><h3>Install on your phone</h3><p>Get YepControl from Google Play on the Android phone you want to reach.</p></div></li>
-            <li><div><h3>Pair with this browser</h3><p>Choose Connect a phone. Scan the code with YepControl, then tap Grant on your phone.</p></div></li>
-            <li><div><h3>Connect when you need it</h3><p>Open your saved phone here to view its screen, tap, swipe and type.</p></div></li>
+            <li><div><h3>The controlling device uses a browser</h3><p>Choose Control a phone to show a pairing code. This can be a computer, tablet or another phone.</p></div></li>
+            <li><div><h3>The phone being controlled uses the app</h3><p>Open YepControl on that phone and scan the code shown in the controlling browser.</p></div></li>
+            <li><div><h3>Approve on the phone</h3><p>Tap Allow in the app. The phone will appear in the controlling browser, ready to connect.</p></div></li>
           </ol>
         </section>
       </section>

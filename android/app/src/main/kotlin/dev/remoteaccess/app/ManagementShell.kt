@@ -132,8 +132,8 @@ internal class ManagementShell(
             LinearLayout.LayoutParams(dp(48), dp(48)),
         )
         sidebar.addView(heading)
-        link("home", "Home", R.id.open_home, R.drawable.ic_home)
-        link("devices", "Devices", R.id.open_devices, R.drawable.ic_devices)
+        link("home", "This phone", R.id.open_home, R.drawable.ic_home)
+        link("devices", "Allowed browsers", R.id.open_devices, R.drawable.ic_devices)
         link("activity", "Activity", R.id.open_activity, R.drawable.ic_activity)
         link("settings", "Settings", R.id.open_settings, R.drawable.ic_settings)
         activity.setContentView(drawer)

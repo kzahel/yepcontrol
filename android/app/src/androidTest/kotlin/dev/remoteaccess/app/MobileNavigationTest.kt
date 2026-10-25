@@ -3,6 +3,7 @@ package dev.remoteaccess.app
 import android.app.UiModeManager
 import android.content.Intent
 import android.util.TypedValue
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -11,9 +12,15 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.tasks.TaskCompletionSource
+import dev.remoteaccess.protocol.Crypto
+import dev.remoteaccess.protocol.JcaIdentity
+import org.json.JSONObject
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -54,7 +61,7 @@ class MobileNavigationTest {
         context.startActivity(
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
         )
-        title("Home")
+        title("This phone")
         assertTrue(device.wait(Until.hasObject(By.res("${context.packageName}:id/host_status")), 10000))
     }
 
@@ -84,6 +91,92 @@ class MobileNavigationTest {
         assertEquals(expected, actual, "The visible activity must adopt the selected theme")
     }
 
+    private fun scannerLifecycle() {
+        lateinit var scanner: PairingScanner
+        instrumentation.runOnMainSync {
+            val activity =
+                ActivityLifecycleMonitorRegistry
+                    .getInstance()
+                    .getActivitiesInStage(
+                        Stage.RESUMED,
+                    ).filterIsInstance<MainActivity>()
+                    .single()
+            scanner = ViewModelProvider(activity)[PairingScanner::class.java]
+        }
+        val original = scanner.open
+        val calls = AtomicInteger()
+        var next = TaskCompletionSource<String>()
+        instrumentation.runOnMainSync {
+            scanner.open = {
+                calls.incrementAndGet()
+                next.task
+            }
+        }
+        val scan = By.res("${context.packageName}:id/scan_pairing_code")
+
+        fun enabled(value: Boolean) = By.res("${context.packageName}:id/scan_pairing_code").enabled(value)
+        val progress = By.res("${context.packageName}:id/scanner_progress")
+        val key = Crypto.generate().let { JcaIdentity(it.private, it.public) }
+        val origin = Website.current(context)
+        val invitation =
+            JSONObject()
+                .put("v", 1)
+                .put("origin", origin)
+                .put("id", "33".repeat(16))
+                .put("secret", "44".repeat(32))
+                .put("viewer", encoded(key.publicKey))
+                .put("expires", System.currentTimeMillis() / 1000 + 300)
+                .put("name", "Fixture controlling browser")
+        val link = "$origin/enroll#${encoded(invitation.toString().toByteArray(Charsets.UTF_8))}"
+        try {
+            click("scan_pairing_code")
+            assertTrue(device.wait(Until.hasObject(progress), 1000), "The first tap must immediately show progress")
+            assertTrue(device.hasObject(enabled(false)))
+            val bounds = assertNotNull(device.findObject(scan)).visibleBounds
+            device.click(bounds.centerX(), bounds.centerY())
+            assertEquals(1, calls.get(), "Repeated taps must not launch a second scanner")
+            shot("scanner-opening")
+            device.setOrientationLeft()
+            title("Allow a browser")
+            device.setOrientationNatural()
+            title("Allow a browser")
+            assertTrue(device.wait(Until.hasObject(progress), 10000))
+            assertEquals(1, calls.get(), "Recreation must keep the original pending scanner")
+            instrumentation.runOnMainSync { next.setException(IllegalStateException("fixture scanner failure")) }
+            assertTrue(device.wait(Until.hasObject(enabled(true)), 10000))
+            assertTrue(device.hasObject(By.textStartsWith("Couldn’t open the scanner.")))
+
+            val cancellation = CancellationTokenSource()
+            next = TaskCompletionSource(cancellation.token)
+            click("scan_pairing_code")
+            assertTrue(device.wait(Until.hasObject(progress), 1000))
+            instrumentation.runOnMainSync { cancellation.cancel() }
+            assertTrue(device.wait(Until.hasObject(enabled(true)), 10000))
+            assertFalse(device.hasObject(By.textStartsWith("Couldn’t open the scanner.")))
+
+            next = TaskCompletionSource()
+            click("scan_pairing_code")
+            assertTrue(device.wait(Until.hasObject(progress), 1000))
+            device.pressBack()
+            title("Allowed browsers")
+            instrumentation.runOnMainSync { next.setResult(link) }
+            instrumentation.waitForIdleSync()
+            title("Allowed browsers")
+            assertFalse(device.hasObject(By.res("${context.packageName}:id/grant_device")), "A late scan must not navigate after Back")
+
+            click("pair_device")
+            next = TaskCompletionSource()
+            click("scan_pairing_code")
+            instrumentation.runOnMainSync { next.setResult(link) }
+            title("Allow this browser?")
+            assertTrue(device.hasObject(By.text("Fixture controlling browser")))
+            click("cancel_grant")
+            title("This phone")
+        } finally {
+            instrumentation.runOnMainSync { scanner.open = original }
+        }
+    }
+
     @Test
     fun navigationAndAppearance() {
         assertEquals("1", device.executeShellCommand("getprop ro.kernel.qemu").trim(), "Owned emulator only")
@@ -100,11 +193,11 @@ class MobileNavigationTest {
             assertTrue(device.wait(Until.hasObject(By.res("${context.packageName}:id/open_home").selected(true)), 10000))
             shot("light-drawer")
             device.pressBack()
-            title("Home")
+            title("This phone")
             assertTrue(device.wait(Until.gone(By.res("${context.packageName}:id/open_settings")), 10000))
             click("navigation_menu")
             click("open_devices")
-            title("Devices")
+            title("Allowed browsers")
             settings()
             shot("light-settings")
             assertTrue(device.hasObject(By.res("${context.packageName}:id/screen_access")))
@@ -128,7 +221,7 @@ class MobileNavigationTest {
             click("navigation_menu")
             shot("dark-drawer")
             click("open_home")
-            title("Home")
+            title("This phone")
             shot("dark-home")
             // Restarting the task must retain the preference and native dialog styling.
             start()
@@ -137,18 +230,20 @@ class MobileNavigationTest {
             shot("dark-home-pairing")
             assertFalse(device.hasObject(By.res("${context.packageName}:id/sharing_website")))
             click("pair_device")
-            title("Add device")
+            title("Allow a browser")
             assertTrue(device.hasObject(By.res("${context.packageName}:id/scan_pairing_code")))
             assertTrue(device.hasObject(By.res("${context.packageName}:id/sharing_website")))
             shot("dark-add-device")
             device.pressBack()
-            title("Home")
+            title("This phone")
             click("navigation_menu")
             click("open_devices")
             click("pair_device")
-            title("Add device")
+            title("Allow a browser")
             device.pressBack()
-            title("Devices")
+            title("Allowed browsers")
+            click("pair_device")
+            scannerLifecycle()
             settings()
             click("appearance_settings")
             click("appearance_light")

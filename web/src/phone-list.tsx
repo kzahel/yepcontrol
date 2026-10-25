@@ -56,7 +56,7 @@ export function PhoneList({
         status={error || "Saved in this browser"}
       />
       <a className="button-link" href="/pair">
-        Add phone
+        Control a phone
       </a>
       {phones.length ? (
         <ul className="phone-list">
@@ -101,7 +101,8 @@ export function PhoneList({
       ) : (
         !error && (
           <p>
-            Pair a phone to get started. You can add more whenever you need.
+            This browser controls your saved phones. Choose Control a phone to
+            pair one.
           </p>
         )
       )}

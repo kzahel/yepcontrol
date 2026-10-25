@@ -131,7 +131,7 @@ try {
       fullPage: true,
     });
     await page
-      .getByRole("link", { name: "Connect a phone", exact: true })
+      .getByRole("link", { name: "Control a phone", exact: true })
       .click();
     await expect(page.locator(".pairing-code svg")).toBeVisible();
     const png = PNG.sync.read(
@@ -142,13 +142,68 @@ try {
     const invitation = decodeInvitation(code.data);
     assert.equal(invitation.origin, origin);
     assert.equal(new URL(code.data).pathname, "/enroll");
+    // Exercise the real UI against a private clipboard fixture, never the user's clipboard.
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          async writeText(value: string) {
+            document.documentElement.dataset.copiedPairing = value;
+          },
+        },
+      });
+    });
+    await page
+      .getByRole("button", { name: "Copy pairing link instead" })
+      .click();
+    const copied = await page.evaluate(
+      () => document.documentElement.dataset.copiedPairing,
+    );
+    assert.ok(copied);
+    assert.deepEqual(decodeInvitation(copied), invitation);
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          async writeText() {
+            throw Error("Fixture clipboard unavailable");
+          },
+        },
+      });
+    });
+    await page
+      .getByRole("button", { name: "Copy pairing link instead" })
+      .click();
+    await expect(page.getByLabel("Pairing link", { exact: true })).toHaveValue(
+      copied,
+    );
+    await page.screenshot({
+      path: path.join(artifacts, `${name}-pair.png`),
+      fullPage: true,
+    });
+    await page.goto(copied);
+    await expect.poll(() => new URL(page.url()).hash).toBe("");
+    const openApp = page.getByRole("link", {
+      name: "Open pairing in YepControl",
+      exact: true,
+    });
+    await expect(openApp).toBeVisible();
+    const intent = await openApp.getAttribute("href");
+    assert.ok(intent);
+    assert.equal(
+      intent.split("#Intent;")[0]?.replace(/^intent:/, "https:"),
+      copied,
+    );
+    assert.ok(
+      intent.endsWith(`S.browser_fallback_url=${encodeURIComponent(play)};end`),
+    );
     await page.goto(`${origin}/enroll#synthetic-install-secret`);
     await expect.poll(() => new URL(page.url()).hash).toBe("");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       "Get YepControl on your phone",
     );
     await expect(
-      page.getByText("No invitation needed", { exact: false }),
+      page.getByText("For the phone being controlled", { exact: false }),
     ).toBeVisible();
     const link = page.getByRole("link", { name: "Install from Google Play" });
     await expect(link).toHaveAttribute("href", play);

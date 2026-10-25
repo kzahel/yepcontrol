@@ -99,6 +99,7 @@ Natural overnight availability and broader device qualification remain pending. 
 - [Pairing and relay](docs/pairing-relay-v1.md) · [Session encryption](docs/crypto-session-v1.md)
 - [Smooth-view consent and lifecycle](docs/smooth-view-lifecycle.md)
 - [Android permissions and device management](docs/mobile-management.md)
+- [Pairing roles, links and scanner feedback](docs/onboarding.md)
 - [Browser phone management](docs/browser-phones.md)
 - [Android platform limits](docs/android-platform.md)
 - [Original prototype](spike/README.md)
