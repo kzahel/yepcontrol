@@ -361,3 +361,40 @@ independently observed remote Home action passed. Close cancelled the real
 scanner normally, but Android Back still showed a misleading failure notice.
 Code 8 was not promoted publicly; see the pinned-SDK analysis and code-9
 handling in [onboarding verification](../onboarding.md).
+
+## Android 0.8.3 / code 9 — 2026-10-26
+
+Final source `1d003ca6e4b79eb065165afc9d8556410dc00c9f` passed complete
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40242348850) and
+the [release/signing workflow](https://github.com/kzahel/yepcontrol/actions/runs/40242350547),
+including hosted pairing, process-absent FCM and full screen/video/input/rotation
+smoke acceptance. The signed AAB SHA-256 is
+`518a2f4a610d71c4b9a2d5003c9d030deaaeca283dd9371c092efeaac75d0547`.
+
+Earlier code-9 release attempts at source `983f429` failed at native approval,
+once in hosted pairing and once in the control fixture. The final fixture scrolls
+approval into view and observes actual native progress/new pairing state before
+retrying, retaining the real gesture and signed exchange. Independent local
+hosted/FCM and full control runs pass with that fixture. The earlier timeouts are
+not counted as passing runs or a proven production root cause.
+
+This update uses neutral no-code copy for the scanner SDK's generic empty-result
+error, while retaining specific cancellation and genuine launch-failure handling.
+It changes no storage, protocol or signing contract. See
+[onboarding behavior and verification](../onboarding.md).
+
+The [internal publisher](https://github.com/kzahel/yepcontrol/actions/runs/40243720558)
+verified and committed that exact candidate as code 9. Console showed Available
+to internal testers, and the Pixel 7a received the in-place update through
+Google Play. Package version/code, Play installer and the original Play signing
+certificate were independently verified. The existing pairing and native
+permissions survived; browser control and a remote Home action confirmed in
+Android's focused window passed. Real scanner Back now shows neutral no-code
+guidance; Close returns quietly; retry remains enabled and neither opens a grant.
+
+The temporary pairing was removed on the phone, the browser confirmed Access
+removed, and its isolated process exited. Media projection is null. The updated
+Play app and normal permissions remain installed. No PIN, lock, debugging or
+network settings changed. First-use download timing, natural overnight/reboot
+availability and the separate notification-restoration qualification remain
+outside these passing checks.

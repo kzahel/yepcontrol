@@ -10,11 +10,11 @@ approve access on the phone, and connect through an end-to-end encrypted session
 - Optional background wake and saved-PIN unlock.
 - Android 11+; application ID `com.yepcontrol.app`.
 
-**Play release:** version 0.7.0 is publicly available on Google Play, verified
-2026-10-25 from the signed-out listing with Install and no tester enrollment. See the
-[production release record](docs/distribution/android-production.md). Android
-0.8.0/code 6 is installed and tested from Play internal testing; its production
-submission is tracked in that record.
+**Play release:** version 0.8.0/code 6 is publicly released, confirmed in Console
+2026-10-26. Android 0.8.3/code 9 has passed Play-installed acceptance and has a
+prepared production rollout. See the current submission status in the
+[production release record](docs/distribution/android-production.md) and
+[installed-build evidence](docs/distribution/android-beta.md#android-083--code-9--2026-10-26).
 
 Screen control requires Android's screen-access permission; smooth video asks
 for screen-sharing consent. After a reboot, the phone needs its first local

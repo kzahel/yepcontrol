@@ -118,6 +118,14 @@ The native regression covers this outcome too. Signing, storage and protocol
 contracts are unchanged. Release and physical receipts are recorded separately
 when established.
 
+The final 0.8.3/code-9 build is now verified through Google Play on the Pixel 7a:
+original signing certificate, retained pairing/permissions, encrypted browser
+control and independently observed remote Home all pass. Real scanner Back
+returns neutral no-code guidance; Close returns quietly; both leave retry
+available without opening approval. The temporary pairing is revoked, its
+browser refuses access and has exited, and screen projection is stopped. See
+[the signed release and installed-build receipt](distribution/android-beta.md#android-083--code-9--2026-10-26).
+
 Code 8's first release-workflow attempt passed video, text, taps, held input and
 landscape rotation, then timed out waiting for the viewer to return to portrait.
 An independent local run passed the complete same sequence, and the unchanged
@@ -134,3 +142,6 @@ and observes the actual native view tree or a newly stored pair before retrying.
 It still taps the real approval button and requires the signed pairing exchange;
 no production permission or pairing logic was changed by this fixture update.
 The earlier CI failures remain recorded rather than counted as passing runs.
+With the fixture update, both local hosted/FCM and full control acceptance pass,
+and the complete CI release smoke suite passes. No UI gesture, cryptographic
+exchange, rotation or revocation assertion was removed.

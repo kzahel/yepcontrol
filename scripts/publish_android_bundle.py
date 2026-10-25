@@ -98,14 +98,16 @@ def publish(play, bundle, digest, version, name, track, status, notes):
             "releaseNotes": [{"language": "en-US", "text": notes}],
         }]})
         play.call("POST", f"{path}:validate", {})
-        # A timeout here has an unknown outcome. Reconcile in Console before retrying;
-        # do not silently downgrade to draft or suppress review errors.
+        # Commits are app-wide: requesting review can also send production
+        # changes already staged in Console. This publisher owns only internal
+        # delivery. Keep review separate and fail rather than cancel a review.
+        # A timeout has an unknown outcome; reconcile before retrying.
         commit_attempted = True
-        play.call("POST", f"{path}:commit?changesNotSentForReview=false"
+        play.call("POST", f"{path}:commit?changesNotSentForReview=true"
                   "&changesInReviewBehavior=ERROR_IF_IN_REVIEW", {})
-        return {"status": "draft_saved" if status == "draft" else "submitted",
+        return {"status": "draft_saved" if status == "draft" else "internal_committed",
                 "track": track, "versionCode": version, "sha256": digest,
-                "editId": edit["id"]}
+                "editId": edit["id"], "reviewRequested": False}
     finally:
         if not commit_attempted:
             try:
@@ -133,7 +135,7 @@ def main():
     result.update(source=args.source, buildRunId=args.run_id, versionName=args.version_name)
     (args.directory / "publication.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
-    print("Check Play Console review/publication status; submission does not prove availability.")
+    print("Check internal delivery in Play Console; production review was not requested.")
 
 
 if __name__ == "__main__":

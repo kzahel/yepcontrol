@@ -140,3 +140,58 @@ not yet established.** Internal 0.8.0 and the production website/relay are live.
 No signing keys, service-account permissions, Console declarations, store
 listing or CI publication track were changed for this promotion. Private
 screenshots and release receipts remain in ignored `.local/prepared-release/`.
+
+### Later availability confirmation — 2026-10-26
+
+Console Submission activity now records **Submission 2 / Production / 0.8.0 /
+Published**, submitted **Oct 25 at 22:33 local** and published at **22:44 local**.
+Its recorded source is **API**. This supersedes the earlier unsubmitted status
+above. That submission minute matches the later code-7 internal publication;
+the internal publisher used an app-wide commit with review submission enabled,
+which can include production changes already staged in Console. The code-6
+public rollout had already been authorized and physically accepted. Code 7
+itself was not the production artifact in that submission.
+
+The internal publisher now explicitly requests `changesNotSentForReview=true`
+and retains `changesInReviewBehavior=ERROR_IF_IN_REVIEW`, without a fallback to
+review submission. It still writes only the internal track and reports
+`internal_committed` / `reviewRequested: false`. Thirteen publishing regressions
+pass, including a pending-production-track fixture. This change has not been
+used for a live new internal release yet; a server refusal must fail closed.
+It is not used as a workaround for submitting the prepared production rollout.
+See [Google's app-edit commit contract](https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit).
+
+## Android 0.8.3 production preparation — 2026-10-26
+
+The exact signed **0.8.3/code-9** internal candidate has passed Play-installed
+Pixel 7a acceptance, including preserved pairing/permissions, browser control,
+an independently observed remote Home action and real scanner Back/Close/retry.
+Its signing and internal-delivery provenance are in
+[the beta receipt](android-beta.md#android-083--code-9--2026-10-26).
+The temporary test pairing is revoked, its browser refuses access and has
+exited, and media projection is null.
+
+Console promoted that already-uploaded code-9 bundle to a production draft,
+with the now-published code-6 release as its predecessor. The saved release selects
+**100% rollout / all targeted countries**, has no supported-device losses and
+shows only the existing missing deobfuscation/native-symbol warnings. Its notes
+cover clearer two-device setup, QR/link pairing, scanner feedback and faster
+reconnects. Listing, declarations, signing identity and CI publication permissions
+remain unchanged; the CI publisher is still internal-only.
+
+Console confirmed **Your change has been saved** and directed the owner to
+Publishing overview for the separate final review submission. Saving does not
+establish submission, approval or public availability of 0.8.3.
+
+### Final review submission remains unconfirmed
+
+Quick checks completed and Console displayed **Your changes can now be sent for
+review**. The final **Send changes for review** confirmation closed without an
+error or a submission receipt using the semantic control, a screenshot-based
+click and the focused keyboard control. A fresh page still showed **Changes
+not yet submitted for review / Production / 0.8.3 / Start full rollout**.
+Submission activity showed only the published 0.7.0 and 0.8.0 submissions.
+No sign-in challenge was open. The tested code-9 rollout remains saved and ready
+in the owner's Publishing overview; its final control needs an owner UI attempt.
+This is an observed Console submission blocker, not a request for new publication
+authorization. No API commit is used to submit it indirectly.

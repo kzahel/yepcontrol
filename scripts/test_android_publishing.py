@@ -16,11 +16,12 @@ DIGEST = hashlib.sha256(BUNDLE).hexdigest()
 
 
 class FakePlay:
-    def __init__(self, releases=None, uploaded=None, failure=None):
+    def __init__(self, releases=None, uploaded=None, failure=None, other_tracks=None):
         self.releases = releases or []
         self.uploaded = uploaded or []
         self.failure = failure
         self.calls = []
+        self.other_tracks = other_tracks or []
 
     def call(self, method, path, body=None, upload=False):
         self.calls.append((method, path, body))
@@ -29,7 +30,7 @@ class FakePlay:
         if path == "":
             return {"id": "edit-1"}
         if path.endswith("/tracks"):
-            return {"tracks": [{"track": "internal", "releases": self.releases}]}
+            return {"tracks": [{"track": "internal", "releases": self.releases}] + self.other_tracks}
         if path.endswith("/bundles"):
             return {"bundles": self.uploaded}
         if upload:
@@ -41,13 +42,25 @@ class PublishingTest(unittest.TestCase):
     def run_publish(self, play, status="completed"):
         return publish(play, BUNDLE, DIGEST, 2, "0.1.1", "internal", status, "Tracking improvements.")
 
-    def test_validate_precedes_commit_and_receipt_says_submitted(self):
+    def test_validate_precedes_internal_commit_without_review_request(self):
         play = FakePlay()
-        self.assertEqual(self.run_publish(play)["status"], "submitted")
+        result = self.run_publish(play)
+        self.assertEqual(result["status"], "internal_committed")
+        self.assertFalse(result["reviewRequested"])
         self.assertEqual([p for m, p, _ in play.calls if m == "POST"][-2:],
-                         ["/edit-1:validate", "/edit-1:commit?changesNotSentForReview=false"
+                         ["/edit-1:validate", "/edit-1:commit?changesNotSentForReview=true"
                           "&changesInReviewBehavior=ERROR_IF_IN_REVIEW"])
         self.assertFalse(any(m == "DELETE" for m, _, _ in play.calls))
+
+    def test_pending_production_is_not_written_or_requested_for_review(self):
+        play = FakePlay(other_tracks=[{"track": "production", "releases": [
+            {"status": "completed", "versionCodes": ["9"]}]}])
+        self.run_publish(play)
+        self.assertEqual([p for m, p, _ in play.calls if m == "PUT"],
+                         ["/edit-1/tracks/internal"])
+        self.assertEqual([p for m, p, _ in play.calls if ":commit" in p],
+                         ["/edit-1:commit?changesNotSentForReview=true"
+                          "&changesInReviewBehavior=ERROR_IF_IN_REVIEW"])
 
     def test_reject_mismatched_existing_bytes_without_track_write(self):
         play = FakePlay(uploaded=[{"versionCode": 2, "sha256": "bad"}])
@@ -69,7 +82,7 @@ class PublishingTest(unittest.TestCase):
     def test_promote_the_same_verified_draft(self):
         play = FakePlay(releases=[{"status": "draft", "versionCodes": ["2"]}],
                         uploaded=[{"versionCode": 2, "sha256": DIGEST}])
-        self.assertEqual(self.run_publish(play)["status"], "submitted")
+        self.assertEqual(self.run_publish(play)["status"], "internal_committed")
         self.assertFalse(any("uploadType" in p for _, p, _ in play.calls))
 
     def test_retry_same_release_checks_bytes_and_does_not_commit(self):
