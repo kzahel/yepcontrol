@@ -152,3 +152,15 @@ sitemap was processed successfully with two discovered pages. URL Inspection
 confirms the homepage is already indexed. The separate manual recrawl attempt
 did not show an acceptance receipt, so it remains unconfirmed. Search titles,
 snippets and AI Overview corrections depend on Google's later processing.
+
+## Website copy and source links — 2026-10-25
+
+`relay-v0.1.3`, source `ec92ad56f903ad1598eb0c8dcd922c92c59fa4a5`, passed
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40208939768) and
+[production deployment](https://github.com/kzahel/yepcontrol/actions/runs/40209216723).
+Live health confirms Worker `803d8a00-32de-410c-bf81-d308ccbadd6e` with public
+admission. The owner-requested copy cleanup removes the large marketing headline,
+spare-phone example and version callout. Prominent GitHub/MIT links and Google's
+official Play badge appear on the public homepage and installation guide.
+Live mobile/desktop checks verify the copy, links, exact badge, QR fallback and
+existing viewer routes. Android and the relay protocol are unchanged.
