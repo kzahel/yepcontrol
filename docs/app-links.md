@@ -181,3 +181,16 @@ installation links and returning saved-phone navigation. The hosted Worker tests
 check the actual asset routing, including App Links and crawler files. The existing
 browser layout/phone suites remain separate. These checks do not establish
 Play-installed physical App Link handling or changed Google search results.
+
+The `relay-v0.1.2` production deployment and independent live mobile/desktop smoke
+pass. Google Search Console verified ownership by the public homepage meta tag
+and processed `/sitemap.xml` successfully, discovering two pages. These are
+Search Console results, not evidence that search titles/snippets or AI Overviews
+have already updated. See the [deployment receipt](relay-releases.md#public-launch-website--2026-10-25).
+
+URL Inspection reports the homepage is already on Google. Manual Request indexing
+started a live indexability check, then returned to inspection without an
+acceptance receipt, including after refreshing Search Console and one retry.
+The manual recrawl is therefore unconfirmed; the successfully processed sitemap
+is the confirmed discovery submission. No change to search-result text or the
+incorrect AI Overview is claimed.

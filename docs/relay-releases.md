@@ -124,3 +124,31 @@ verified the canonical HTTPS origin and actual uploaded Worker version with
 public admission. Production has its own environment/token, Google sender,
 Durable Object namespaces and edge rate-limit counters. Staging remains closed.
 See [the complete receipt and recovery rules](cloudflare-production.md).
+
+## Public launch website — 2026-10-25
+
+[`relay-v0.1.2`](https://github.com/kzahel/yepcontrol/tree/relay-v0.1.2), source
+`01c625fdffa758e4e41a6fb5c9264706141b51e1`, passed complete
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40207140946) and the
+[production deployment](https://github.com/kzahel/yepcontrol/actions/runs/40207433213).
+The uploaded and independently observed Worker version is
+`dc952468-12e0-4597-ab91-8bd9d7aff93d`, with public admission.
+
+The website now provides a crawlable product introduction, prominent public Play
+installation, metadata and sitemap, while returning browsers retain their saved
+phones. QR browser fallback explains public installation and a fresh in-app scan,
+without forwarding or persisting the invitation. This does not change the
+0.7.0 Android binary, pairing protocol, browser storage or relay authority.
+
+Isolated Chromium checks against the actual public origin pass at mobile and
+desktop sizes: product title, visible Play action, install fallback/fragment
+removal, saved-phone route, crawler files and Android association. The built-site
+suite also verifies decoded pairing QR, no-JavaScript links, no Play referrer and
+returning pairings; the existing phone-management/layout and Worker suites pass.
+Play-installed physical App Link acceptance remains separate.
+
+Search Console ownership verification passed using the public HTML tag, and the
+sitemap was processed successfully with two discovered pages. URL Inspection
+confirms the homepage is already indexed. The separate manual recrawl attempt
+did not show an acceptance receipt, so it remains unconfirmed. Search titles,
+snippets and AI Overview corrections depend on Google's later processing.
