@@ -19,3 +19,12 @@ family-green background. API 33+ includes a monochrome themed icon.
 Store screenshots must be captured from the actual app with synthetic content;
 keep raw captures private and copy only reviewed, intentionally public exports
 into the distribution folder. Never publish a live pairing code or phone data.
+
+## Google Play website badge
+
+`web/public/google-play-badge.png` is Google's official English badge, downloaded
+2026-10-25 from
+https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png.
+It links to YepControl's public listing. Google Play and its logo are Google LLC
+trademarks; this third-party brand asset is not relicensed under this project's
+MIT license. Preserve the supplied badge artwork and proportions.

@@ -43,13 +43,10 @@
   font-weight: 650;
   margin: 0 0 20px;
 }
-.public-page h1 {
-  font-size: clamp(2.2rem, 5vw, 3.7rem);
-  line-height: 1.12;
-  letter-spacing: -0.045em;
-  white-space: normal;
-  overflow: visible;
+.brand h1 {
+  font: inherit;
 }
+
 .intro {
   max-width: 40em;
   font-size: 1.125rem;
@@ -70,6 +67,20 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
+}
+.play-link {
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+.play-link img {
+  display: block;
+  width: 200px;
+  height: auto;
+}
+.open-source {
+  color: var(--muted);
+  font-size: 0.9375rem;
 }
 .public-actions .secondary {
   color: var(--accent);
@@ -147,6 +158,10 @@
 }
 .install-main h1 {
   font-size: clamp(2rem, 5vw, 2.8rem);
+  line-height: 1.12;
+  letter-spacing: -0.045em;
+  white-space: normal;
+  overflow: visible;
 }
 .install-main .setup-card {
   margin-top: 32px;

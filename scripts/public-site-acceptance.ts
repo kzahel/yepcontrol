@@ -112,7 +112,7 @@ try {
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(origin);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      "Your Android phone.",
+      "YepControl",
     );
     await expect(page).toHaveTitle(
       "YepControl – Control Your Android Phone from a Browser",
