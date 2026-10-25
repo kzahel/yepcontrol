@@ -80,7 +80,11 @@ class HostedPairingTest {
         }
         val selector = By.res("${context.packageName}:id/$id")
         if (id == "grant_device") {
-            val existingPairs = store.snapshot.devices.map { it.id }.toSet()
+            val existingPairs =
+                store.snapshot.devices
+                    .map { it.id }
+                    .toSet()
+
             // Accessibility caches can retain the removed button after the
             // actual UI has advanced. Another tap at its former position can
             // hit Cancel. Observe the real view tree before attempting a retry;
