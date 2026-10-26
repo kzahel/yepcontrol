@@ -969,16 +969,6 @@ a {
   display: none;
 }
 
-.pairing-role {
-  margin: 0 0 16px;
-  font-size: 1rem;
-}
-.pairing-steps {
-  padding-left: 24px;
-}
-.pairing-steps li {
-  margin-bottom: 8px;
-}
 .pairing-link-actions {
   display: flex;
   flex-wrap: wrap;

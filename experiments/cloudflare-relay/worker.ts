@@ -218,17 +218,23 @@ const worker = {
         const value = await body(req);
         const viewer = text(value.viewer);
         const expires = Number(value.expires);
+        if (!Number.isSafeInteger(value.expires)) throw new Error("Expiry");
         if (
-          !Number.isSafeInteger(value.expires) ||
           expires * 1000 <= Date.now() ||
           expires * 1000 > Date.now() + 301000
         )
-          throw new Error("Expiry");
-        await verifySignature(
-          viewer,
-          createBytes(env.PUBLIC_ORIGIN, { id, viewer, expires }),
-          text(value.signature),
-        );
+          // No state has been allocated. The browser may re-sign once using
+          // this clock without weakening the five-minute lifetime or signatures.
+          return json({ error: "clock-skew", serverTime: Date.now() }, 400);
+        try {
+          await verifySignature(
+            viewer,
+            createBytes(env.PUBLIC_ORIGIN, { id, viewer, expires }),
+            text(value.signature),
+          );
+        } catch {
+          return json({ error: "invalid-signature" }, 400);
+        }
         forward = new Request(req.url, {
           method: req.method,
           headers: req.headers,

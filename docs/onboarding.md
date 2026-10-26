@@ -195,3 +195,39 @@ Android installation option. Saved-phone browsers use the same large action.
 Mobile and desktop checks require the homepage control action to be fully visible,
 at least 64 pixels high and above installation; narrow layouts also check its
 width. The public Play installation badge remains visible in the initial viewport.
+
+## HTTP 400 follow-up and reduced copy — 2026-10-26
+
+The owner confirmed the original failure persists after `relay-v0.2.2` and
+provided a Chrome-on-Android photograph showing HTTP 400 during creation. The
+owner also rejected the volume of setup/helper text. The previous release's
+successful isolated-browser checks did not reproduce or resolve that attempt.
+
+A controlled live browser clock two seconds ahead reproduced HTTP 400 with no
+QR. Source review shows the browser chose its local time plus 300 seconds while
+the service allowed only 301 seconds into its own future. This is a reproduced
+functional defect consistent with the photograph; the actual offset and rejection
+branch on the reported phone have not been measured.
+
+For a creation timestamp outside that existing window, Node and Cloudflare now
+return `clock-skew` and the current service time before allocating a pairing.
+The browser uses that time to re-sign the same invitation once, then tracks its
+expiry with elapsed monotonic time. Signed offer verification uses that calibrated
+clock too. Five-minute service expiry, signatures, HMAC, explicit phone approval,
+stored authority and installed-app compatibility remain unchanged. Other errors,
+including invalid browser signatures, do not reset identity or trigger this retry.
+An uncertain completion still stops without automatic replay or another grant.
+
+The pairing page now contains its status, QR, one short scan prompt and link/retry
+controls. Role paragraphs, numbered instructions, scanner-help disclosure,
+installation links and repeated helper notices are removed. The homepage's
+three-step explanation is removed too; its large **Control a phone** action stays.
+
+The built-site suite now drives actual signed creation, sealed phone offers and
+viewer completion through the Node relay with accurate, 3-second-ahead and
+10-minute-ahead/behind browser clocks. It checks the rendered QR's real expiry,
+same invitation ID, valid final viewer signature and bounded correction. Separate
+tests retain expiry rejection and verify invalid-signature errors are not retried.
+The Cloudflare admission suite verifies clock rejection allocates no authority
+and the corrected signed request can create that same ID. Production receipt is
+recorded separately in [relay releases](relay-releases.md).

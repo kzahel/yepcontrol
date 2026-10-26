@@ -2,7 +2,12 @@ import { expect, it } from "vitest";
 import {
   decodeInvitation,
   encodeInvitation,
+  type Grant,
+  grantBytes,
+  grantMac,
+  hex,
   type Invitation,
+  verifyOffer,
 } from "../src/enrollment.js";
 import { b64, createIdentity } from "../src/index.js";
 
@@ -46,4 +51,24 @@ it("rejects transplanted invitations, malformed links and expired codes", async 
   ]) {
     expect(() => decodeInvitation(changed)).toThrow();
   }
+});
+it("checks signed offers against the calibrated clock without extending expiry", async () => {
+  const i = await invitation();
+  const phone = await createIdentity();
+  const g: Grant = {
+    id: i.id,
+    viewer: i.viewer,
+    phone: b64(phone.publicKey),
+    expires: i.expires,
+    phoneSignature: "",
+    mac: "",
+  };
+  const bytes = grantBytes(i.origin, g);
+  g.phoneSignature = b64(await phone.sign(bytes));
+  g.mac = hex(await grantMac(i.secret, bytes));
+  await verifyOffer(i, g, i.expires * 1000 - 1);
+  await expect(verifyOffer(i, g, i.expires * 1000)).rejects.toThrow("expired");
+  await expect(
+    verifyOffer(i, { ...g, expires: i.expires + 1 }, i.expires * 1000 - 1),
+  ).rejects.toThrow("Wrong");
 });

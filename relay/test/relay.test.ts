@@ -249,6 +249,23 @@ it("pairs only after both endpoint signatures and never stores the QR secret", a
   expect((await create()).status).toBe(400);
   expect((await api()).status).toBe(200);
 });
+it.each([
+  3000, -600000,
+])("returns the service clock before allocating a skewed request (%d ms)", async (offset) => {
+  invitation.expires = Math.floor((Date.now() + offset) / 1000) + 300;
+  const rejected = await create();
+  expect(rejected.status).toBe(400);
+  const detail = (await rejected.json()) as {
+    error: string;
+    serverTime: number;
+  };
+  expect(detail.error).toBe("clock-skew");
+  expect(Math.abs(detail.serverTime - Date.now())).toBeLessThan(5000);
+  expect((await api()).status).toBe(404);
+  invitation.expires = Math.floor(detail.serverTime / 1000) + 300;
+  expect((await create()).status).toBe(201);
+  expect((await api()).status).toBe(200);
+});
 it("answers held pairing polls when the other endpoint acts", async () => {
   expect((await create()).status).toBe(201);
   const started = Date.now();

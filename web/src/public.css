@@ -31,10 +31,8 @@
   padding: 0;
 }
 .hero {
-  display: grid;
-  grid-template-columns: 1.25fr 1fr;
-  align-items: center;
-  gap: 64px;
+  max-width: 560px;
+  margin: 0 auto;
   padding: 64px 0;
 }
 .eyebrow {
@@ -177,8 +175,6 @@
     padding: 20px 0;
   }
   .hero {
-    grid-template-columns: 1fr;
-    gap: 32px;
     padding: 32px 0;
   }
   .public-features {

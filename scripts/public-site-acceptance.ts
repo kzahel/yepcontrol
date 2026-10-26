@@ -9,6 +9,7 @@ import jsQR from "jsqr";
 import { PNG } from "pngjs";
 import { decodeInvitation } from "../protocol/src/enrollment.js";
 import { viewerAssetPath } from "../web/routes.js";
+import { verifyPairingClocks } from "./pairing-clock-acceptance.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const artifacts = path.join(root, ".local/public-site-proof");
@@ -277,6 +278,7 @@ try {
   let polls = 0;
   let activeExpiry = 0;
   let retryAfter = "1";
+  let creationError: object | undefined;
   await pairing.route("**/api/pair/*", async (route) => {
     const creating = route.request().method() === "POST";
     if (creating) {
@@ -291,32 +293,44 @@ try {
       status: creating ? creationStatus : pollStatus,
       headers: { "Retry-After": retryAfter },
       contentType: "application/json",
-      body: JSON.stringify({ state: "waiting" }),
+      body: JSON.stringify(
+        creating && creationError ? creationError : { state: "waiting" },
+      ),
     });
   });
   await pairing.goto(`${origin}/pair`);
-  await expect(pairing.getByRole("alert")).toContainText(
+  await expect(pairing.getByRole("status")).toContainText(
     "pairing service is temporarily unavailable",
   );
-  await expect(pairing.getByLabel("Pairing instructions")).toContainText(
-    "On the Android phone being controlled:",
-  );
-  await pairing.getByText("Where is the scanner?", { exact: true }).click();
-  await expect(pairing.locator(".pairing-scanner-help")).toContainText(
-    "Add device",
-  );
-  await expect(pairing.locator(".pairing-scanner-help")).toContainText(
-    "Allow a browser",
-  );
-  await pairing.getByText("Where is the scanner?", { exact: true }).click();
+  await expect(pairing.locator("main ol, main details")).toHaveCount(0);
   await expect(pairing.locator(".pairing-code svg")).toHaveCount(0);
   await pairing.screenshot({
     path: path.join(artifacts, "mobile-pair-service-error.png"),
     fullPage: true,
   });
+  creationStatus = 400;
+  creationError = { error: "clock-skew", serverTime: Date.now() };
+  const beforeClockRetry = creates;
+  await pairing.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(pairing.getByRole("status")).toContainText("error 400");
+  assert.equal(
+    creates,
+    beforeClockRetry + 2,
+    "Clock correction is bounded to one signed retry",
+  );
+  creationError = { error: "invalid-signature" };
+  const beforeSignatureError = creates;
+  await pairing.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(pairing.getByRole("status")).toContainText("signature rejected");
+  assert.equal(
+    creates,
+    beforeSignatureError + 1,
+    "A rejected browser key must not be retried or replaced automatically",
+  );
+  creationError = undefined;
   creationStatus = 429;
   await pairing.getByRole("button", { name: "Try again", exact: true }).click();
-  await expect(pairing.getByRole("alert")).toContainText(
+  await expect(pairing.getByRole("status")).toContainText(
     "too many pairing requests",
   );
   await expect(
@@ -348,7 +362,7 @@ try {
     disconnect = false;
     pollStatus = 200;
     await expect(pairing.getByRole("status")).toContainText(
-      "Waiting for approval",
+      "Waiting for phone approval",
     );
     assert.equal(
       creates,
@@ -358,7 +372,9 @@ try {
   }
   // A permanent rejection still requires an explicit new code.
   pollStatus = 404;
-  await expect(pairing.getByRole("alert")).toContainText("no longer available");
+  await expect(pairing.getByRole("status")).toContainText(
+    "no longer available",
+  );
   await expect(qr).toHaveCount(0);
   pollStatus = 200;
   await pairing.getByRole("button", { name: "Try again", exact: true }).click();
@@ -371,7 +387,7 @@ try {
   await pairing.clock.fastForward(activeExpiry * 1000 - Date.now() - 2000);
   await expect(pairing.getByRole("status")).toContainText("Reconnecting");
   await pairing.clock.fastForward(3000);
-  await expect(pairing.getByRole("alert")).toContainText("code expired");
+  await expect(pairing.getByRole("status")).toContainText("code expired");
   await expect(qr).toHaveCount(0);
   await expect(
     pairing.getByRole("button", { name: /Try again in/ }),
@@ -478,6 +494,7 @@ try {
     "noindex",
   );
   assert.deepEqual(errors, []);
+  await verifyPairingClocks(browser, origin, artifacts);
   console.log(
     "PASS public HTML/metadata, mobile/desktop layout, QR decoding, pairing error/retry/recovery, install fallback, secret isolation, no-JS links and returning phone navigation",
   );

@@ -96,12 +96,16 @@ export async function grantMac(secret: string, data: Bytes): Promise<Bytes> {
   );
   return new Uint8Array(await crypto.subtle.sign("HMAC", key, data));
 }
-export async function verifyOffer(i: Invitation, g: Grant): Promise<void> {
+export async function verifyOffer(
+  i: Invitation,
+  g: Grant,
+  now = Date.now(),
+): Promise<void> {
   if (
     g.id !== i.id ||
     g.viewer !== i.viewer ||
     g.expires !== i.expires ||
-    i.expires * 1000 <= Date.now()
+    i.expires * 1000 <= now
   )
     throw new Error("Wrong or expired offer");
   const data = grantBytes(i.origin, g);

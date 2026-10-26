@@ -5,6 +5,7 @@ export class PairingRequestError extends Error {
     message: string,
     readonly status: number,
     readonly retryAfter = 0,
+    readonly serverTime: number | undefined = undefined,
   ) {
     super(message);
   }
@@ -43,6 +44,18 @@ export async function pairingRequest(
   }
   if (!response.ok) {
     const creating = body !== undefined && !action;
+    let serverTime: number | undefined;
+    let signatureRejected = false;
+    if (creating && response.status === 400) {
+      const detail = await response.json().catch(() => undefined);
+      signatureRejected = detail?.error === "invalid-signature";
+      if (
+        detail?.error === "clock-skew" &&
+        Number.isSafeInteger(detail.serverTime) &&
+        detail.serverTime > 0
+      )
+        serverTime = detail.serverTime;
+    }
     const retry = response.headers.get("Retry-After");
     const seconds = retry === null ? NaN : Number(retry);
     const retryAfter = Math.max(
@@ -59,10 +72,13 @@ export async function pairingRequest(
           : !creating && (response.status === 404 || response.status === 410)
             ? "This pairing code is no longer available. Create a new code."
             : creating
-              ? `YepControl couldn’t create a pairing code (error ${response.status}). Reload this page and try again.`
+              ? signatureRejected
+                ? "Couldn’t create code (signature rejected)."
+                : `Couldn’t create code (error ${response.status}).`
               : `YepControl couldn’t check this pairing code (error ${response.status}). Try a new code.`,
       response.status,
       retryAfter || (response.status === 429 ? 60000 : 0),
+      serverTime,
     );
   }
   return response.json() as Promise<{

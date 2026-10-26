@@ -44,11 +44,16 @@ function configuration(capacity = "3", starts = "2") {
 }
 let mf = new Miniflare(configuration());
 const id = () => hex(crypto.getRandomValues(new Uint8Array(16)));
-async function create(route: string, signature?: string, ip = "local") {
+async function create(
+  route: string,
+  signature?: string,
+  ip = "local",
+  expires = Math.floor(Date.now() / 1000) + 300,
+) {
   const invitation = {
     id: route,
     viewer: b64(identity.publicKey),
-    expires: Math.floor(Date.now() / 1000) + 300,
+    expires,
   };
   return mf.dispatchFetch(`${origin}/api/pair/${route}`, {
     method: "POST",
@@ -80,10 +85,37 @@ try {
     ).status,
     404,
   );
-  assert.equal((await create(id(), "invalid")).status, 400);
-  assert.equal((await mf.listDurableObjectIds("PAIRINGS")).length, 0);
   const first = id();
-  const starts = await Promise.all([create(first), create(first)]);
+  let correctedExpiry = 0;
+  for (const offset of [303, -300]) {
+    const clockError = await create(
+      first,
+      undefined,
+      "clock",
+      Math.floor(Date.now() / 1000) + offset,
+    );
+    assert.equal(clockError.status, 400);
+    const detail = (await clockError.json()) as {
+      error: string;
+      serverTime: number;
+    };
+    assert.equal(detail.error, "clock-skew");
+    assert.ok(Math.abs(detail.serverTime - Date.now()) < 5000);
+    correctedExpiry = Math.floor(detail.serverTime / 1000) + 300;
+    assert.equal(
+      (await mf.listDurableObjectIds("PAIRINGS")).length,
+      0,
+      "Clock rejection must not allocate authority before a retry",
+    );
+  }
+  const invalidSignature = await create(id(), "invalid");
+  assert.equal(invalidSignature.status, 400);
+  assert.deepEqual(await invalidSignature.json(), {error: "invalid-signature"});
+  assert.equal((await mf.listDurableObjectIds("PAIRINGS")).length, 0);
+  const starts = await Promise.all([
+    create(first, undefined, "local", correctedExpiry),
+    create(first, undefined, "local", correctedExpiry),
+  ]);
   assert.deepEqual(starts.map((r) => r.status).sort(), [201, 400]);
   assert.equal((await create(id())).status, 201);
   const refused = await create(id());

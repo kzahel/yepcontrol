@@ -243,11 +243,16 @@ export function createRelay(options: Options) {
           pending.size >= 1000 ||
           pairs.size >= 10000 ||
           !Number.isSafeInteger(expires) ||
-          typeof expires !== "number" ||
-          expires * 1000 <= Date.now() ||
-          expires * 1000 > Date.now() + 301000
+          typeof expires !== "number"
         )
           throw new Error("Unavailable");
+        if (
+          expires * 1000 <= Date.now() ||
+          expires * 1000 > Date.now() + 301000
+        ) {
+          reply(400, { error: "clock-skew", serverTime: Date.now() });
+          return;
+        }
         await verifySignature(
           viewer,
           createBytes(origin, { id, viewer, expires }),

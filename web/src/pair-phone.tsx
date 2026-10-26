@@ -9,7 +9,7 @@ import {
   type Invitation,
   verifyOffer,
 } from "@remote/protocol/enrollment";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { encode } from "uqr";
 import { browserName } from "./browser-name.js";
 import {
@@ -25,6 +25,7 @@ export function PairPhone() {
   const [status, setStatus] = useState("Creating a pairing code…");
   const [linkNotice, setLinkNotice] = useState("");
   const [showLink, setShowLink] = useState(false);
+  const clock = useRef(() => Date.now());
   const [retryAt, setRetryAt] = useState(0);
   const [retrySeconds, setRetrySeconds] = useState(0);
   useEffect(() => {
@@ -44,6 +45,9 @@ export function PairPhone() {
     setShowLink(false);
     setRetryAt(0);
     try {
+      const base = Date.now();
+      const started = performance.now();
+      clock.current = () => base + performance.now() - started;
       const identity = await browserIdentity();
       const i: Invitation = {
         v: 1,
@@ -51,16 +55,32 @@ export function PairPhone() {
         id: hex(crypto.getRandomValues(new Uint8Array(16))),
         viewer: b64(identity.publicKey),
         secret: hex(crypto.getRandomValues(new Uint8Array(32))),
-        expires: Math.floor(Date.now() / 1000) + 300,
+        expires: Math.floor(clock.current() / 1000) + 300,
         name: browserName(),
       };
-      await api(i.id, "", {
-        viewer: i.viewer,
-        expires: i.expires,
-        signature: b64(await identity.sign(createBytes(i.origin, i))),
-      });
+      const create = async () =>
+        api(i.id, "", {
+          viewer: i.viewer,
+          expires: i.expires,
+          signature: b64(await identity.sign(createBytes(i.origin, i))),
+        });
+      try {
+        await create();
+      } catch (error) {
+        if (
+          !(error instanceof PairingRequestError) ||
+          error.serverTime === undefined
+        )
+          throw error;
+        const serverTime = error.serverTime;
+        const received = performance.now();
+        clock.current = () => serverTime + performance.now() - received;
+        i.expires = Math.floor(clock.current() / 1000) + 300;
+        // Only the explicit pre-allocation clock rejection is safe to retry.
+        await create();
+      }
       setInvitation(i);
-      setStatus("Waiting for approval on the phone you want to control");
+      setStatus("Waiting for phone approval");
     } catch (error) {
       setInvitation(undefined);
       setFailure("code");
@@ -76,6 +96,7 @@ export function PairPhone() {
   useEffect(() => {
     if (!invitation) return;
     const abort = new AbortController();
+    const now = clock.current;
     const stopped = () => abort.signal.aborted;
     let retryNotBefore = 0;
     // Renew while someone is looking; otherwise wait for them to return.
@@ -100,7 +121,7 @@ export function PairPhone() {
       let failures = 0;
       try {
         while (!stopped()) {
-          if (Date.now() >= invitation.expires * 1000) {
+          if (now() >= invitation.expires * 1000) {
             expired();
             return;
           }
@@ -125,7 +146,7 @@ export function PairPhone() {
                   error.retryAfter,
                   Math.min(15000, 1000 * 2 ** failures++),
                 ),
-                Math.max(0, invitation.expires * 1000 - Date.now()),
+                Math.max(0, invitation.expires * 1000 - now()),
               ),
               abort.signal,
             );
@@ -134,10 +155,10 @@ export function PairPhone() {
           if (stopped()) return;
           failures = 0;
           retryNotBefore = 0;
-          setStatus("Waiting for approval on the phone you want to control");
+          setStatus("Waiting for phone approval");
           if (result.state === "offered" && result.grant) {
             const g = result.grant;
-            await verifyOffer(invitation, g);
+            await verifyOffer(invitation, g, now());
             const device = await openDevice(
               invitation.secret,
               invitation.id,
@@ -172,7 +193,7 @@ export function PairPhone() {
           return;
         }
         // A held poll can outlast the code; the relay then no longer knows it.
-        if (Date.now() >= invitation.expires * 1000 - 1000) expired();
+        if (now() >= invitation.expires * 1000 - 1000) expired();
         else {
           setInvitation(undefined);
           setFailure("code");
@@ -188,34 +209,15 @@ export function PairPhone() {
   async function copyPairingLink(value: Invitation) {
     try {
       await navigator.clipboard.writeText(encodeInvitation(value));
-      setLinkNotice(
-        "Pairing link copied. Open it on the phone you want to control.",
-      );
+      setLinkNotice("Link copied.");
     } catch {
       setShowLink(true);
-      setLinkNotice(
-        "Copy this link and open it on the phone you want to control.",
-      );
+      setLinkNotice("Copy this link.");
     }
   }
   return (
     <main>
       <ViewerHeading name="Control a phone" status={status} />
-      <p className="pairing-role">
-        This device will control the Android phone. Keep this browser open; no
-        app is needed here.
-      </p>
-      <ol className="pairing-steps" aria-label="Pairing instructions">
-        <li>
-          <strong>On the Android phone being controlled:</strong> open
-          YepControl and choose its pairing-code scanner.
-        </li>
-        <li>
-          Scan this screen and tap <strong>Allow</strong> on the Android phone.
-          Then connect from this browser.
-        </li>
-      </ol>
-      {failure === "code" && <p role="alert">{status}</p>}
       {failure === "unconfirmed" && (
         <p role="alert">
           Check YepControl on the phone for an added browser before trying
@@ -235,16 +237,9 @@ export function PairPhone() {
               : "Try again"}
         </button>
       )}
-      <details className="pairing-scanner-help">
-        <summary>Where is the scanner?</summary>
-        <p>
-          In the Android app, choose <strong>Allow a browser</strong>, then{" "}
-          <strong>Scan browser’s code</strong>. In older app versions, choose{" "}
-          <strong>Add device</strong>, then <strong>Scan pairing code</strong>.
-        </p>
-      </details>
       {qr && invitation && (
         <section className="pairing-code" aria-label="Pairing code">
+          <p>Scan with the YepControl app.</p>
           <svg
             role="img"
             aria-label="Scan to pair this browser"
@@ -291,26 +286,8 @@ export function PairPhone() {
               onFocus={(event) => event.currentTarget.select()}
             />
           )}
-
-          <p className="hint">
-            Can’t scan? Copy the pairing link above and send it to the phone’s
-            owner. Open it on the Android phone and tap Allow. It expires with
-            this code.
-          </p>
-
-          <a
-            href="https://play.google.com/store/apps/details?id=com.yepcontrol.app"
-            rel="noreferrer"
-          >
-            Install YepControl on the phone being controlled
-          </a>
-          <p className="hint">A new code appears every five minutes.</p>
         </section>
       )}
-      <p className="hint">
-        Pairing adds access. Earlier pairings keep their access until you remove
-        them in YepControl on the phone.
-      </p>
     </main>
   );
 }
