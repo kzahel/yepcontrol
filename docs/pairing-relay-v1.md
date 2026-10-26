@@ -6,6 +6,11 @@ it does not grant screen capture, input, unlock, FCM or WebRTC capability.
 
 ## Enrollment
 
+The browser-first exchange below remains available. Android 0.9.0 also adds
+[phone-first pairing](phone-first-pairing.md): the protected phone screen issues
+a one-use QR, and its holder's browser claims it before the same v1 grant
+exchange. Existing pairings and installed older hosts keep their original flow.
+
 The browser creates a non-exportable P-256 identity in IndexedDB and an ephemeral
 256-bit QR secret. The QR is an HTTPS App Link at `<relay origin>/enroll#<base64 JSON>`;
 [Android App Links and the install fallback](app-links.md) are configured for

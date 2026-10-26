@@ -85,3 +85,32 @@ receipt is `.local/phone-first-control-proof/result.json`.
 The installation page now presents the two phone-first actions and one short
 fallback for older apps. It removes the previous three-step instructions and
 repeated installation/pairing reminders. Public-site acceptance passes.
+
+## Production website and relay — 2026-10-26
+
+`relay-v0.3.0`, source `ef136519a0b89a54bf0b0d96d33b950ff198c7f7`, passed
+[full Checks](https://github.com/kzahel/yepcontrol/actions/runs/40402147207) and
+[production deployment](https://github.com/kzahel/yepcontrol/actions/runs/40402903024).
+The verified Worker version is `fa712b13-bf02-441d-89cf-45c990b7e6ae`.
+`relay-v0.3.1`, source `c532dab469b629b6fe62fa54f2e409fc922a3318`, adds the shorter
+installation page and passed
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40403274872) and
+[production deployment](https://github.com/kzahel/yepcontrol/actions/runs/40404039762).
+Its uploaded and independently observed Worker version is
+`c89afddf-5319-4a4f-ac00-de21d2c184d0`, with public admission.
+
+The owned Android 15 fixture passes both QR directions against the actual
+production Worker and built website: rendered native QR decoding, secure-window
+capture exclusion, cancellation returning 410, and encrypted native checks from
+two independent browser identities. Both grants are removed. The private receipt
+is `.local/phone-first-production-proof/result.json`. A physical Play-installed
+0.8.3 host's existing test pairing also connects securely through the new relay.
+These checks do not establish delivery or acceptance of the new Android release.
+
+An additional owned-emulator run against `relay-v0.3.1` explicitly waits for the
+live remote-screen region and enabled Disconnect action after phone-first pairing,
+without tapping Connect. It passes automatic encrypted connection, both pairing
+directions, cancellation, capture exclusion and cleanup. A fresh installation
+correctly asks for screen-access permission inside that connected session. This
+check is now retained in the mobile acceptance harness; its private receipt is
+`.local/phone-first-automatic-proof/result.json`.

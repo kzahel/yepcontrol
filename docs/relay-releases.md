@@ -1,5 +1,10 @@
 # Relay releases and CI deployment
 
+The 2026-10-26 phone-first pairing rollout is recorded in
+[the feature and production receipt](phone-first-pairing.md#production-website-and-relay--2026-10-26).
+The live release is `relay-v0.3.1`; it preserves existing v1 grants and adds the
+phone-issued one-use QR path, matching viewer and shorter installation page.
+
 Relay versions are independent of Android versions. Use immutable tags such as
 `relay-v0.1.0` or `relay-v0.2.0-rc.1`; never move a released tag. The selected
 commit must belong to `main` and have a successful complete **Checks** run for

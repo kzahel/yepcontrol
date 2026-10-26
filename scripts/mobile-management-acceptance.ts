@@ -379,6 +379,18 @@ export async function mobileAcceptance(f: Fixture, pairingOnly = false) {
     await phonePage.goto(phoneCode.data);
     try {
       await phonePage.waitForURL(/\/phones\/[a-f0-9]{64}$/);
+      // A fresh installation has no screen permission yet. The live region
+      // and usable Disconnect prove the encrypted control session opened;
+      // its status may correctly ask for screen access on the phone.
+      await phonePage
+        .getByRole("region", { name: "Remote screen", exact: true })
+        .waitFor({ timeout: 80000 });
+      assert.equal(
+        await phonePage
+          .getByRole("button", { name: "Disconnect", exact: true })
+          .isEnabled(),
+        true,
+      );
     } catch (error) {
       console.error(
         "Phone-first browser status:",
@@ -416,6 +428,7 @@ export async function mobileAcceptance(f: Fixture, pairingOnly = false) {
       await stopNative();
       const report = {
         phoneFirstQrDecoded: true,
+        phoneFirstConnectedAutomatically: true,
         secureWindowHidesQr: true,
         cancelledCodeRejected: true,
         browserFirstPreserved: true,
@@ -580,6 +593,7 @@ export async function mobileAcceptance(f: Fixture, pairingOnly = false) {
       databaseTests: 6,
       independentBrowsers: 2,
       phoneFirstQrAndSecureWindow: true,
+      phoneFirstConnectedAutomatically: true,
       cancelledCodeRejected: true,
       browserFirstPreserved: true,
       pairingAndForegroundAccessBeforePermissions: true,
