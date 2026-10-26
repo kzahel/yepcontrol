@@ -193,6 +193,10 @@ const worker = {
           headers: { "Retry-After": "60", "Cache-Control": "no-store" },
         });
     }
+    if (url.pathname === "/api/pairing-time" && req.method === "GET") {
+      const serverTime = Date.now();
+      return json({ serverTime, expires: Math.floor(serverTime / 1000) + 300 });
+    }
     if (
       !url.pathname.startsWith("/api/") &&
       !url.pathname.startsWith("/_proof/")

@@ -16,6 +16,7 @@ import {
   pairingRequest as api,
   PairingRequestError,
   pairingDelay,
+  pairingTime,
 } from "./pairing-request.js";
 import { browserIdentity, phoneURL, rememberPhone } from "./store.js";
 import { ViewerHeading } from "./viewer-heading.js";
@@ -25,12 +26,14 @@ export function PairPhone() {
   const [status, setStatus] = useState("Creating a pairing code…");
   const [linkNotice, setLinkNotice] = useState("");
   const [showLink, setShowLink] = useState(false);
-  const clock = useRef(() => Date.now());
+  const clock = useRef<() => number>(() => 0);
   const [retryAt, setRetryAt] = useState(0);
   const [retrySeconds, setRetrySeconds] = useState(0);
   useEffect(() => {
     const update = () =>
-      setRetrySeconds(Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)));
+      setRetrySeconds(
+        Math.max(0, Math.ceil((retryAt - performance.now()) / 1000)),
+      );
     update();
     if (!retryAt) return;
     const timer = setInterval(update, 1000);
@@ -45,47 +48,31 @@ export function PairPhone() {
     setShowLink(false);
     setRetryAt(0);
     try {
-      const base = Date.now();
-      const started = performance.now();
-      clock.current = () => base + performance.now() - started;
       const identity = await browserIdentity();
+      const { serverTime, expires } = await pairingTime();
+      const received = performance.now();
+      clock.current = () => serverTime + performance.now() - received;
       const i: Invitation = {
         v: 1,
         origin: location.origin,
         id: hex(crypto.getRandomValues(new Uint8Array(16))),
         viewer: b64(identity.publicKey),
         secret: hex(crypto.getRandomValues(new Uint8Array(32))),
-        expires: Math.floor(clock.current() / 1000) + 300,
+        expires,
         name: browserName(),
       };
-      const create = async () =>
-        api(i.id, "", {
-          viewer: i.viewer,
-          expires: i.expires,
-          signature: b64(await identity.sign(createBytes(i.origin, i))),
-        });
-      try {
-        await create();
-      } catch (error) {
-        if (
-          !(error instanceof PairingRequestError) ||
-          error.serverTime === undefined
-        )
-          throw error;
-        const serverTime = error.serverTime;
-        const received = performance.now();
-        clock.current = () => serverTime + performance.now() - received;
-        i.expires = Math.floor(clock.current() / 1000) + 300;
-        // Only the explicit pre-allocation clock rejection is safe to retry.
-        await create();
-      }
+      await api(i.id, "", {
+        viewer: i.viewer,
+        expires: i.expires,
+        signature: b64(await identity.sign(createBytes(i.origin, i))),
+      });
       setInvitation(i);
       setStatus("Waiting for phone approval");
     } catch (error) {
       setInvitation(undefined);
       setFailure("code");
       if (error instanceof PairingRequestError)
-        setRetryAt(Date.now() + error.retryAfter);
+        setRetryAt(performance.now() + error.retryAfter);
       setStatus(error instanceof Error ? error.message : "Pairing failed");
     }
   }, []);
@@ -101,7 +88,7 @@ export function PairPhone() {
     let retryNotBefore = 0;
     // Renew while someone is looking; otherwise wait for them to return.
     const expired = () => {
-      if (Date.now() < retryNotBefore) {
+      if (performance.now() < retryNotBefore) {
         setInvitation(undefined);
         setFailure("code");
         setRetryAt(retryNotBefore);
@@ -125,7 +112,7 @@ export function PairPhone() {
             expired();
             return;
           }
-          const asked = Date.now();
+          const asked = performance.now();
           let result: Awaited<ReturnType<typeof api>>;
           try {
             result = await api(invitation.id, "", undefined, {
@@ -139,7 +126,7 @@ export function PairPhone() {
             setStatus(
               "Connection interrupted. Reconnecting to check approval…",
             );
-            retryNotBefore = Date.now() + error.retryAfter;
+            retryNotBefore = performance.now() + error.retryAfter;
             await pairingDelay(
               Math.min(
                 Math.max(
@@ -182,7 +169,8 @@ export function PairPhone() {
           }
           seen = result.state;
           // A relay without held polls answers at once; keep the earlier pace.
-          if (Date.now() - asked < 500) await pairingDelay(1000, abort.signal);
+          if (performance.now() - asked < 500)
+            await pairingDelay(1000, abort.signal);
         }
       } catch (error) {
         if (stopped()) return;

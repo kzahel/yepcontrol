@@ -248,15 +248,15 @@ from release metadata; the matched viewer is the functional change.
 
 ## Clock-sensitive pairing creation and minimal UI — 2026-10-26
 
-Candidate `relay-v0.2.3` corrects a reproduced HTTP 400 when the browser clock is
-ahead of the service and removes the excessive pairing instructions added in
-0.2.2. Creation can re-sign once using the service time returned before authority
-allocation. The same short-lived v1 invitation, signature checks and explicit
+Candidate `relay-v0.2.3` removes the browser wall clock from invitation creation
+and validation, and removes the excessive pairing instructions added in 0.2.2.
+The service issues the five-minute deadline before the browser signs a single
+creation request. A deadline read allocates no authority. The same short-lived v1 invitation, signature checks and explicit
 Android approval remain required. Existing hosts and pairings stay compatible.
 The large **Control a phone** entry remains.
 
 Local coverage includes 152 unit tests, real signed browser/Node pairing with
-clocks ahead and behind, bounded correction and Cloudflare admission/expiry
+clocks ahead and behind by seconds through ten years, single creation and Cloudflare admission/expiry
 checks. Deployment and live acceptance are pending. The owner's actual device
 offset remains unmeasured; the screenshot establishes HTTP 400 rather than its
 precise server rejection branch. See [the follow-up](onboarding.md#http-400-follow-up-and-reduced-copy--2026-10-26).

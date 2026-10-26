@@ -5,7 +5,6 @@ export class PairingRequestError extends Error {
     message: string,
     readonly status: number,
     readonly retryAfter = 0,
-    readonly serverTime: number | undefined = undefined,
   ) {
     super(message);
   }
@@ -15,46 +14,22 @@ export class PairingRequestError extends Error {
   }
 }
 
-export async function pairingRequest(
-  id: string,
-  action = "",
-  body?: unknown,
-  wait?: { seen: string; signal: AbortSignal },
-) {
+async function request(url: string, options: RequestInit, creating: boolean) {
   let response: Response;
   try {
-    response = await fetch(
-      `/api/pair/${id}${action ? `/${action}` : ""}`,
-      body === undefined
-        ? wait
-          ? { headers: { "Pair-Wait": wait.seen }, signal: wait.signal }
-          : {}
-        : {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          },
-    );
+    response = await fetch(url, options);
   } catch (error) {
-    if (wait?.signal.aborted) throw error;
+    if (options.signal?.aborted) throw error;
     throw new PairingRequestError(
       "Can’t reach YepControl. Check this device’s internet connection and try again.",
       0,
     );
   }
   if (!response.ok) {
-    const creating = body !== undefined && !action;
-    let serverTime: number | undefined;
     let signatureRejected = false;
     if (creating && response.status === 400) {
       const detail = await response.json().catch(() => undefined);
       signatureRejected = detail?.error === "invalid-signature";
-      if (
-        detail?.error === "clock-skew" &&
-        Number.isSafeInteger(detail.serverTime) &&
-        detail.serverTime > 0
-      )
-        serverTime = detail.serverTime;
     }
     const retry = response.headers.get("Retry-After");
     const seconds = retry === null ? NaN : Number(retry);
@@ -62,7 +37,8 @@ export async function pairingRequest(
       0,
       Number.isFinite(seconds)
         ? seconds * 1000
-        : Date.parse(retry ?? "") - Date.now() || 0,
+        : Date.parse(retry ?? "") -
+            Date.parse(response.headers.get("Date") ?? "") || 0,
     );
     throw new PairingRequestError(
       response.status === 429
@@ -78,9 +54,51 @@ export async function pairingRequest(
               : `YepControl couldn’t check this pairing code (error ${response.status}). Try a new code.`,
       response.status,
       retryAfter || (response.status === 429 ? 60000 : 0),
-      serverTime,
     );
   }
+  return response;
+}
+
+export async function pairingTime(): Promise<{
+  serverTime: number;
+  expires: number;
+}> {
+  const response = await request(
+    "/api/pairing-time",
+    { cache: "no-store" },
+    true,
+  );
+  const value = await response.json();
+  if (
+    !Number.isSafeInteger(value.serverTime) ||
+    value.serverTime <= 0 ||
+    !Number.isSafeInteger(value.expires) ||
+    value.expires * 1000 <= value.serverTime ||
+    value.expires * 1000 > value.serverTime + 300000
+  )
+    throw new Error("Couldn’t create code (invalid service deadline).");
+  return { serverTime: value.serverTime, expires: value.expires };
+}
+
+export async function pairingRequest(
+  id: string,
+  action = "",
+  body?: unknown,
+  wait?: { seen: string; signal: AbortSignal },
+) {
+  const response = await request(
+    `/api/pair/${id}${action ? `/${action}` : ""}`,
+    body === undefined
+      ? wait
+        ? { headers: { "Pair-Wait": wait.seen }, signal: wait.signal }
+        : {}
+      : {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+    body !== undefined && !action,
+  );
   return response.json() as Promise<{
     state: string;
     grant?: Grant;

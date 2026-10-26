@@ -63,6 +63,17 @@ const server = await createServer({
       name: "phones-proof",
       configureServer(vite) {
         vite.middlewares.use((req, res, next) => {
+          if (req.url === "/api/pairing-time") {
+            const serverTime = Date.now();
+            res.setHeader("Content-Type", "application/json");
+            res.end(
+              JSON.stringify({
+                serverTime,
+                expires: Math.floor(serverTime / 1000) + 300,
+              }),
+            );
+            return;
+          }
           if (req.url?.startsWith("/api/pair/")) {
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify({ state: "pending" }));

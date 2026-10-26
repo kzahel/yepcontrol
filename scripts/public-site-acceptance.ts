@@ -50,7 +50,14 @@ const server = createServer(
     const route = new URL(req.url ?? "/", "http://localhost").pathname;
     if (route.startsWith("/api/")) {
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ state: "waiting" }));
+      const serverTime = Date.now();
+      res.end(
+        JSON.stringify(
+          route === "/api/pairing-time"
+            ? { serverTime, expires: Math.floor(serverTime / 1000) + 300 }
+            : { state: "waiting" },
+        ),
+      );
       return;
     }
     const file = path.join(root, "web/dist", viewerAssetPath(route));
@@ -315,8 +322,8 @@ try {
   await expect(pairing.getByRole("status")).toContainText("error 400");
   assert.equal(
     creates,
-    beforeClockRetry + 2,
-    "Clock correction is bounded to one signed retry",
+    beforeClockRetry + 1,
+    "A rejected creation must not be replayed automatically",
   );
   creationError = { error: "invalid-signature" };
   const beforeSignatureError = creates;

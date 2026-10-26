@@ -70,6 +70,14 @@ async function create(
   });
 }
 try {
+  const deadlineResponse = await mf.dispatchFetch(`${origin}/api/pairing-time`, {headers: {"X-Proof-Key": key}});
+  assert.equal(deadlineResponse.status, 200);
+  assert.equal(deadlineResponse.headers.get("Cache-Control"), "no-store");
+  const deadline = await deadlineResponse.json() as {serverTime: number; expires: number};
+  assert.ok(Number.isSafeInteger(deadline.serverTime));
+  assert.ok(deadline.expires * 1000 > deadline.serverTime);
+  assert.ok(deadline.expires * 1000 <= deadline.serverTime + 300000);
+  assert.equal((await mf.listDurableObjectIds("PAIRINGS")).length, 0);
   // Valid-looking random reads and upgrades must not allocate Pairing objects.
   for (let attempt = 0; attempt < 12; attempt++) {
     const response = await mf.dispatchFetch(`${origin}/api/pair/${id()}`, {
@@ -86,7 +94,6 @@ try {
     404,
   );
   const first = id();
-  let correctedExpiry = 0;
   for (const offset of [303, -300]) {
     const clockError = await create(
       first,
@@ -101,7 +108,6 @@ try {
     };
     assert.equal(detail.error, "clock-skew");
     assert.ok(Math.abs(detail.serverTime - Date.now()) < 5000);
-    correctedExpiry = Math.floor(detail.serverTime / 1000) + 300;
     assert.equal(
       (await mf.listDurableObjectIds("PAIRINGS")).length,
       0,
@@ -113,8 +119,8 @@ try {
   assert.deepEqual(await invalidSignature.json(), {error: "invalid-signature"});
   assert.equal((await mf.listDurableObjectIds("PAIRINGS")).length, 0);
   const starts = await Promise.all([
-    create(first, undefined, "local", correctedExpiry),
-    create(first, undefined, "local", correctedExpiry),
+    create(first, undefined, "local", deadline.expires),
+    create(first, undefined, "local", deadline.expires),
   ]);
   assert.deepEqual(starts.map((r) => r.status).sort(), [201, 400]);
   assert.equal((await create(id())).status, 201);

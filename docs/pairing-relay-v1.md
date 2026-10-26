@@ -35,13 +35,16 @@ the QR can enroll; it must not enter URLs sent to a server, logs or analytics.
 
 Create requests are viewer-signed over `ara/pair/create/v1`, origin, ID, viewer
 key, expiry. Pending enrollment is bounded, memory-only and lost on restart.
-If a creation expiry falls outside the service's existing five-minute window,
-the service returns HTTP 400 with `error: "clock-skew"` and `serverTime` (Unix
-milliseconds), before allocating authority. The browser can re-sign the same
-ID/secret once using that service clock, retaining the normal expiry and approval
-checks. Other errors and completion requests are never automatically replayed by
-this correction. This additive creation error does not change the v1 grant or
-installed Android parser. See [the clock regression](onboarding.md#http-400-follow-up-and-reduced-copy--2026-10-26).
+The browser first fetches `GET /api/pairing-time`, which returns `serverTime`
+(Unix milliseconds) and `expires` (Unix seconds) with `Cache-Control: no-store`.
+This read is rate-limited and allocates no pairing authority. It signs the returned
+expiry and tracks its remaining lifetime with monotonic elapsed time; its own wall
+clock is unused. The service still rejects a creation expiry outside its existing
+five-minute window before allocating authority, returning HTTP 400 with
+`error: "clock-skew"` and `serverTime`. Creation errors and completion requests
+are never automatically replayed. The additive endpoint/error does not change
+the v1 grant or installed Android parser. See
+[the clock regression](onboarding.md#http-400-follow-up-and-reduced-copy--2026-10-26).
 Public polling returns only a phone's signed offer, never the QR secret.
 A poll may send `Pair-Wait: <state it already has>` (`waiting` from the browser,
 `offered` from the phone). The relay then holds the reply until the state

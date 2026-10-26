@@ -262,7 +262,18 @@ it.each([
   expect(detail.error).toBe("clock-skew");
   expect(Math.abs(detail.serverTime - Date.now())).toBeLessThan(5000);
   expect((await api()).status).toBe(404);
-  invitation.expires = Math.floor(detail.serverTime / 1000) + 300;
+  const deadlineResponse = await fetch(`${base}/api/pairing-time`);
+  expect(deadlineResponse.status).toBe(200);
+  expect(deadlineResponse.headers.get("Cache-Control")).toBe("no-store");
+  const deadline = (await deadlineResponse.json()) as {
+    serverTime: number;
+    expires: number;
+  };
+  expect(deadline.expires * 1000).toBeGreaterThan(deadline.serverTime);
+  expect(deadline.expires * 1000).toBeLessThanOrEqual(
+    deadline.serverTime + 300000,
+  );
+  invitation.expires = deadline.expires;
   expect((await create()).status).toBe(201);
   expect((await api()).status).toBe(200);
 });

@@ -31,7 +31,9 @@ export async function verifyPairingClocks(
   assert.ok(address && typeof address !== "string");
   const base = `http://127.0.0.1:${address.port}`;
   try {
-    for (const offset of [0, 3000, -600000, 600000]) {
+    for (const offset of [
+      0, 3000, -600000, 600000, -315360000000, 315360000000,
+    ]) {
       const context = await browser.newContext({
         viewport: { width: 390, height: 844 },
         ignoreHTTPSErrors: true,
@@ -44,9 +46,11 @@ export async function verifyPairingClocks(
         }, offset);
         const page = await context.newPage();
         const creates: { id: string; status: number }[] = [];
-        await page.route("**/api/pair/**", async (route) => {
+        let deadlines = 0;
+        await page.route("**/api/**", async (route) => {
           const request = route.request();
           const pathname = new URL(request.url()).pathname;
+          if (pathname === "/api/pairing-time") deadlines++;
           const response = await route.fetch({ url: base + pathname });
           if (
             request.method() === "POST" &&
@@ -60,12 +64,17 @@ export async function verifyPairingClocks(
         await expect(qr).toBeVisible();
         assert.deepEqual(
           creates.map((request) => request.status),
-          offset ? [400, 201] : [201],
+          [201],
+        );
+        assert.equal(
+          deadlines,
+          1,
+          "Every code starts with a server-issued deadline",
         );
         assert.equal(
           new Set(creates.map((request) => request.id)).size,
           1,
-          "Clock correction keeps the same single-use invitation",
+          "Creation uses a single invitation",
         );
         const png = PNG.sync.read(await qr.screenshot());
         const decoded = jsQR(
@@ -118,7 +127,7 @@ export async function verifyPairingClocks(
         );
         assert.equal(
           creates.length,
-          offset ? 2 : 1,
+          1,
           "Successful completion must not renew the QR",
         );
       } finally {

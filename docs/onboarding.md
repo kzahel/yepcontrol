@@ -209,14 +209,16 @@ the service allowed only 301 seconds into its own future. This is a reproduced
 functional defect consistent with the photograph; the actual offset and rejection
 branch on the reported phone have not been measured.
 
-For a creation timestamp outside that existing window, Node and Cloudflare now
-return `clock-skew` and the current service time before allocating a pairing.
-The browser uses that time to re-sign the same invitation once, then tracks its
-expiry with elapsed monotonic time. Signed offer verification uses that calibrated
-clock too. Five-minute service expiry, signatures, HMAC, explicit phone approval,
-stored authority and installed-app compatibility remain unchanged. Other errors,
-including invalid browser signatures, do not reset identity or trigger this retry.
-An uncertain completion still stops without automatic replay or another grant.
+The owner's follow-up explicitly requests ignoring client time. The browser now
+fetches a fresh, uncached deadline from `GET /api/pairing-time` before signing
+creation. Node and Cloudflare choose the five-minute expiry and return their own
+current time; fetching a deadline allocates no authority. The browser never uses
+its wall clock to choose or validate the invitation deadline. It tracks elapsed
+monotonic time from the service response, including signed offer verification and
+expiry. Creation is sent once. Five-minute service expiry, signatures, HMAC,
+explicit phone approval, stored authority and installed-app compatibility remain
+unchanged. Rejected creation, invalid browser signatures and uncertain completion
+do not reset identity or trigger automatic replay or another grant.
 
 The pairing page now contains its status, QR, one short scan prompt and link/retry
 controls. Role paragraphs, numbered instructions, scanner-help disclosure,
@@ -224,10 +226,11 @@ installation links and repeated helper notices are removed. The homepage's
 three-step explanation is removed too; its large **Control a phone** action stays.
 
 The built-site suite now drives actual signed creation, sealed phone offers and
-viewer completion through the Node relay with accurate, 3-second-ahead and
-10-minute-ahead/behind browser clocks. It checks the rendered QR's real expiry,
-same invitation ID, valid final viewer signature and bounded correction. Separate
-tests retain expiry rejection and verify invalid-signature errors are not retried.
-The Cloudflare admission suite verifies clock rejection allocates no authority
-and the corrected signed request can create that same ID. Production receipt is
+viewer completion through the Node relay with accurate, 3-second-ahead,
+10-minute-ahead/behind and ten-year-ahead/behind browser clocks. Every case requires
+one service deadline and a single HTTP 201 creation, the rendered QR's real
+expiry and valid final viewer signature. Separate tests retain expiry rejection
+and verify rejected creation is not retried. The Cloudflare admission suite
+verifies deadline reads and clock rejection allocate no authority, and a signed
+request using the service deadline can create the same ID. Production receipt is
 recorded separately in [relay releases](relay-releases.md).

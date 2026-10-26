@@ -162,6 +162,14 @@ export function createRelay(options: Options) {
         reply(429, { error: "Request unavailable" });
         return;
       }
+      if (req.url === "/api/pairing-time" && req.method === "GET") {
+        const serverTime = Date.now();
+        reply(200, {
+          serverTime,
+          expires: Math.floor(serverTime / 1000) + 300,
+        });
+        return;
+      }
       const parts = req.url?.match(
         /^\/api\/pair\/([0-9a-f]{32})(?:\/(offer|complete|revoke))?$/,
       );
