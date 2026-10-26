@@ -212,7 +212,7 @@ scanner feedback requires the separate Android update. See
 
 ## Mobile pairing entry and recovery — 2026-10-26
 
-Release candidate `relay-v0.2.2` makes **Control a phone** the prominent homepage
+`relay-v0.2.2` makes **Control a phone** the prominent homepage
 action, with the same large action on saved-phone lists. Browser pairing keeps
 role instructions visible during errors, explains service/network/rate-limit
 failures and respects retry delays. Temporary approval-poll failures retain the
@@ -223,5 +223,25 @@ relay authority and stored formats remain compatible.
 Local mobile/desktop Chromium checks cover the primary action's size, order and
 visibility, installation, rendered QR decoding, retry countdowns, temporary
 failure recovery, expiry during backoff and permanent rejection. TypeScript
-checks and all 149 unit tests pass. Production deployment and live acceptance
-are pending; record exact-source CI and deployment receipts here when verified.
+checks and all 149 unit tests pass, along with the viewer layout and multi-phone
+suites, including lost completion receipts and saved-phone preservation.
+
+Source `b6b33ff011358d747c25e45a02bd4d2e4e48f9f7` passed full
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40378544034) and
+[CodeQL](https://github.com/kzahel/yepcontrol/actions/runs/40378544071), the
+[tag build](https://github.com/kzahel/yepcontrol/actions/runs/40379110294) and
+[production deployment](https://github.com/kzahel/yepcontrol/actions/runs/40379111887).
+The deployment receipt and an independent canonical-origin health check agree
+on Worker `ad6cc927-2ff7-4ffa-8364-9c86e6e1a055`, version 0.2.2, that exact source
+and public admission.
+
+Fresh isolated Chromium checks against the public origin pass with an Android
+mobile browser profile, a 320-pixel mobile viewport and desktop layout. The large
+primary action and public installation badge are visible, code creation returns
+HTTP 201, and the rendered QR decodes to the canonical enrollment origin. A
+controlled mobile network interruption recovers approval polling with the same
+QR. An intercepted service failure also verifies the deployed error guidance and
+explicit retry without sending that failure fixture to production. These are
+browser checks, not hands-on acceptance on the reported Pixel. Android binaries,
+the pairing protocol and the running Worker implementation are unchanged apart
+from release metadata; the matched viewer is the functional change.

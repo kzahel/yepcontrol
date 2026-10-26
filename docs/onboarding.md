@@ -177,8 +177,7 @@ The pairing page keeps role/scanner instructions visible during errors, places
 the QR before link alternatives and provides scanner labels for both the public
 0.8.0 app and newer builds. Protocol, storage and installed-app compatibility
 are unchanged. Deployment evidence is recorded in
-[relay releases](relay-releases.md#mobile-pairing-entry-and-recovery--2026-10-26)
-once verified.
+[relay releases](relay-releases.md#mobile-pairing-entry-and-recovery--2026-10-26).
 
 Built-site Chromium checks exercise service failure during creation, a rate-limit
 countdown, explicit retry, network/503/429 approval-poll recovery preserving the
