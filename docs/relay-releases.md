@@ -248,7 +248,7 @@ from release metadata; the matched viewer is the functional change.
 
 ## Clock-sensitive pairing creation and minimal UI — 2026-10-26
 
-Candidate `relay-v0.2.3` removes the browser wall clock from invitation creation
+`relay-v0.2.3` removes the browser wall clock from invitation creation
 and validation, and removes the excessive pairing instructions added in 0.2.2.
 The service issues the five-minute deadline before the browser signs a single
 creation request. A deadline read allocates no authority. The same short-lived v1 invitation, signature checks and explicit
@@ -257,7 +257,7 @@ The large **Control a phone** entry remains.
 
 Local coverage includes 152 unit tests, real signed browser/Node pairing with
 clocks ahead and behind by seconds through ten years, single creation and Cloudflare admission/expiry
-checks. Deployment and live acceptance are pending. The owner's actual device
+checks. The owner's actual device
 offset remains unmeasured; the screenshot establishes HTTP 400 rather than its
 precise server rejection branch. See [the follow-up](onboarding.md#http-400-follow-up-and-reduced-copy--2026-10-26).
 
@@ -267,3 +267,26 @@ layout checks, then stopped because the existing multi-phone fixture required
 the removed helper paragraph to be visible. That assertion now requires its
 absence. The full local multi-phone suite passes with the existing signature,
 saved-access, interrupted-completion and contention checks retained.
+
+Final source `201878c43675894505c4b6082f48035d232e5f21` passed complete
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/40394375787),
+[CodeQL](https://github.com/kzahel/yepcontrol/actions/runs/40394375037) and
+[production release/deployment](https://github.com/kzahel/yepcontrol/actions/runs/40394989583).
+The redundant build-only tag run was cancelled so the deployment workflow could
+perform its own full source/runtime checks and matched-bundle build. No deployment
+job was cancelled and no required check was bypassed.
+
+The uploaded deployment receipt and independent canonical-origin health agree
+on version 0.2.3, that source, public admission and Worker
+`c4af054e-d19a-4ac1-b306-5e5a9314e1fc`. Fresh isolated Android-profile Chromium
+sessions against production completed signed creation, a synthetic phone's sealed
+offer and viewer completion with clocks ten years ahead, ten years behind and
+accurate. Every case fetched one service deadline and created once with HTTP 201;
+the final viewer signature was independently verified. Each temporary synthetic
+grant was revoked afterward and its public state returned HTTP 410.
+
+Live 320-pixel mobile and desktop checks also verify the prominent control action,
+removed homepage guide, compact pairing page and QR creation. These tests use
+isolated browsers and synthetic phone identities; they neither measure the
+reported physical phone's clock nor change any phone setting. No Android update,
+new protocol/storage format or re-pairing of existing grants is required.
