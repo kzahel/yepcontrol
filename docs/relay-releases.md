@@ -209,3 +209,19 @@ Fresh isolated live mobile/desktop checks verify both roles, rendered QR decodin
 and the fallback. Existing public hosts and pairings remain compatible. Native
 scanner feedback requires the separate Android update. See
 [the scope, evidence and qualification limits](onboarding.md).
+
+## Mobile pairing entry and recovery — 2026-10-26
+
+Release candidate `relay-v0.2.2` makes **Control a phone** the prominent homepage
+action, with the same large action on saved-phone lists. Browser pairing keeps
+role instructions visible during errors, explains service/network/rate-limit
+failures and respects retry delays. Temporary approval-poll failures retain the
+existing QR rather than discarding it. Completion failures still require checking
+the phone before an explicit retry. Installed Android hosts, existing grants,
+relay authority and stored formats remain compatible.
+
+Local mobile/desktop Chromium checks cover the primary action's size, order and
+visibility, installation, rendered QR decoding, retry countdowns, temporary
+failure recovery, expiry during backoff and permanent rejection. TypeScript
+checks and all 149 unit tests pass. Production deployment and live acceptance
+are pending; record exact-source CI and deployment receipts here when verified.

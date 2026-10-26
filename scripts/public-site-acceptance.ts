@@ -118,6 +118,28 @@ try {
       "YepControl – Control Your Android Phone from a Browser",
     );
     const install = page.getByRole("link", { name: "Get it on Google Play" });
+    const control = page.getByRole("link", {
+      name: "Control a phone",
+      exact: true,
+    });
+    await expect(control).toHaveAttribute("href", "/pair");
+    await expect(control).toBeInViewport({ ratio: 1 });
+    const controlBox = await control.boundingBox();
+    const installBox = await install.boundingBox();
+    assert.ok(controlBox && installBox);
+    assert.ok(
+      controlBox.height >= 64,
+      "Primary control action has a large touch target",
+    );
+    assert.ok(
+      controlBox.y + controlBox.height < installBox.y,
+      "Control is the first primary action",
+    );
+    if (width <= 760)
+      assert.ok(
+        controlBox.width >= width - 90,
+        "Mobile control action fills its card",
+      );
     await expect(install).toHaveAttribute("href", play);
     await expect(install).toBeInViewport({ ratio: 1 });
     assert.equal(
@@ -130,10 +152,12 @@ try {
       path: path.join(artifacts, `${name}-home.png`),
       fullPage: true,
     });
-    await page
-      .getByRole("link", { name: "Control a phone", exact: true })
-      .click();
+    await control.click();
     await expect(page.locator(".pairing-code svg")).toBeVisible();
+    await page.screenshot({
+      path: path.join(artifacts, `${name}-pair-start.png`),
+      fullPage: true,
+    });
     const png = PNG.sync.read(
       await page.locator(".pairing-code svg").screenshot(),
     );
@@ -238,6 +262,135 @@ try {
     );
     await context.close();
   }
+  // A demo must recover without replacing the code the owner is scanning.
+  const pairingContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    ignoreHTTPSErrors: true,
+  });
+  const pairing = await pairingContext.newPage();
+  await pairing.clock.install();
+  pairing.on("pageerror", (error) => errors.push(error.message));
+  let creates = 0;
+  let creationStatus = 503;
+  let pollStatus = 200;
+  let disconnect = false;
+  let polls = 0;
+  let activeExpiry = 0;
+  let retryAfter = "1";
+  await pairing.route("**/api/pair/*", async (route) => {
+    const creating = route.request().method() === "POST";
+    if (creating) {
+      creates++;
+      activeExpiry = route.request().postDataJSON().expires;
+    } else polls++;
+    if (!creating && disconnect) {
+      await route.abort("internetdisconnected");
+      return;
+    }
+    await route.fulfill({
+      status: creating ? creationStatus : pollStatus,
+      headers: { "Retry-After": retryAfter },
+      contentType: "application/json",
+      body: JSON.stringify({ state: "waiting" }),
+    });
+  });
+  await pairing.goto(`${origin}/pair`);
+  await expect(pairing.getByRole("alert")).toContainText(
+    "pairing service is temporarily unavailable",
+  );
+  await expect(pairing.getByLabel("Pairing instructions")).toContainText(
+    "On the Android phone being controlled:",
+  );
+  await pairing.getByText("Where is the scanner?", { exact: true }).click();
+  await expect(pairing.locator(".pairing-scanner-help")).toContainText(
+    "Add device",
+  );
+  await expect(pairing.locator(".pairing-scanner-help")).toContainText(
+    "Allow a browser",
+  );
+  await pairing.getByText("Where is the scanner?", { exact: true }).click();
+  await expect(pairing.locator(".pairing-code svg")).toHaveCount(0);
+  await pairing.screenshot({
+    path: path.join(artifacts, "mobile-pair-service-error.png"),
+    fullPage: true,
+  });
+  creationStatus = 429;
+  await pairing.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(pairing.getByRole("alert")).toContainText(
+    "too many pairing requests",
+  );
+  await expect(
+    pairing.getByRole("button", { name: /Try again in/ }),
+  ).toBeDisabled();
+  const beforeRetry = creates;
+  creationStatus = 201;
+  await expect(
+    pairing.getByRole("button", { name: "Try again", exact: true }),
+  ).toBeEnabled();
+  assert.equal(
+    creates,
+    beforeRetry,
+    "No automatic duplicate creation after backoff",
+  );
+  await pairing.getByRole("button", { name: "Try again", exact: true }).click();
+  const qr = pairing.locator(".pairing-code svg");
+  await expect(qr).toBeVisible();
+  const originalCode = await qr.innerHTML();
+  const created = creates;
+  for (const status of [0, 503, 429]) {
+    disconnect = status === 0;
+    pollStatus = status || 200;
+    await expect(pairing.getByRole("status")).toContainText("Reconnecting");
+    await expect(qr).toBeVisible();
+    assert.equal(await qr.innerHTML(), originalCode);
+    const failedPolls = polls;
+    await expect.poll(() => polls).toBeGreaterThan(failedPolls);
+    disconnect = false;
+    pollStatus = 200;
+    await expect(pairing.getByRole("status")).toContainText(
+      "Waiting for approval",
+    );
+    assert.equal(
+      creates,
+      created,
+      "Retry checks the same code without creating another",
+    );
+  }
+  // A permanent rejection still requires an explicit new code.
+  pollStatus = 404;
+  await expect(pairing.getByRole("alert")).toContainText("no longer available");
+  await expect(qr).toHaveCount(0);
+  pollStatus = 200;
+  await pairing.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(qr).toBeVisible();
+  assert.notEqual(await qr.innerHTML(), originalCode);
+  assert.equal(creates, created + 1);
+  // Expiry must not bypass an outstanding service backoff by renewing the code.
+  pollStatus = 429;
+  retryAfter = "60";
+  await pairing.clock.fastForward(activeExpiry * 1000 - Date.now() - 2000);
+  await expect(pairing.getByRole("status")).toContainText("Reconnecting");
+  await pairing.clock.fastForward(3000);
+  await expect(pairing.getByRole("alert")).toContainText("code expired");
+  await expect(qr).toHaveCount(0);
+  await expect(
+    pairing.getByRole("button", { name: /Try again in/ }),
+  ).toBeDisabled();
+  assert.equal(
+    creates,
+    created + 1,
+    "Expiry preserves the server's retry delay",
+  );
+  await pairing.clock.fastForward(60000);
+  await expect(
+    pairing.getByRole("button", { name: "Try again", exact: true }),
+  ).toBeEnabled();
+  assert.equal(
+    creates,
+    created + 1,
+    "Backoff expiry does not create access automatically",
+  );
+  await pairingContext.close();
   const noJS = await browser.newContext({
     javaScriptEnabled: false,
     ignoreHTTPSErrors: true,
@@ -302,6 +455,12 @@ try {
     "Your phones",
   );
   await expect(returning.locator("#welcome")).toHaveCount(0);
+  const returningControl = returning
+    .locator("main")
+    .getByRole("link", { name: "Control a phone", exact: true });
+  await expect(returningControl).toBeInViewport({ ratio: 1 });
+  const returningControlBox = await returningControl.boundingBox();
+  assert.ok(returningControlBox && returningControlBox.height >= 64);
   await expect(
     returning
       .locator(".phone-list")
@@ -320,7 +479,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS public HTML/metadata, mobile/desktop layout, QR decoding, install fallback, secret isolation, no-JS links and returning phone navigation",
+    "PASS public HTML/metadata, mobile/desktop layout, QR decoding, pairing error/retry/recovery, install fallback, secret isolation, no-JS links and returning phone navigation",
   );
 } finally {
   await browser.close();

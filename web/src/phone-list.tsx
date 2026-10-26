@@ -55,8 +55,9 @@ export function PhoneList({
         name="Your phones"
         status={error || "Saved in this browser"}
       />
-      <a className="button-link" href="/pair">
-        Control a phone
+      <a className="button-link control-phone-action" href="/pair">
+        <span>Control a phone</span>
+        <span aria-hidden="true">→</span>
       </a>
       {phones.length ? (
         <ul className="phone-list">

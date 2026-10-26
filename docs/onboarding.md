@@ -145,3 +145,54 @@ The earlier CI failures remain recorded rather than counted as passing runs.
 With the fixture update, both local hosted/FCM and full control acceptance pass,
 and the complete CI release smoke suite passes. No UI gesture, cryptographic
 exchange, rotation or revocation assertion was removed.
+
+## Mobile-browser pairing failure report — 2026-10-26
+
+The owner reported that a second person using the browser on a Pixel 9a-class
+phone could not create a QR code, including after choosing New code. The intended
+direction was correct: the second person's browser controls the owner's Android
+phone; only the owner's phone needs the app. The exact browser, HTTP response
+and failure time were not captured, so the original cause is unconfirmed.
+
+A fresh isolated Chromium check against production returned HTTP 201 for code
+creation and rendered its QR. The production health check identified public
+`relay-v0.2.1`. This establishes current success from the test environment, not
+the outcome of the reported attempt or physical acceptance on the other phone.
+
+Source review found that every failed pairing HTTP response used the same
+expired/revoked/unavailable text, including creation failures. A single failed
+approval poll also discarded a valid QR, even for a temporary network error,
+rate limit or server outage. Those are confirmed implementation problems;
+neither has been established as the cause of this particular attempt.
+
+The local viewer changes distinguish connection, rate-limit, service and other
+HTTP failures. Creation offers an explicit retry and respects Retry-After with
+a disabled countdown. Approval polling retains the same invitation and retries
+temporary failures with bounded backoff until expiry; a pending server wait is
+also respected when expiry would otherwise renew the code. Permanent rejection
+still removes the QR. Completion failures still stop with the unconfirmed-pairing
+warning and never automatically retry completion or create another grant.
+
+The pairing page keeps role/scanner instructions visible during errors, places
+the QR before link alternatives and provides scanner labels for both the public
+0.8.0 app and newer builds. Protocol, storage and installed-app compatibility
+are unchanged. Deployment evidence is recorded in
+[relay releases](relay-releases.md#mobile-pairing-entry-and-recovery--2026-10-26)
+once verified.
+
+Built-site Chromium checks exercise service failure during creation, a rate-limit
+countdown, explicit retry, network/503/429 approval-poll recovery preserving the
+exact QR without additional creation requests, and permanent 404 rejection with
+explicit replacement. A controlled-clock check verifies that code expiry respects
+an outstanding server backoff instead of automatically creating a new code.
+Existing mobile/desktop QR decoding, clipboard/App Link
+handoff, secret isolation and returning-browser checks also pass. This is
+deterministic browser evidence, not a reproduction on the reported Pixel.
+
+The follow-up owner request authorizes deploying these changes and making the
+website's controlling action obvious. The homepage now leads with a large
+**Control a phone** button and plain browser/no-app guidance, before the separate
+Android installation option. Saved-phone browsers use the same large action.
+Mobile and desktop checks require the homepage control action to be fully visible,
+at least 64 pixels high and above installation; narrow layouts also check its
+width. The public Play installation badge remains visible in the initial viewport.

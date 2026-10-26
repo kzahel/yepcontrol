@@ -590,6 +590,18 @@ a {
   color: var(--text);
   background: var(--hover);
 }
+.control-phone-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: min(100%, 360px);
+  min-height: 64px;
+  padding: 16px 24px;
+  font-size: 1.25rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
 .phone-list {
   list-style: none;
   padding: 0;
@@ -960,6 +972,12 @@ a {
 .pairing-role {
   margin: 0 0 16px;
   font-size: 1rem;
+}
+.pairing-steps {
+  padding-left: 24px;
+}
+.pairing-steps li {
+  margin-bottom: 8px;
 }
 .pairing-link-actions {
   display: flex;

@@ -210,6 +210,18 @@
 .role-option .public-actions {
   margin: 0;
 }
+.control-start {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.control-start .control-phone-action {
+  width: 100%;
+}
+.control-start p {
+  margin: 12px 0 0;
+}
 .open-source > a:first-child {
   font-weight: 650;
 }
