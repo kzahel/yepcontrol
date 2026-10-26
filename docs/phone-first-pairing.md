@@ -73,3 +73,15 @@ Android 0.9.0/code 10 is the prepared candidate. The release emulator workflow n
 requires both pairing directions against its configured acceptance relay.
 Deployment, internal delivery, physical acceptance and production submission
 receipts are recorded separately when verified.
+
+The same native candidate also passes the existing owned-emulator control suite
+against production using browser-first pairing: encrypted viewing, tap, Unicode
+text, swipe, held touch, long press, two-finger input, display rotation, held-input
+watchdog, navigation, global disarm and revocation. Smooth video decoded 63 frames
+over 5.003 seconds. This confirms compatibility with the pre-feature production
+service; it does not establish physical or overnight acceptance. The private
+receipt is `.local/phone-first-control-proof/result.json`.
+
+The installation page now presents the two phone-first actions and one short
+fallback for older apps. It removes the previous three-step instructions and
+repeated installation/pairing reminders. Public-site acceptance passes.
