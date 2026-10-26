@@ -260,3 +260,10 @@ clocks ahead and behind, bounded correction and Cloudflare admission/expiry
 checks. Deployment and live acceptance are pending. The owner's actual device
 offset remains unmeasured; the screenshot establishes HTTP 400 rather than its
 precise server rejection branch. See [the follow-up](onboarding.md#http-400-follow-up-and-reduced-copy--2026-10-26).
+
+The first full [Checks run](https://github.com/kzahel/yepcontrol/actions/runs/40391856390)
+passed the new signed clock regressions, Cloudflare, build/unit/lint and viewer
+layout checks, then stopped because the existing multi-phone fixture required
+the removed helper paragraph to be visible. That assertion now requires its
+absence. The full local multi-phone suite passes with the existing signature,
+saved-access, interrupted-completion and contention checks retained.

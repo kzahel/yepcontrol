@@ -511,7 +511,7 @@ try {
     .click();
   await expect(
     other.getByText(/Pairing adds access\. Earlier pairings/),
-  ).toBeVisible();
+  ).toHaveCount(0);
   const qr = PNG.sync.read(
     await other
       .getByRole("img", { name: "Scan to pair this browser" })
