@@ -398,3 +398,62 @@ Play app and normal permissions remain installed. No PIN, lock, debugging or
 network settings changed. First-use download timing, natural overnight/reboot
 availability and the separate notification-restoration qualification remain
 outside these passing checks.
+
+## Android 0.9.0 / code 10 — 2026-10-26
+
+The owner authorized phone-first QR pairing, autonomous end-to-end testing,
+website deployment and Play publication. See
+[the design and acceptance record](../phone-first-pairing.md).
+The exact native source is `ef136519a0b89a54bf0b0d96d33b950ff198c7f7`;
+[signed build 40402919827](https://github.com/kzahel/yepcontrol/actions/runs/40402919827)
+passes full release acceptance on attempt 2. Attempt 1 timed out navigating an
+inactive browser to its library after both QR pairings; the fresh-runner attempt
+passes both directions, process-absent FCM wake, control, touch, rotation and video.
+The signed AAB SHA-256 is
+`f912566fb02478f930a7a155f60b4828d5f0392772bc467edff17c54cf15928b`.
+
+The guarded
+[CI internal publication attempt](https://github.com/kzahel/yepcontrol/actions/runs/40407727854)
+received HTTP 400 from the final edit commit with
+`changesNotSentForReview=true` and `changesInReviewBehavior=ERROR_IF_IN_REVIEW`.
+No fallback to app-wide review submission or permission expansion was used.
+Console still showed internal 0.8.3 and the unsent production draft before the
+separate UI publication. This establishes a live limitation of that guarded API path,
+not successful CI publication. CI remains internal-only and fails closed.
+
+The exact signed CI bytes were then uploaded using Play Console's native file
+picker and published specifically to internal testing. Console confirms
+**0.9.0 / Available to internal testers / code 10**, released Oct 26 at 22:56
+local. Supported-device counts are unchanged; the only warnings concern the
+existing absent deobfuscation/native-symbol files. The prior production 0.8.3
+change remains **not yet submitted for review** after this internal publication.
+The browser upload helper's file-URL permission was not enabled. Private build,
+upload and Console receipts are retained in ignored `.local/phone-first-release/`.
+
+### Play-installed physical acceptance
+
+The Pixel 7a received **0.9.0/code 10 through Google Play** as an in-place update
+after store propagation. Package version, Play installer and the original Play
+signing certificate were independently verified. A test pairing created on 0.8.3
+before the update connected securely afterward. A browser Home action changed
+Android's independently observed focused activity from Settings to the launcher.
+Existing screen-access and notification grants remain enabled.
+
+The installed app's **Give control → Show code** action creates its QR. The
+accessibility tree contains the generic image description and no pairing URL;
+the actual system capture does not expose the code. Cancel returns normally.
+Both rendered QR directions and automatic connection are separately verified on
+the owned emulator against production; this physical check does not claim an
+external-camera scan of the protected physical display.
+
+Standalone UIAutomator temporarily suppresses the accessibility service, changing
+home/detail geometry. Initial coordinate taps therefore missed their controls;
+the physical check used observed stable screen positions and verified each
+result. No product change was made for that test-tool effect.
+
+The temporary browser is removed on the phone, its relay authority returns
+HTTP 410, and a new browser authentication reports removed access. Its isolated
+browser process exited. Media projection is null. The Play update and normal
+permissions remain installed; no physical PIN, lock, debugging or network setting
+was changed. The private receipt is
+`.local/phone-first-release/physical-code10.json`.

@@ -1,6 +1,6 @@
 # YepControl
 
-View and control your Android phone from a browser. On the phone, choose
+View and control your Android phone from a browser. With Android 0.9.0, choose
 **Give control → Show code**. Scan it with the other device's camera to connect
 through an end-to-end encrypted session. The browser-first QR flow also works.
 
@@ -12,10 +12,11 @@ through an end-to-end encrypted session. The browser-first QR flow also works.
 - Android 11+; application ID `com.yepcontrol.app`.
 
 **Play release:** version 0.8.0/code 6 is publicly released, confirmed in Console
-2026-10-26. Android 0.8.3/code 9 has passed Play-installed acceptance and has a
-prepared production rollout. See the current submission status in the
+2026-10-26. Android 0.9.0/code 10 is available to internal testers and has passed
+Play-installed acceptance. Its public rollout is prepared; Console's final
+review submission remains unconfirmed. See the current submission status in the
 [production release record](docs/distribution/android-production.md) and
-[installed-build evidence](docs/distribution/android-beta.md#android-083--code-9--2026-10-26).
+[installed-build evidence](docs/distribution/android-beta.md#android-090--code-10--2026-10-26).
 
 Screen control requires Android's screen-access permission; smooth video asks
 for screen-sharing consent. After a reboot, the phone needs its first local

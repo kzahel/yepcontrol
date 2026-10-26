@@ -114,3 +114,16 @@ directions, cancellation, capture exclusion and cleanup. A fresh installation
 correctly asks for screen-access permission inside that connected session. This
 check is now retained in the mobile acceptance harness; its private receipt is
 `.local/phone-first-automatic-proof/result.json`.
+
+## Android delivery and production status
+
+Android 0.9.0/code 10 is available through internal Play and passes installed
+Pixel 7a acceptance: original Play signer, preserved pre-update pairing and
+permissions, encrypted control, independently observed remote Home, QR creation,
+capture exclusion, local cancellation and fixture revocation. See
+[the exact build/delivery receipt](distribution/android-beta.md#android-090--code-10--2026-10-26).
+
+The accepted bundle is saved for full public rollout. Console does not record the
+final review submission despite repeated confirmations; it remains ready and
+unsubmitted. See [the production status and blocker](distribution/android-production.md#android-090-production-preparation--2026-10-26).
+Do not describe this as Google approval or public availability of the new app.

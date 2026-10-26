@@ -195,3 +195,37 @@ No sign-in challenge was open. The tested code-9 rollout remains saved and ready
 in the owner's Publishing overview; its final control needs an owner UI attempt.
 This is an observed Console submission blocker, not a request for new publication
 authorization. No API commit is used to submit it indirectly.
+
+## Android 0.9.0 production preparation — 2026-10-26
+
+The owner authorized autonomous phone-first pairing implementation, end-to-end
+verification, website deployment and Play publication. Android **0.9.0/code 10**
+passes [release and Play-installed physical acceptance](android-beta.md#android-090--code-10--2026-10-26),
+including preserved access, real browser control and protected QR creation. The
+matching [website/relay](../phone-first-pairing.md#production-website-and-relay--2026-10-26)
+is live. The exact accepted internal bundle was promoted in Console into a new
+production release, replacing the earlier unsent 0.8.3 candidate.
+
+The saved release selects **100% rollout / all existing targeted countries**,
+has no supported-device losses and only the existing deobfuscation/native-symbol
+warnings. Notes describe phone-issued QR pairing, retained browser-first pairing,
+clearer setup/scanner feedback and faster reconnects. Listing, declarations,
+signing identity, account permissions and CI publication scope are unchanged.
+Managed publishing remains off.
+
+Console confirmed the change was saved and quick checks completed. The final
+**Send changes for review** confirmation repeatedly closed without an error or
+submission receipt through semantic, native accessibility and focused native
+keyboard controls, including a foreground window and fresh page load. The
+persisted result remains **Changes not yet submitted for review / Production /
+0.9.0 / Start full rollout**. Submission activity still contains only the earlier
+published 0.7.0 and 0.8.0 submissions. Browser error logs contain no reported error;
+no sign-in challenge is open.
+
+The tested rollout is saved and ready in the owner's Publishing overview; the
+final confirmation needs an owner UI attempt. This is a Console submission
+blocker, not a request for new publication authorization. No API commit requests
+production review indirectly. **Production submission, Google approval and public
+availability of 0.9.0 are not established.** Internal Play 0.9.0 and the production
+website/relay are live. Private Console receipts remain in
+`.local/phone-first-release/`.
