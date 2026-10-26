@@ -205,7 +205,9 @@ export async function verifyPhoneFirstBrowser(
           replaying = true;
           const replay = await context.newPage();
           await replay.goto(encodePhoneInvitation(invite));
-          await expect(replay.getByRole("status")).toContainText("400");
+          await expect(replay.getByRole("status")).toContainText(
+            "This code is unavailable.",
+          );
           await replay.close();
         }
         assert.equal(
