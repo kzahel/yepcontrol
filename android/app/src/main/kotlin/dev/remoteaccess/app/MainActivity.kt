@@ -2,8 +2,6 @@ package dev.remoteaccess.app
 
 import android.Manifest
 import android.app.AlertDialog
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -24,9 +22,9 @@ import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -58,6 +56,22 @@ import java.util.Date
 class MainActivity : ComponentActivity() {
     private val store by lazy { HostStore.get(this) }
     private val scanner by lazy { ViewModelProvider(this)[PairingScanner::class.java] }
+    private val giveControl by lazy { ViewModelProvider(this)[GiveControl::class.java] }
+    private val giveListener: () -> Unit = {
+        handler.post {
+            if (!isDestroyed && loaded) {
+                val state = giveControl.state
+                if (state.phase == GiveControl.Phase.COMPLETED && state.deviceId != null) {
+                    giveControl.consumed()
+                    backStack.clear()
+                    backStack.add("home")
+                    deviceId = state.deviceId
+                    page = if (ScreenAccessService.current == null) "features" else "device"
+                }
+                if (listening) render()
+            }
+        }
+    }
     private var observedScan: PairingScanner.Request? = null
     private lateinit var shell: ManagementShell
     private val backStack = mutableListOf<String>()
@@ -67,7 +81,6 @@ class MainActivity : ComponentActivity() {
 
     /** The invitation being granted; cleared by Cancel so a late result does not move the screen. */
     @Volatile private var granting: Enrollment? = null
-    private var websiteQr = false
     private val foregroundOwner = Any()
     private var notice: String? = null
     private var busy = false
@@ -127,6 +140,8 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         listening = true
         store.listeners.add(listener)
+        giveControl.listeners.add(giveListener)
+        giveListener()
         ForegroundAccess.start(this, foregroundOwner)
         if (loaded) render()
     }
@@ -185,6 +200,8 @@ class MainActivity : ComponentActivity() {
         LocalSettingsProtection.set(foregroundOwner, false)
         handler.removeCallbacks(refresh)
         store.listeners.remove(listener)
+        giveControl.listeners.remove(giveListener)
+        if (!isChangingConfigurations) giveControl.cancel()
         ForegroundAccess.stop(foregroundOwner)
         super.onStop()
     }
@@ -211,6 +228,7 @@ class MainActivity : ComponentActivity() {
     private fun goBack() {
         if (shell.closeDrawer()) return
         scanner.ignore()
+        giveControl.cancel()
         if (backStack.isNotEmpty()) {
             page = backStack.removeAt(backStack.lastIndex)
             notice = null
@@ -228,6 +246,7 @@ class MainActivity : ComponentActivity() {
         id: String? = null,
     ) {
         if (page != value) scanner.ignore()
+        if (page == "pair" && value != "pair") giveControl.cancel()
         if (value in setOf("home", "devices", "activity", "settings")) {
             backStack.clear()
         } else if (page != value) {
@@ -243,13 +262,19 @@ class MainActivity : ComponentActivity() {
     private fun render() {
         if (isDestroyed || isFinishing) return
         val protected = page in setOf("pair", "grant", "unlock", "saved-pin")
-        LocalSettingsProtection.set(foregroundOwner, listening && protected)
+        val secretPage = page == "pair"
+        if (secretPage) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        LocalSettingsProtection.set(foregroundOwner, listening && protected, secretPage)
         shell.page(
             page,
             when (page) {
                 "settings" -> "Settings"
                 "features" -> "Set up this phone"
-                "pair" -> "Allow a browser"
+                "pair" -> "Give control"
                 "activity" -> "Activity"
                 "devices" -> "Allowed browsers"
                 "device" -> deviceId?.let(store::device)?.nickname ?: "Device"
@@ -268,7 +293,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         if (protected) {
-            text(layout, getString(R.string.local_settings_explanation), 14f).id = R.id.local_settings_notice
+            if (!secretPage) text(layout, getString(R.string.local_settings_explanation), 14f).id = R.id.local_settings_notice
             // An already dispatched swipe or held-contact release must finish before
             // sensitive controls exist; its final UP must not activate a new control.
             if (ScreenAccessService.current?.inputInFlight == true) {
@@ -313,7 +338,6 @@ class MainActivity : ComponentActivity() {
                 devices.any { it.enabled && (!it.synced || !it.wakeReady) } -> "Updating connection setup…"
                 else -> "Ready for connection requests"
             }
-        text(layout, "This app lets other devices control this phone. Use a browser on the other device.", 14f)
         val access = section(layout)
         toggle(access, "Allow remote access", state.settings.armed, R.id.access_toggle) { enabled ->
             change { it.settings(armed = enabled) }
@@ -342,10 +366,9 @@ class MainActivity : ComponentActivity() {
             row(layout, "Allowed browsers", "Choose who can control this phone", R.id.manage_access) { navigate("devices") }
         }
         if (devices.isEmpty()) {
-            scanTile(layout)
-            row(layout, "Set up the other device", "Open its browser and show a pairing code", R.id.pair_device) { navigate("pair") }
+            button(layout, "Give control", R.id.pair_device) { navigate("pair") }
         } else {
-            button(layout, "Allow another browser", R.id.pair_device) { navigate("pair") }
+            button(layout, "Give control", R.id.pair_device) { navigate("pair") }
             text(layout, "Allowed browsers", 14f).setPadding(dp(4), dp(8), 0, dp(4))
             devices.take(3).forEach { device -> row(layout, device.nickname, deviceSummary(device)) { navigate("device", device.id) } }
             button(layout, "All browsers", R.id.all_devices) { navigate("devices") }
@@ -353,13 +376,43 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun pairing(layout: LinearLayout) {
-        text(layout, "Let another device control this phone", 20f)
-        text(layout, "The other device only needs a browser. It does not need the Android app.", 14f)
-        scanTile(layout)
-        websiteRow(layout)
+        val state = giveControl.state
+        when (state.phase) {
+            GiveControl.Phase.IDLE, GiveControl.Phase.FAILED, GiveControl.Phase.COMPLETED -> {
+                if (state.phase == GiveControl.Phase.FAILED) text(layout, "Code expired or unavailable.")
+                button(layout, "Show code", R.id.give_control) { giveControl.begin(this) }.minimumHeight = dp(64)
+                text(layout, "The first browser to scan gets access.", 14f)
+                if (scanner.pending != null) {
+                    scanTile(layout)
+                } else {
+                    button(layout, "Scan browser’s code", R.id.scan_pairing_code) { scanPairingCode() }
+                }
+            }
+            GiveControl.Phase.CREATING, GiveControl.Phase.CONNECTING -> {
+                text(layout, if (state.phase == GiveControl.Phase.CREATING) "Creating code…" else "Adding browser…")
+                layout.addView(ProgressBar(this))
+                button(layout, "Cancel", R.id.cancel_give_control) { giveControl.cancel() }
+            }
+            GiveControl.Phase.WAITING -> {
+                text(layout, "Scan to control this phone.").id = R.id.give_control_status
+                val matrix = QRCodeWriter().encode(requireNotNull(state.link), BarcodeFormat.QR_CODE, 720, 720)
+                val pixels = IntArray(720 * 720) { at -> if (matrix[at % 720, at / 720]) Color.BLACK else Color.WHITE }
+                layout.addView(
+                    ImageView(this).apply {
+                        id = R.id.give_control_qr
+                        contentDescription = "Scan to control this phone"
+                        setBackgroundColor(Color.WHITE)
+                        setImageBitmap(Bitmap.createBitmap(pixels, 720, 720, Bitmap.Config.ARGB_8888))
+                        keepScreenOn = true
+                    },
+                    LinearLayout.LayoutParams(-1, dp(320)),
+                )
+                button(layout, "Cancel", R.id.cancel_give_control) { giveControl.cancel() }
+            }
+        }
     }
 
-    /** The main action: pair with a code already showing on the website. */
+    /** Resume an existing browser-code scan. */
     private fun scanTile(layout: LinearLayout) {
         val tile =
             LinearLayout(this).apply {
@@ -425,81 +478,6 @@ class MainActivity : ComponentActivity() {
             tile.addView(progress, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         }
         layout.addView(tile, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
-    }
-
-    /** The public website link, with copy, share and an optional QR to open it on another device. */
-    private fun websiteRow(layout: LinearLayout) {
-        val website = "${Website.current(this)}/pair"
-        val card = section(layout)
-        val line = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        text(labels, "Open on the other device", 14f).setPadding(0, dp(2), 0, 0)
-        text(labels, website.removePrefix("https://")).apply {
-            id = R.id.sharing_website
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
-            setPadding(0, 0, 0, dp(2))
-        }
-        line.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
-
-        fun icon(
-            resource: Int,
-            drawable: Int,
-            label: String,
-            action: () -> Unit,
-        ) = line.addView(
-            ImageButton(this).apply {
-                id = resource
-                contentDescription = label
-                tooltipText = label
-                setImageResource(drawable)
-                imageTintList = ColorStateList.valueOf(color(android.R.attr.textColorPrimary))
-                background =
-                    RippleDrawable(
-                        ColorStateList.valueOf(color(android.R.attr.colorControlHighlight)),
-                        null,
-                        GradientDrawable().apply {
-                            cornerRadius = dp(24).toFloat()
-                            setColor(Color.WHITE)
-                        },
-                    )
-                setOnClickListener { action() }
-            },
-            LinearLayout.LayoutParams(dp(48), dp(48)),
-        )
-        icon(R.id.copy_website, R.drawable.ic_copy, "Copy browser setup link") {
-            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("YepControl browser setup", website))
-            shell.message("Browser setup link copied")
-        }
-        icon(R.id.share_website, R.drawable.ic_share, "Share browser setup link") {
-            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, website), null))
-        }
-        icon(R.id.show_website_qr, R.drawable.ic_qr, if (websiteQr) "Hide browser setup QR" else "Show browser setup QR") {
-            websiteQr = !websiteQr
-            render()
-        }
-        card.addView(line)
-        if (websiteQr) {
-            text(
-                card,
-                "Scan this with the other device to open its browser setup. Then use this phone to scan the pairing code it shows. This shortcut does not grant access.",
-                14f,
-            )
-            val matrix = QRCodeWriter().encode(website, BarcodeFormat.QR_CODE, 512, 512)
-            val pixels = IntArray(512 * 512) { at -> if (matrix[at % 512, at / 512]) Color.BLACK else Color.WHITE }
-            card.addView(
-                ImageView(this).apply {
-                    id = R.id.website_qr
-                    contentDescription = "Browser setup shortcut. Opens $website on the other device; does not grant access."
-                    setBackgroundColor(Color.WHITE)
-                    setImageBitmap(Bitmap.createBitmap(pixels, 512, 512, Bitmap.Config.ARGB_8888))
-                    post {
-                        if (isAttachedToWindow) requestRectangleOnScreen(android.graphics.Rect(0, 0, width, height), true)
-                    }
-                },
-                LinearLayout.LayoutParams(-1, dp(240)).apply { topMargin = dp(8) },
-            )
-        }
     }
 
     private fun deviceSummary(device: Device) =
@@ -997,6 +975,7 @@ class MainActivity : ComponentActivity() {
 
     private fun showInvitation(uri: String) {
         scanner.ignore()
+        giveControl.cancel()
         try {
             check(!busy)
             pending = null

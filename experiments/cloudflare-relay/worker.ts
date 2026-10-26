@@ -10,8 +10,10 @@ import {
   grantBytes,
   hex,
   revokeBytes,
+  validBrowserName,
   verifySignature,
 } from "../../protocol/src/enrollment.js";
+import { type BrowserClaim, claimBytes, phoneCreateBytes } from "../../protocol/src/phone-invitation.js";
 import type { Admission } from "./admission.js";
 import { deliverFcm } from "./fcm.js";
 import { FcmAuth, type FcmToken, type TokenStore } from "./fcm-auth.js";
@@ -64,6 +66,9 @@ type Pending = {
   expires: number;
   offer?: Grant;
   device?: string;
+  phone?: string;
+  claim?: BrowserClaim;
+  cancelled?: boolean;
 };
 type Attachment = {
   nonce: string;
@@ -183,7 +188,7 @@ const worker = {
       const key = req.headers.get("CF-Connecting-IP") ?? "local";
       const start =
         req.method === "POST" &&
-        /^\/api\/pair\/[0-9a-f]{32}$/.test(url.pathname);
+        /^\/api\/pair\/[0-9a-f]{32}(?:\/invite)?$/.test(url.pathname);
       if (
         !(await env.HTTP_LIMITER.limit({ key })).success ||
         (start && !(await env.START_LIMITER.limit({ key })).success)
@@ -206,7 +211,7 @@ const worker = {
       return env.ASSETS.fetch(new Request(url, req));
     }
     const api = url.pathname.match(
-      /^\/api\/pair\/([0-9a-f]{32})(?:\/(offer|complete|revoke))?$/,
+      /^\/api\/pair\/([0-9a-f]{32})(?:\/(offer|complete|revoke|invite|claim))?$/,
     );
     const diagnostic = url.pathname.match(/^\/_proof\/([0-9a-f]{32})$/);
     if (env.RELAY_MODE && diagnostic) return json({ error: "Route" }, 404);
@@ -217,10 +222,11 @@ const worker = {
     if (!id || !/^[0-9a-f]{32}$/.test(id)) return json({ error: "Route" }, 404);
     try {
       let forward = req;
-      if (api && !api[2] && req.method === "POST") {
+      if (api && (!api[2] || api[2] === "invite") && req.method === "POST") {
         // Reject malformed/unsigned enrollment before allocating a billable object.
         const value = await body(req);
-        const viewer = text(value.viewer);
+        const phone = api[2] === "invite" ? text(value.phone) : undefined;
+        const viewer = phone ? "" : text(value.viewer);
         const expires = Number(value.expires);
         if (!Number.isSafeInteger(value.expires)) throw new Error("Expiry");
         if (
@@ -232,8 +238,8 @@ const worker = {
           return json({ error: "clock-skew", serverTime: Date.now() }, 400);
         try {
           await verifySignature(
-            viewer,
-            createBytes(env.PUBLIC_ORIGIN, { id, viewer, expires }),
+            phone ?? viewer,
+            phone ? phoneCreateBytes(env.PUBLIC_ORIGIN, {id, phone, expires}) : createBytes(env.PUBLIC_ORIGIN, { id, viewer, expires }),
             text(value.signature),
           );
         } catch {
@@ -252,7 +258,7 @@ const worker = {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id,
-            create: Boolean(api && !api[2] && req.method === "POST"),
+            create: Boolean(api && (!api[2] || api[2] === "invite") && req.method === "POST"),
             upgrade: url.pathname === "/api/socket",
           }),
         },
@@ -432,6 +438,7 @@ export class Pairing extends DurableObject<Env> {
       if (req.method === "GET" && !action) {
         if (paired?.revoked) return json({ error: "Unavailable" }, 410);
         if (paired) return json({ state: "paired", grant: paired });
+        if (pending?.cancelled) return json({error: "Unavailable"}, 410);
         if (pending && pending.expires * 1000 > Date.now())
           return json(
             pending.offer
@@ -440,13 +447,15 @@ export class Pairing extends DurableObject<Env> {
                   grant: pending.offer,
                   device: pending.device,
                 }
-              : { state: "waiting" },
+              : pending.phone
+                ? {state: pending.claim ? "claimed" : "inviting", phone: pending.phone, expires: pending.expires, ...(pending.claim ? {claim: pending.claim} : {})}
+                : { state: "waiting" },
           );
         return json({ error: "Unavailable" }, 404);
       }
       if (req.method !== "POST") return json({ error: "Method" }, 405);
       const value = await body(req);
-      if (!action) {
+      if (!action || action === "invite") {
         if (
           this.get<Pair>("pair") ||
           (this.get<Pending>("pending")?.expires ?? 0) * 1000 > Date.now()
@@ -457,21 +466,29 @@ export class Pairing extends DurableObject<Env> {
         // The front Worker already verified the creation signature and expiry.
         this.put("pending", {
           id,
-          viewer: text(value.viewer),
+          viewer: action === "invite" ? "" : text(value.viewer),
           expires: value.expires,
+          ...(action === "invite" ? {phone: text(value.phone)} : {}),
         });
         await this.schedule();
-        return json({ state: "waiting" }, 201);
+        return json({ state: action === "invite" ? "inviting" : "waiting" }, 201);
       }
       if (action === "revoke") {
-        if (!paired) throw new Error("No pair");
+        const phone = paired?.phone ?? pending?.phone;
+        if (!phone) throw new Error("No pair");
         await verifySignature(
-          paired.phone,
+          phone,
           revokeBytes(this.env.PUBLIC_ORIGIN, id),
           text(value.signature),
         );
         const latest = this.get<Pair>("pair");
-        if (!latest) throw new Error("No pair");
+        if (!latest) {
+          const latestPending = this.get<Pending>("pending");
+          if (!latestPending || latestPending.phone !== phone) throw Error("No invitation");
+          this.put("pending", {...latestPending, cancelled: true});
+          return json({state: "revoked"});
+        }
+        if (latest.phone !== phone) throw Error("Wrong phone");
         this.ctx.storage.transactionSync(() => {
           this.put("pair", { ...latest, revoked: true });
           this.drop("target");
@@ -480,9 +497,21 @@ export class Pairing extends DurableObject<Env> {
         this.disconnect(4010);
         return json({ state: "revoked" });
       }
-      if (paired || !pending || pending.expires * 1000 <= Date.now())
+      if (paired || !pending || pending.cancelled || pending.expires * 1000 <= Date.now())
         throw new Error("No invitation");
+      if (action === "claim") {
+        if (!pending.phone || pending.claim || pending.offer) throw Error("Unavailable");
+        const claim: BrowserClaim = {viewer: text(value.viewer), name: text(value.name), signature: text(value.signature), mac: text(value.mac)};
+        if (!validBrowserName(claim.name)) throw Error("Invalid name");
+        fromHex(claim.mac, 32);
+        await verifySignature(claim.viewer, claimBytes(this.env.PUBLIC_ORIGIN, {id, phone: pending.phone, expires: pending.expires}, claim), claim.signature);
+        const latest = this.get<Pending>("pending");
+        if (!latest?.phone || latest.cancelled || latest.claim || latest.offer || this.get<Pair>("pair") || latest.expires * 1000 <= Date.now() || latest.phone !== pending.phone) throw Error("Stale");
+        this.put("pending", {...latest, viewer: claim.viewer, claim});
+        return json({state: "claimed"}, 202);
+      }
       if (action === "offer") {
+        if (pending.phone && (!pending.claim || pending.phone !== value.phone)) throw Error("Wrong phone");
         const offer: Grant = {
           id,
           viewer: pending.viewer,
@@ -503,6 +532,7 @@ export class Pairing extends DurableObject<Env> {
         const latest = this.get<Pending>("pending");
         if (
           !latest ||
+          latest.cancelled ||
           latest.offer ||
           this.get<Pair>("pair") ||
           latest.expires * 1000 <= Date.now()
@@ -521,6 +551,7 @@ export class Pairing extends DurableObject<Env> {
       const latest = this.get<Pending>("pending");
       if (
         !latest?.offer ||
+        latest.cancelled ||
         this.get<Pair>("pair") ||
         latest.expires * 1000 <= Date.now()
       )

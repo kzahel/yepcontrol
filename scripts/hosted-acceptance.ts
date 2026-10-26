@@ -28,8 +28,11 @@ if (
 )
   throw new Error("Set HOSTED_ORIGIN to the HTTPS development relay origin");
 const control = process.argv.includes("--control");
+const pairingOnly = process.argv.includes("--pairing-only");
 const multi =
-  process.env.HOSTED_MULTI === "1" || process.argv.includes("--multi");
+  pairingOnly ||
+  process.env.HOSTED_MULTI === "1" ||
+  process.argv.includes("--multi");
 const physical = process.env.HOSTED_DEVICE;
 if (multi && physical)
   throw new Error("Multi-browser acceptance owns an emulator only");
@@ -203,9 +206,9 @@ if (!physical) {
       "-no-audio",
       "-no-snapshot",
       "-gpu",
-      "swiftshader",
+      process.env.HOSTED_EMULATOR_GPU ?? "swiftshader",
       "-dns-server",
-      "1.1.1.1,8.8.8.8",
+      process.env.HOSTED_DNS_SERVERS ?? "1.1.1.1,8.8.8.8",
       "-no-boot-anim",
     ],
     { env, stdio: ["ignore", log.fd, log.fd] },
@@ -439,15 +442,10 @@ try {
     });
     controlCompleted = true;
   } else if (multi) {
-    await mobileAcceptance({
-      browser,
-      origin,
-      state,
-      adbPath,
-      serial,
-      adb,
-      privateWrite,
-    });
+    await mobileAcceptance(
+      { browser, origin, state, adbPath, serial, adb, privateWrite },
+      pairingOnly,
+    );
   } else {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 1000 },

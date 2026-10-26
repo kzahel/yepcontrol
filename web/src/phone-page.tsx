@@ -26,9 +26,11 @@ export type ViewerServices = typeof viewerServices;
 export function PhonePage({
   phone,
   services,
+  autoConnect = false,
 }: {
   phone: SavedPhone;
   services: ViewerServices;
+  autoConnect?: boolean;
 }) {
   // ViewerApp remounts this page for a different phone or pairing. Metadata
   // updates must not restart the automatic check or replace its connection.
@@ -57,6 +59,7 @@ export function PhonePage({
     | undefined
   >(undefined);
   const lastRecorded = useRef(0);
+  const firstConnection = useRef(autoConnect);
   const close = useCallback(() => {
     attempt.current = undefined;
     const abort = connection.current;
@@ -230,7 +233,10 @@ export function PhonePage({
     // Installed 0.7.0 hosts end checks instead of retaining them. Until their
     // next authenticated report advertises preparation, use one explicit Connect.
     const prepare = () => {
-      if (metadata.current.device.connectionPreparation === 1)
+      if (firstConnection.current) {
+        firstConnection.current = false;
+        void start("control");
+      } else if (metadata.current.device.connectionPreparation === 1)
         void start("check");
       else setStatus("Connect when you’re ready");
     };

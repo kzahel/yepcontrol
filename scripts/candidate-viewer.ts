@@ -15,6 +15,7 @@ export async function candidateViewer(context: BrowserContext, origin: string) {
       request.isNavigationRequest() &&
       (url.pathname === "/" ||
         url.pathname === "/pair" ||
+        url.pathname === "/control" ||
         url.pathname.startsWith("/phones"));
     if (
       !navigation &&

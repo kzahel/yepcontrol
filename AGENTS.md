@@ -237,3 +237,14 @@ Use internal Play delivery for physical acceptance before public promotion.
 Preserve compatibility with public 0.7.0 hosts and existing pairings. This does
 not authorize physical credential entry or lock/debugging changes. See
 `docs/connection-delay.md` for the baseline and implementation evidence.
+
+## Phone-first pairing and release authorization — 2026-10-26
+
+The owner authorized implementing and testing both QR directions autonomously,
+deploying the website/service, and publishing the Android update through Play.
+Showing a phone-issued code is explicit approval for its first valid browser
+claim; no second Allow step is required. Preserve the browser-first flow and
+existing grants, use short-lived single-use codes and internal Play-installed
+acceptance before public promotion. Physical credential entry, lock/debugging
+changes and unrelated infrastructure remain outside scope. See
+`docs/phone-first-pairing.md`.

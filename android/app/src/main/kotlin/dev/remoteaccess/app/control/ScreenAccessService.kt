@@ -37,7 +37,10 @@ class ScreenAccessService : AccessibilityService() {
 
     internal val inputInFlight get() = gesture || touch.dispatching
 
-    internal fun settingsChanged() = invalidate()
+    internal fun settingsChanged() {
+        invalidate()
+        if (LocalSettingsProtection.hideCapture) VideoStream.close(this)
+    }
 
     @Volatile private var capturedAt = 0L
 
@@ -290,6 +293,10 @@ class ScreenAccessService : AccessibilityService() {
         allowed: () -> Boolean,
         reply: (Int, ByteArray) -> Unit,
     ) {
+        if (LocalSettingsProtection.hideCapture) {
+            reply(2, byteArrayOf(4))
+            return
+        }
         if (!capturing.compareAndSet(false, true)) {
             reply(2, byteArrayOf(6))
             return
@@ -321,7 +328,7 @@ class ScreenAccessService : AccessibilityService() {
                             val bytes = output.toByteArray()
                             main.post {
                                 capturing.set(false)
-                                if (!allowed() || current !== this@ScreenAccessService) {
+                                if (!allowed() || LocalSettingsProtection.hideCapture || current !== this@ScreenAccessService) {
                                     reply(2, byteArrayOf(8))
                                 } else if (locked() || expected != scene || bytes.size > 1048540) {
                                     reply(2, byteArrayOf(5))

@@ -8,8 +8,14 @@ import {
   grantBytes,
   originURL,
   revokeBytes,
+  validBrowserName,
   verifySignature,
 } from "@remote/protocol/enrollment";
+import {
+  type BrowserClaim,
+  claimBytes,
+  phoneCreateBytes,
+} from "@remote/protocol/phone-invitation";
 import { WebSocket, WebSocketServer } from "ws";
 import { PushRegistry, type Sender, type Wake } from "./push.js";
 
@@ -22,6 +28,9 @@ type Pending = {
   offer?: Grant;
   /** The phone's device report, sealed with the QR secret; opaque to the relay. */
   device?: string;
+  phone?: string;
+  claim?: BrowserClaim;
+  cancelled?: boolean;
 };
 /** Close codes a viewer may act on. Sent only after the viewer proves its pinned key. */
 export const ACCESS_REMOVED = 4010;
@@ -79,12 +88,20 @@ export function createRelay(options: Options) {
     if (paired?.revoked) return [410, { error: "Unavailable" }];
     if (paired) return [200, { state: "paired", grant: paired }];
     const p = pending.get(id);
+    if (p?.cancelled) return [410, { error: "Unavailable" }];
     if (p && p.expires * 1000 > Date.now())
       return [
         200,
         p.offer
           ? { state: "offered", grant: p.offer, device: p.device }
-          : { state: "waiting" },
+          : p.phone
+            ? {
+                state: p.claim ? "claimed" : "inviting",
+                phone: p.phone,
+                expires: p.expires,
+                ...(p.claim ? { claim: p.claim } : {}),
+              }
+            : { state: "waiting" },
       ];
     return [404, { error: "Unavailable" }];
   };
@@ -137,7 +154,7 @@ export function createRelay(options: Options) {
     }
     if (
       req.method === "POST" &&
-      /^\/api\/pair\/[0-9a-f]{32}$/.test(req.url ?? "")
+      /^\/api\/pair\/[0-9a-f]{32}(?:\/invite)?$/.test(req.url ?? "")
     ) {
       if (++bucket.enrollments > 10) return false;
     }
@@ -171,7 +188,7 @@ export function createRelay(options: Options) {
         return;
       }
       const parts = req.url?.match(
-        /^\/api\/pair\/([0-9a-f]{32})(?:\/(offer|complete|revoke))?$/,
+        /^\/api\/pair\/([0-9a-f]{32})(?:\/(offer|complete|revoke|invite|claim))?$/,
       );
       if (!parts) {
         reply(404, { error: "Not found" });
@@ -242,8 +259,9 @@ export function createRelay(options: Options) {
           throw new Error("Invalid field");
         return value;
       };
-      if (!action) {
-        const viewer = text("viewer");
+      if (!action || action === "invite") {
+        const phone = action === "invite" ? text("phone") : undefined;
+        const viewer = phone ? "" : text("viewer");
         const expires = body.expires;
         if (
           existing ||
@@ -262,8 +280,10 @@ export function createRelay(options: Options) {
           return;
         }
         await verifySignature(
-          viewer,
-          createBytes(origin, { id, viewer, expires }),
+          phone ?? viewer,
+          phone
+            ? phoneCreateBytes(origin, { id, phone, expires })
+            : createBytes(origin, { id, viewer, expires }),
           text("signature"),
         );
         if (
@@ -274,11 +294,48 @@ export function createRelay(options: Options) {
           unhealthy
         )
           throw new Error("Unavailable");
-        pending.set(id, { id, viewer, expires });
-        reply(201, { state: "waiting" });
+        pending.set(id, { id, viewer, expires, ...(phone ? { phone } : {}) });
+        reply(201, { state: phone ? "inviting" : "waiting" });
+        changed(id);
+      } else if (action === "claim") {
+        if (!p?.phone || p.cancelled || p.claim || p.offer || existing)
+          throw Error("Unavailable");
+        const claim: BrowserClaim = {
+          viewer: text("viewer"),
+          name: text("name"),
+          signature: text("signature"),
+          mac: text("mac"),
+        };
+        if (!validBrowserName(claim.name)) throw Error("Invalid name");
+        fromHex(claim.mac, 32);
+        await verifySignature(
+          claim.viewer,
+          claimBytes(origin, { id, phone: p.phone, expires: p.expires }, claim),
+          claim.signature,
+        );
+        if (
+          pending.get(id) !== p ||
+          p.cancelled ||
+          p.claim ||
+          p.offer ||
+          pairs.has(id) ||
+          p.expires * 1000 <= Date.now() ||
+          unhealthy
+        )
+          throw Error("Unavailable");
+        p.viewer = claim.viewer;
+        p.claim = claim;
+        reply(202, { state: "claimed" });
         changed(id);
       } else if (action === "offer") {
-        if (!p || p.offer || existing) throw new Error("Unavailable");
+        if (
+          !p ||
+          p.cancelled ||
+          p.offer ||
+          existing ||
+          (p.phone && (!p.claim || p.phone !== body.phone))
+        )
+          throw new Error("Unavailable");
         const grant: Grant = {
           id,
           viewer: p.viewer,
@@ -303,6 +360,7 @@ export function createRelay(options: Options) {
         if (
           pending.get(id) !== p ||
           p.offer ||
+          p.cancelled ||
           pairs.has(id) ||
           p.expires * 1000 <= Date.now() ||
           unhealthy
@@ -313,7 +371,8 @@ export function createRelay(options: Options) {
         reply(202, { state: "offered" });
         changed(id);
       } else if (action === "complete") {
-        if (!p?.offer || existing) throw new Error("Unavailable");
+        if (!p?.offer || p.cancelled || existing)
+          throw new Error("Unavailable");
         const viewerSignature = text("viewerSignature");
         await verifySignature(
           p.viewer,
@@ -323,6 +382,7 @@ export function createRelay(options: Options) {
         if (
           pending.get(id) !== p ||
           pairs.has(id) ||
+          p.cancelled ||
           p.expires * 1000 <= Date.now() ||
           unhealthy
         )
@@ -340,15 +400,25 @@ export function createRelay(options: Options) {
         reply(200, { state: "paired", grant: pair });
         changed(id);
       } else if (action === "revoke") {
-        if (!existing) throw new Error("Unavailable");
+        const phone = existing?.phone ?? p?.phone;
+        if (!phone) throw new Error("Unavailable");
         await verifySignature(
-          existing.phone,
+          phone,
           revokeBytes(origin, id),
           text("signature"),
         );
         if (unhealthy) throw new Error("Unavailable");
-        existing.revoked = true;
-        durable(existing);
+        const latest = pairs.get(id);
+        if (latest) {
+          if (latest.phone !== phone) throw Error("Unavailable");
+          latest.revoked = true;
+          durable(latest);
+        } else {
+          const latestPending = pending.get(id);
+          if (!latestPending || latestPending.phone !== phone)
+            throw Error("Unavailable");
+          latestPending.cancelled = true;
+        }
         disconnect(id, ACCESS_REMOVED);
         push.remove(id);
         reply(200, { state: "revoked" });

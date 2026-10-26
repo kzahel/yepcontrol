@@ -315,6 +315,37 @@ class LocalSettingsProtectionTest {
             result(0, command(6, byteArrayOf(2))) // Home also exits when the PIN editor left an IME open.
             waitFor { !LocalSettingsProtection.blocked }
 
+            // A remote viewer cannot create or capture the phone's bearer code.
+            context.startActivity(
+                Intent(context, MainActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK,
+                ),
+            )
+            click("pair_device")
+            view(selector("give_control"))
+            assertTrue(LocalSettingsProtection.hideCapture)
+            instrumentation.runOnMainSync {
+                assertTrue(activity().window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_SECURE != 0)
+                assertEquals(
+                    GiveControl.Phase.IDLE,
+                    androidx.lifecycle
+                        .ViewModelProvider(activity())[GiveControl::class.java]
+                        .state.phase,
+                )
+            }
+            result(4, command(3))
+            result(4, tap("give_control", scene))
+            instrumentation.runOnMainSync {
+                assertEquals(
+                    GiveControl.Phase.IDLE,
+                    androidx.lifecycle
+                        .ViewModelProvider(activity())[GiveControl::class.java]
+                        .state.phase,
+                )
+            }
+            device.pressBack()
+            waitFor { !LocalSettingsProtection.hideCapture }
+
             // A valid incoming invitation cannot be approved by another paired device's input.
             val invitation =
                 JSONObject()

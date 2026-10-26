@@ -313,8 +313,8 @@ class HostedPairingTest {
                     assertFalse(device.hasObject(By.res("${context.packageName}:id/scan_pairing_code")))
                     assertFalse(device.hasObject(By.res("${context.packageName}:id/sharing_website")))
                     click("pair_device")
-                    title("Allow a browser")
-                    assertTrue(device.hasObject(By.res("${context.packageName}:id/sharing_website")))
+                    title("Give control")
+                    assertTrue(device.hasObject(By.res("${context.packageName}:id/give_control")))
                     device.pressBack()
                     title("This phone")
                 }
@@ -462,23 +462,48 @@ class HostedPairingTest {
                 "setup" -> {
                     start()
                     click("pair_device")
-                    title("Allow a browser")
+                    title("Give control")
                     val scan = assertNotNull(device.wait(Until.findObject(By.res("${context.packageName}:id/scan_pairing_code")), 10000))
                     assertTrue(scan.isEnabled)
-                    click("copy_website")
-                    val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
-                    waitFor {
-                        clipboard.primaryClip
-                            ?.getItemAt(0)
-                            ?.text
-                            ?.toString() == "${BuildConfig.SHARING_WEBSITE}/pair"
+                    assertTrue(device.hasObject(By.res("${context.packageName}:id/give_control")))
+                }
+                "phone-code" -> {
+                    start()
+                    click("pair_device")
+                    title("Give control")
+                    click("give_control")
+                    assertTrue(device.wait(Until.hasObject(By.res("${context.packageName}:id/give_control_qr")), 20000))
+                    // Trusted test-only rendering of our own view: the production
+                    // window forbids screenshots/remote capture of the bearer QR.
+                    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                        val activity =
+                            ActivityLifecycleMonitorRegistry
+                                .getInstance()
+                                .getActivitiesInStage(Stage.RESUMED)
+                                .filterIsInstance<MainActivity>()
+                                .single()
+                        assertTrue(activity.window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_SECURE != 0)
+                        val qr = activity.findViewById<android.widget.ImageView>(R.id.give_control_qr)
+                        val bitmap = android.graphics.Bitmap.createBitmap(qr.width, qr.height, android.graphics.Bitmap.Config.ARGB_8888)
+                        qr.draw(android.graphics.Canvas(bitmap))
+                        File(
+                            context.filesDir,
+                            "phone-code.png",
+                        ).outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                        bitmap.recycle()
                     }
                 }
-                "website-qr" -> click("show_website_qr")
-                "share-link" -> {
-                    click("share_website")
-                    waitFor { device.currentPackageName in setOf("android", "com.android.intentresolver") }
-                    device.pressBack()
+                "cancel-code" -> click("cancel_give_control")
+                "phone-paired" -> {
+                    waitFor(90000) { store.device(id) != null }
+                    waitFor { store.device(id)?.synced == true }
+                    val paired = assertNotNull(store.device(id))
+                    if (device.hasObject(By.res("${context.packageName}:id/skip_features"))) {
+                        assertTrue(device.takeScreenshot(File(context.filesDir, "ui-first-pair-setup.png")))
+                        click("skip_features")
+                    }
+                    title(paired.nickname)
+                    assertTrue(device.takeScreenshot(File(context.filesDir, "ui-first-pair-detail.png")))
                 }
                 "close-setup" -> device.pressBack()
                 "features" -> {

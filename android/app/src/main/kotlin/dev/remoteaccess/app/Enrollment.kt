@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.IOException
 import java.net.URI
 import java.util.Base64
 import java.util.concurrent.TimeUnit
@@ -69,15 +70,27 @@ internal fun request(
     action: String = "",
     body: JSONObject? = null,
     seen: String? = null,
+): JSONObject = serviceRequest(origin, "/api/pair/$id" + if (action.isEmpty()) "" else "/$action", body, seen)
+
+internal fun serviceRequest(
+    origin: String,
+    path: String,
+    body: JSONObject? = null,
+    seen: String? = null,
 ): JSONObject {
     Website.requireConfigured(origin)
-    val url = "$origin/api/pair/$id" + if (action.isEmpty()) "" else "/$action"
+    val url = "$origin$path"
     val request = Request.Builder().url(url)
     // The relay holds this poll until the pairing state differs from `seen`.
     if (seen != null) request.header("Pair-Wait", seen)
     if (body != null) request.post(body.toString().toRequestBody("application/json".toMediaType()))
     return http.newCall(request.build()).execute().use {
-        check(it.isSuccessful) { "Pairing expired, revoked, or unavailable" }
+        if (!it.isSuccessful) {
+            throw PairingHttpError(
+                it.code,
+                (it.header("Retry-After")?.toLongOrNull() ?: if (it.code == 429) 60 else 1).coerceIn(1, 300) * 1000,
+            )
+        }
         val source = it.body
         require(source.contentLength() <= 8192)
         val buffer = ByteArray(8193)
@@ -100,11 +113,17 @@ internal fun validDeviceName(name: String) =
             it.isISOControl() || it.category in setOf(CharCategory.FORMAT, CharCategory.LINE_SEPARATOR, CharCategory.PARAGRAPH_SEPARATOR)
         }
 
+internal class PairingHttpError(
+    val status: Int,
+    val retryAfter: Long,
+) : IOException("Pairing unavailable ($status)")
+
 internal class EnrollmentOriginMismatch : IllegalArgumentException()
 
 internal class Enrollment(
     uri: String,
     expectedOrigin: String,
+    private val now: () -> Long = { System.currentTimeMillis() },
 ) {
     private val invite: JSONObject
     val origin: String
@@ -147,7 +166,7 @@ internal class Enrollment(
     }
 
     private fun checkTime() {
-        val remaining = invite.getLong("expires") * 1000 - System.currentTimeMillis()
+        val remaining = invite.getLong("expires") * 1000 - now()
         require(remaining in 1..301000) { "Pairing code expired" }
     }
 

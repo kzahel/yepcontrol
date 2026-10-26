@@ -1,7 +1,8 @@
 # YepControl
 
-View and control your Android phone from a browser. Pair by scanning a QR code,
-approve access on the phone, and connect through an end-to-end encrypted session.
+View and control your Android phone from a browser. On the phone, choose
+**Give control → Show code**. Scan it with the other device's camera to connect
+through an end-to-end encrypted session. The browser-first QR flow also works.
 
 [Get it on Google Play](https://play.google.com/store/apps/details?id=com.yepcontrol.app) · [Open YepControl](https://yepcontrol.com) · [Privacy policy](https://yepcontrol.com/privacy/)
 
@@ -68,6 +69,7 @@ pnpm exec playwright install chromium
 | `pnpm test:smooth-view` | Smooth toggle, consent, video and teardown on an owned emulator. |
 | `pnpm test:mobile-ui` | Native navigation, setup and appearance. |
 | `pnpm test:hosted` | Hosted QR pairing, reconnect, FCM wake and revocation. |
+| `pnpm test:hosted --pairing-only` | Both QR directions, cancellation, secure QR display and encrypted native checks. |
 | `pnpm test:mobile` | Multiple browsers and native access management. |
 
 PRs and pushes run the browser layout and phone-management checks alongside
@@ -97,6 +99,7 @@ Natural overnight availability and broader device qualification remain pending. 
 - [First public Play submission](docs/distribution/android-production.md)
 - [Security decisions and open gaps](docs/security-gaps.md)
 - [Pairing and relay](docs/pairing-relay-v1.md) · [Session encryption](docs/crypto-session-v1.md)
+- [Phone-first pairing and acceptance](docs/phone-first-pairing.md)
 - [Smooth-view consent and lifecycle](docs/smooth-view-lifecycle.md)
 - [Android permissions and device management](docs/mobile-management.md)
 - [Pairing roles, links and scanner feedback](docs/onboarding.md)

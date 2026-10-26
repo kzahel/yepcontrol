@@ -1,4 +1,5 @@
 import type { Grant } from "@remote/protocol/enrollment";
+import type { BrowserClaim } from "@remote/protocol/phone-invitation";
 
 export class PairingRequestError extends Error {
   constructor(
@@ -103,6 +104,9 @@ export async function pairingRequest(
     state: string;
     grant?: Grant;
     device?: string;
+    claim?: BrowserClaim;
+    phone?: string;
+    expires?: number;
   }>;
 }
 

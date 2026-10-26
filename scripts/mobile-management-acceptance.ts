@@ -7,6 +7,9 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 import jsQR from "jsqr";
 import { PNG } from "pngjs";
 import { decodeInvitation } from "../protocol/src/enrollment.js";
+import { decodePhoneInvitation } from "../protocol/src/phone-invitation.js";
+import { candidateViewer } from "./candidate-viewer.js";
+import { admitProofBrowser } from "./proof-relay.js";
 
 type Fixture = {
   browser: Browser;
@@ -48,7 +51,7 @@ async function until<T>(
   }
   throw new Error("Mobile acceptance timed out; see private native logs");
 }
-export async function mobileAcceptance(f: Fixture) {
+export async function mobileAcceptance(f: Fixture, pairingOnly = false) {
   await rm(path.join(f.state, "result.json"), { force: true });
   const app = "com.yepcontrol.app";
   const { adb, privateWrite } = f;
@@ -129,12 +132,29 @@ export async function mobileAcceptance(f: Fixture) {
       }),
     );
   }
+  async function phoneCodeShot(name: string) {
+    await writeFile(
+      path.join(f.state, `${name}.png`),
+      execFileSync(f.adbPath, [
+        "-s",
+        f.serial,
+        "exec-out",
+        "run-as",
+        app,
+        "cat",
+        "files/phone-code.png",
+      ]),
+      { mode: 0o600 },
+    );
+  }
   async function pair() {
     const context = await f.browser.newContext({
       viewport: { width: 900, height: 850 },
       deviceScaleFactor: 2,
     });
     contexts.push(context);
+    await admitProofBrowser(context, f.origin);
+    await candidateViewer(context, f.origin);
     const page = await context.newPage();
     await page.goto(`${f.origin}/pair`);
     const qr = await page
@@ -300,24 +320,80 @@ export async function mobileAcceptance(f: Fixture) {
     await shot("home-first-run");
     await command("setup");
     await shot("sharing-setup");
-    await command("share-link");
-    await command("website-qr");
-    await shot("sharing-website-qr");
+    await command("phone-code");
+    await phoneCodeShot("phone-issued-qr");
+    await shot("phone-issued-secure-window");
+    const secureImage = PNG.sync.read(
+      await readFile(path.join(f.state, "phone-issued-secure-window.png")),
+    );
+    assert.equal(
+      jsQR(
+        new Uint8ClampedArray(secureImage.data),
+        secureImage.width,
+        secureImage.height,
+      ),
+      null,
+      "Screen capture must not expose the phone's bearer QR",
+    );
     const websiteQr = PNG.sync.read(
-      await readFile(path.join(f.state, "sharing-website-qr.png")),
+      await readFile(path.join(f.state, "phone-issued-qr.png")),
     );
     const website = jsQR(
       new Uint8ClampedArray(websiteQr.data),
       websiteQr.width,
       websiteQr.height,
     );
-    assert.equal(
-      website?.data,
-      `${f.origin}/pair`,
-      "Browser setup QR should open the controlling browser's code, not grant access",
+    assert.ok(website);
+    const cancelled = decodePhoneInvitation(website.data, f.origin);
+    await command("cancel-code");
+    const probeContext = await f.browser.newContext();
+    contexts.push(probeContext);
+    await admitProofBrowser(probeContext, f.origin);
+    await until(
+      async () =>
+        (
+          await probeContext.request.get(`${f.origin}/api/pair/${cancelled.id}`)
+        ).status() === 410,
     );
-    await command("close-setup");
-    const a = await pair();
+    await command("phone-code");
+    await phoneCodeShot("phone-issued-active-qr");
+    const phoneImage = PNG.sync.read(
+      await readFile(path.join(f.state, "phone-issued-active-qr.png")),
+    );
+    const phoneCode = jsQR(
+      new Uint8ClampedArray(phoneImage.data),
+      phoneImage.width,
+      phoneImage.height,
+    );
+    assert.ok(phoneCode, "Phone-issued QR decodes");
+    const phoneInvite = decodePhoneInvitation(phoneCode.data, f.origin);
+    const controller = await f.browser.newContext({
+      viewport: { width: 390, height: 844 },
+      deviceScaleFactor: 2,
+    });
+    contexts.push(controller);
+    await admitProofBrowser(controller, f.origin);
+    await candidateViewer(controller, f.origin);
+    const phonePage = await controller.newPage();
+    enrolled = true;
+    await phonePage.goto(phoneCode.data);
+    try {
+      await phonePage.waitForURL(/\/phones\/[a-f0-9]{64}$/);
+    } catch (error) {
+      console.error(
+        "Phone-first browser status:",
+        await phonePage.getByRole("status").allTextContents(),
+      );
+      throw error;
+    }
+    assert.equal(new URL(phonePage.url()).hash, "");
+    phonePages.set(phonePage, phonePage.url());
+    await parkBrowsers();
+    const phoneState = await command("phone-paired", { id: phoneInvite.id });
+    assert.ok(
+      phoneState.devices.find((device) => device.id === phoneInvite.id),
+    );
+    const a = { page: phonePage, id: phoneInvite.id };
     const b = await pair();
     assert.notEqual(a.id, b.id);
     console.log("Both independent browsers paired");
@@ -334,6 +410,26 @@ export async function mobileAcceptance(f: Fixture) {
         .waitFor();
     }
     console.log("Both browsers passed encrypted checks");
+    if (pairingOnly) {
+      for (const peer of [a, b]) await command("remove", { id: peer.id });
+      enrolled = false;
+      await stopNative();
+      const report = {
+        phoneFirstQrDecoded: true,
+        secureWindowHidesQr: true,
+        cancelledCodeRejected: true,
+        browserFirstPreserved: true,
+        encryptedChecksBothBrowsers: true,
+        removedBothFixtures: true,
+      };
+      await writeFile(
+        path.join(f.state, "result.json"),
+        JSON.stringify(report, null, 2),
+        { mode: 0o600 },
+      );
+      console.log(JSON.stringify(report));
+      return;
+    }
     await command("deny-feature-permission");
     await command("foreground", { id: a.id, automatic: true });
     await check(a.page);
@@ -483,7 +579,9 @@ export async function mobileAcceptance(f: Fixture) {
     const report = {
       databaseTests: 6,
       independentBrowsers: 2,
-      publicWebsiteQrAndShare: true,
+      phoneFirstQrAndSecureWindow: true,
+      cancelledCodeRejected: true,
+      browserFirstPreserved: true,
       pairingAndForegroundAccessBeforePermissions: true,
       independentSkippableFeatureSetup: true,
       firstPairSetupContinuesToDevice: true,

@@ -70,6 +70,12 @@ jobs:
           # The runner-generated debug key is not a public domain-associated signer.
           HOSTED_VERIFY_APP_LINKS: '0'
           HOSTED_FCM: '1'
+      - name: Phone-first QR and existing browser-first pairing
+        if: inputs.hosted_origin != ''
+        run: pnpm exec tsx scripts/hosted-acceptance.ts --pairing-only
+        env:
+          HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
+          HOSTED_VERIFY_APP_LINKS: '0'
       # Credential/reboot qualification remains a separate owned-emulator run.
       - name: Hosted encrypted control smoke acceptance
         if: inputs.hosted_origin != ''

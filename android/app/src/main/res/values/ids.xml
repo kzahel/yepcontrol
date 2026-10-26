@@ -1,4 +1,8 @@
 <resources>
+    <item name="give_control" type="id" />
+    <item name="give_control_qr" type="id" />
+    <item name="give_control_status" type="id" />
+    <item name="cancel_give_control" type="id" />
     <item name="navigation_menu" type="id" />
     <item name="page_title" type="id" />
     <item name="open_home" type="id" />
@@ -16,10 +20,6 @@
     <item name="appearance_dark" type="id" />
     <item name="all_devices" type="id" />
     <item name="sharing_website" type="id" />
-    <item name="copy_website" type="id" />
-    <item name="share_website" type="id" />
-    <item name="show_website_qr" type="id" />
-    <item name="website_qr" type="id" />
     <item name="scan_pairing_code" type="id" />
     <item name="scanner_progress" type="id" />
     <item name="open_features" type="id" />

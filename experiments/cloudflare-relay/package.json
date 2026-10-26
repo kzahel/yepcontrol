@@ -6,7 +6,7 @@
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir .local/bundle",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "test": "pnpm build && tsx fcm-auth-test.ts && tsx fcm-test.ts && tsx fcm-runtime-test.ts && tsx flow-test.ts && tsx admission-test.ts && tsx test.ts && pnpm build:import && tsx migration-test.ts",
+    "test": "pnpm build && tsx fcm-auth-test.ts && tsx fcm-test.ts && tsx fcm-runtime-test.ts && tsx flow-test.ts && tsx admission-test.ts && tsx phone-invitation-test.ts && tsx test.ts && pnpm build:import && tsx migration-test.ts",
     "test:live": "tsx live-test.ts",
     "build:import": "wrangler deploy --dry-run --config migration-wrangler.jsonc --outdir .local/migration-bundle"
   },

@@ -66,6 +66,7 @@ const viewer = await createServer({
             (route === "/" ||
               route === "/phones" ||
               route === "/pair" ||
+              route === "/control" ||
               route.startsWith("/phones/") ||
               route === "/install" ||
               route === "/enroll" ||

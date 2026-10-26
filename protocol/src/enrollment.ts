@@ -149,6 +149,6 @@ export const validBrowserName = (name: unknown): name is string =>
   name.length >= 1 &&
   name.length <= 40 &&
   // biome-ignore lint/suspicious/noControlCharactersInRegex: rejecting them is the point
-  !/[\u0000-\u001f\u007f-\u009f]/.test(name);
+  !/[\u0000-\u001f\u007f-\u009f\p{Cf}\p{Zl}\p{Zp}]/u.test(name);
 export const encodeInvitation = (i: Invitation): string =>
   `${originURL(i.origin)}/enroll#${b64(utf8(JSON.stringify(i)))}`;

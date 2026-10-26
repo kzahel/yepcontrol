@@ -10,6 +10,7 @@ import { PNG } from "pngjs";
 import { decodeInvitation } from "../protocol/src/enrollment.js";
 import { viewerAssetPath } from "../web/routes.js";
 import { verifyPairingClocks } from "./pairing-clock-acceptance.js";
+import { verifyPhoneFirstBrowser } from "./phone-first-browser-acceptance.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const artifacts = path.join(root, ".local/public-site-proof");
@@ -502,6 +503,7 @@ try {
   );
   assert.deepEqual(errors, []);
   await verifyPairingClocks(browser, origin, artifacts);
+  await verifyPhoneFirstBrowser(browser, origin, artifacts);
   console.log(
     "PASS public HTML/metadata, mobile/desktop layout, QR decoding, pairing error/retry/recovery, install fallback, secret isolation, no-JS links and returning phone navigation",
   );
