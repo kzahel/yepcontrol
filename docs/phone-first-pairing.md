@@ -123,7 +123,8 @@ permissions, encrypted control, independently observed remote Home, QR creation,
 capture exclusion, local cancellation and fixture revocation. See
 [the exact build/delivery receipt](distribution/android-beta.md#android-090--code-10--2026-10-26).
 
-The accepted bundle is saved for full public rollout. Console does not record the
-final review submission despite repeated confirmations; it remains ready and
-unsubmitted. See [the production status and blocker](distribution/android-production.md#android-090-production-preparation--2026-10-26).
-Do not describe this as Google approval or public availability of the new app.
+The accepted bundle was submitted for full public rollout on 2026-10-27.
+Console confirms **Changes in review / Production / 0.9.0 / Start full rollout**.
+Managed publishing is off, allowing automatic publication after approval.
+See [the production submission receipt](distribution/android-production.md#production-review-submitted--2026-10-27).
+Google approval and public availability of the new app remain pending.

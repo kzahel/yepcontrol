@@ -229,3 +229,17 @@ production review indirectly. **Production submission, Google approval and publi
 availability of 0.9.0 are not established.** Internal Play 0.9.0 and the production
 website/relay are live. Private Console receipts remain in
 `.local/phone-first-release/`.
+
+### Production review submitted — 2026-10-27
+
+After the owner's renewed publication instruction, the final Console
+confirmation succeeded. Publishing overview now displays **Changes in review**,
+**Your changes are now in review**, and **Production / 0.9.0 / Start full rollout**.
+This supersedes the unconfirmed submission status recorded above.
+
+The accepted **0.9.0/code-10** bundle is submitted for **100% production rollout**
+across the existing targeted countries. Managed publishing remains **off**, so
+the rollout can publish automatically after Google approval. Submission is
+confirmed; Google approval and public availability of 0.9.0 remain pending.
+The website/relay is already live. The private Console screenshot is
+`.local/phone-first-release/production-submitted-20261027.jpg`.

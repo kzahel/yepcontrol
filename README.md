@@ -13,8 +13,9 @@ through an end-to-end encrypted session. The browser-first QR flow also works.
 
 **Play release:** version 0.8.0/code 6 is publicly released, confirmed in Console
 2026-10-26. Android 0.9.0/code 10 is available to internal testers and has passed
-Play-installed acceptance. Its public rollout is prepared; Console's final
-review submission remains unconfirmed. See the current submission status in the
+Play-installed acceptance. Its full public rollout was submitted for Google
+review on 2026-10-27; approval and public availability remain pending. See the
+current submission status in the
 [production release record](docs/distribution/android-production.md) and
 [installed-build evidence](docs/distribution/android-beta.md#android-090--code-10--2026-10-26).
 
