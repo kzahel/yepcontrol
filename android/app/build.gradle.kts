@@ -105,7 +105,7 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.5")
     // Pinned to the reviewed installation-registration API.
     //noinspection GradleDependency
-    implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
+    implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
     implementation("com.google.firebase:firebase-messaging")
     // Background work scheduling.
     //noinspection GradleDependency
