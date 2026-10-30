@@ -520,3 +520,11 @@ passes the corrected native UI/storage suite and hosted process-absent FCM wake.
 The following mobile-management harness stopped on its obsolete six-test count:
 `HostStoreTest` now reports eleven passing tests. Its exact-count assertion is
 updated to eleven; no test is skipped or acceptance assertion relaxed.
+
+A following run exposed a separate coordinate race in the original protected-mode
+local positive control: after seeding matching synthetic fields, its Save tap
+left field lengths of seven and six. That fixture now invokes the real dialog
+Save/Forget buttons on the main thread, retaining their listeners and durable
+effects. It does not call storage directly. The unrestricted-mode case retains
+actual remote taps/text and the focus/value assertions; protected-mode remote
+refusals remain in place.

@@ -276,13 +276,12 @@ class LocalSettingsProtectionTest {
                 val confirmation = root.findViewById<EditText>(R.id.save_pin_confirm)
                 assertEquals("", value.text.toString(), "Remote text must not reach the secure PIN editor")
                 // Password fields hide text from accessibility on some emulator images.
-                // Seed only this synthetic editor fixture; local Save still uses real UI input.
+                // Seed only this synthetic editor fixture; invoke the actual local Save button below.
                 value.setText("314159")
                 confirmation.setText("314159")
+                // Local positive control: avoid a coordinate tap racing the IME's dialog repositioning.
+                assertTrue(root.findViewById<View>(android.R.id.button1).performClick())
             }
-            instrumentation.waitForIdleSync()
-            device.waitForIdle()
-            withView(By.res("android:id/button1")) { it.click() }
             try {
                 waitFor { vault.saved() }
             } catch (error: Throwable) {
@@ -311,7 +310,10 @@ class LocalSettingsProtectionTest {
                 ),
             )
             assertTrue(vault.saved())
-            withView(By.res("android:id/button1")) { it.click() }
+            instrumentation.runOnMainSync {
+                val root = WindowInspector.getGlobalWindowViews().first { it.findViewById<View>(android.R.id.button1) != null }
+                assertTrue(root.findViewById<View>(android.R.id.button1).performClick())
+            }
             waitFor { !vault.saved() }
             result(0, command(6, byteArrayOf(2))) // Home also exits when the PIN editor left an IME open.
             waitFor { !LocalSettingsProtection.blocked }
