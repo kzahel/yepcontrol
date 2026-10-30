@@ -138,6 +138,7 @@ class LocalSettingsProtectionTest {
         id: String,
         scene: Int,
     ): ByteArray {
+        device.waitForIdle()
         val bounds = withView(selector(id)) { it.visibleBounds }
         return command(
             4,
@@ -405,6 +406,7 @@ class LocalSettingsProtectionTest {
         )
 
         fun androidButton(scene: Int): ByteArray {
+            device.waitForIdle()
             val bounds = withView(By.res("android:id/button1")) { it.visibleBounds }
             return command(
                 4,
@@ -461,9 +463,16 @@ class LocalSettingsProtectionTest {
             }
             // Real remote text operations configure a synthetic saved PIN on this owned emulator.
             result(0, tap("save_pin_value", capture()))
+            waitFor { withView(selector("save_pin_value")) { it.isFocused } }
             result(0, command(7, "314159".toByteArray()))
             result(0, tap("save_pin_confirm", capture()))
+            waitFor { withView(selector("save_pin_confirm")) { it.isFocused } }
             result(0, command(7, "314159".toByteArray()))
+            instrumentation.runOnMainSync {
+                val root = WindowInspector.getGlobalWindowViews().first { it.findViewById<View>(R.id.save_pin_value) != null }
+                assertEquals("314159", root.findViewById<EditText>(R.id.save_pin_value).text.toString())
+                assertEquals("314159", root.findViewById<EditText>(R.id.save_pin_confirm).text.toString())
+            }
             result(0, androidButton(capture()))
             waitFor { vault.saved() }
             assertFalse(assertNotNull(store.device(id)).unlockAllowed, "Saving a PIN does not grant unlock authority")

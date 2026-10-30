@@ -505,3 +505,11 @@ MainActivity before its remote Home transition settled. It now observes the
 launcher and a fresh Home status before opening pairing, matching the already
 passing unrestricted-configuration case. This changes test sequencing only;
 production Android input/capture policy and the deployed website are unchanged.
+
+A subsequent Linux release run passed that Home sequence and timed out at the
+synthetic PIN-save postcondition. The native fixture now waits for UI idle before
+reading tap coordinates, observes each PIN field's focus before remote text,
+and asserts both synthetic values before Save. This checks the actual input
+effects without retrying remote commands. The corrected local suite passes all
+three UI/security tests and 22 storage tests; Linux release acceptance remains
+a separate gate.
