@@ -101,6 +101,7 @@ class MainActivity : ComponentActivity() {
     private var activityLimit = 200
     private val handler = Handler(Looper.getMainLooper())
     private val refresh = Runnable { if (listening && loaded) render() }
+    private val protectionListener: () -> Unit = { if (listening && loaded) render() }
     private val listener: () -> Unit = {
         handler.removeCallbacks(refresh)
         handler.postDelayed(refresh, 150)
@@ -140,6 +141,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         listening = true
         store.listeners.add(listener)
+        LocalSettingsProtection.listeners.add(protectionListener)
         giveControl.listeners.add(giveListener)
         giveListener()
         ForegroundAccess.start(this, foregroundOwner)
@@ -200,6 +202,7 @@ class MainActivity : ComponentActivity() {
         LocalSettingsProtection.set(foregroundOwner, false)
         handler.removeCallbacks(refresh)
         store.listeners.remove(listener)
+        LocalSettingsProtection.listeners.remove(protectionListener)
         giveControl.listeners.remove(giveListener)
         if (!isChangingConfigurations) giveControl.cancel()
         ForegroundAccess.stop(foregroundOwner)
@@ -261,14 +264,15 @@ class MainActivity : ComponentActivity() {
 
     private fun render() {
         if (isDestroyed || isFinishing) return
-        val protected = page in setOf("pair", "grant", "unlock", "saved-pin")
-        val secretPage = page == "pair"
+        val sensitive = page in setOf("pair", "grant", "unlock", "saved-pin")
+        val protected = sensitive && !LocalSettingsProtection.unrestricted
+        val secretPage = page == "pair" && !LocalSettingsProtection.unrestricted
         if (secretPage) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
-        LocalSettingsProtection.set(foregroundOwner, listening && protected, secretPage)
+        LocalSettingsProtection.set(foregroundOwner, listening && sensitive, page == "pair")
         shell.page(
             page,
             when (page) {
@@ -739,6 +743,40 @@ class MainActivity : ComponentActivity() {
             }
             text(layout, "Debug build. New pairing codes must come from ${Website.current(this).removePrefix("https://")}.", 14f)
         }
+        unrestrictedSettings(layout)
+    }
+
+    private fun unrestrictedSettings(layout: LinearLayout) {
+        toggle(
+            layout,
+            "Allow unrestricted remote control",
+            store.snapshot.settings.unrestrictedRemoteControl,
+            R.id.unrestricted_remote_control,
+        ) { enabled ->
+            if (enabled) {
+                AlertDialog
+                    .Builder(this)
+                    .setTitle("Allow unrestricted remote control?")
+                    .setMessage(
+                        "Paired controllers can change unlock settings and add other controllers. " +
+                            "Their access lasts until you remove them. Android permissions and each device’s unlock access still apply.",
+                    ).setNegativeButton("Cancel") { _, _ -> render() }
+                    .setOnCancelListener { render() }
+                    .setPositiveButton("Allow") { _, _ -> change { it.unrestrictedRemoteControl(true) } }
+                    .show()
+            } else {
+                change { it.unrestrictedRemoteControl(false) }
+            }
+        }
+        text(
+            layout,
+            if (store.snapshot.settings.unrestrictedRemoteControl) {
+                "On. Paired controllers can configure this app and add controllers."
+            } else {
+                "Off. Pairing and unlock configuration are protected. A trusted controller can turn this on here."
+            },
+            14f,
+        )
     }
 
     private fun appearance(layout: LinearLayout) {

@@ -199,7 +199,7 @@ try {
       }),
     ).toBeVisible();
     await expect(
-      page.getByText(/connected device cannot grant itself more access/),
+      page.getByText(/Remote input is paused on pairing and unlock pages/),
     ).toBeVisible();
     await page.getByRole("button", { name: "Home", exact: true }).click();
     await page.screenshot({

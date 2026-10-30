@@ -298,9 +298,9 @@ export function RemoteScreen({
             <div className="screen-panel">
               <h2>Change these settings on the phone</h2>
               <p>
-                Remote input is paused for pairing and unlock settings so a
-                connected device cannot grant itself more access. Make changes
-                directly on the phone. Back and Home still work remotely.
+                Remote input is paused on pairing and unlock pages. Make changes
+                on the phone, or return to ordinary controls. Back and Home
+                still work remotely.
               </p>
             </div>
           </div>

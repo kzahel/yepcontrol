@@ -52,7 +52,7 @@ internal object VideoStream {
             w: Int,
             h: Int,
         ) {
-            if (!allowed() || request !== this || lifecycle.phase == Phase.OFF) return
+            if (!allowed() || LocalSettingsProtection.hideCapture || request !== this || lifecycle.phase == Phase.OFF) return
             if (data.size > 524200) {
                 reset()
                 return
@@ -79,7 +79,7 @@ internal object VideoStream {
         }
 
         @Synchronized fun poll(): ByteArray? {
-            if (!allowed() || !active) return null
+            if (!allowed() || LocalSettingsProtection.hideCapture || !active) return null
             return frames.poll()
         }
     }
@@ -111,7 +111,7 @@ internal object VideoStream {
             return true
         }
         close(context)
-        if (!allowed()) return false
+        if (!allowed() || LocalSettingsProtection.hideCapture) return false
         val next = Request(owner, allowed, quality)
         request = next
         try {

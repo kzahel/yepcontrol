@@ -213,7 +213,7 @@ class LocalSettingsProtectionTest {
             view(selector("allow_unlock"))
             instrumentation.runOnMainSync { assertFalse(assertNotNull(ScreenAccessService.current).inputInFlight) }
             assertTrue(status().getBoolean("localSettings"))
-            assertTrue(withView(selector("local_settings_notice")) { it.text }.contains("cannot pair another device"))
+            assertTrue(withView(selector("local_settings_notice")) { it.text }.contains("unrestricted remote control is off"))
             result(4, tap("allow_unlock", capture()))
             result(4, command(11, touch(scene, 1)))
             result(
@@ -383,6 +383,146 @@ class LocalSettingsProtectionTest {
             store.removed(id)
             device.setOrientationNatural()
             device.unfreezeRotation()
+        }
+    }
+
+    @Test fun unrestrictedConfigurationCanBeEnabledRemotelyAndProtectionReturnsImmediately() {
+        assertEquals("1", device.executeShellCommand("getprop ro.kernel.qemu").trim(), "Owned emulator only")
+        val store = HostStore.get(context).load()
+        store.unrestrictedRemoteControl(false)
+        val vault = PinVault(context)
+        store.pair(JSONObject().put("id", id).put("origin", BuildConfig.SHARING_WEBSITE), "Configuration fixture")
+        owner = ControlSession(context, id, { true }, { replies.offer(it) })
+        device.executeShellCommand(
+            "settings put secure enabled_accessibility_services com.yepcontrol.app/dev.remoteaccess.app.control.ScreenAccessService",
+        )
+        device.executeShellCommand("settings put secure accessibility_enabled 1")
+        waitFor { ScreenAccessService.current != null }
+        context.startActivity(
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+        )
+
+        fun androidButton(scene: Int): ByteArray {
+            val bounds = withView(By.res("android:id/button1")) { it.visibleBounds }
+            return command(
+                4,
+                ByteBuffer
+                    .allocate(12)
+                    .putInt(scene)
+                    .putInt(bounds.centerX())
+                    .putInt(bounds.centerY())
+                    .array(),
+            )
+        }
+        try {
+            settings()
+            repeat(2) {
+                val scene = capture()
+                result(
+                    0,
+                    command(
+                        5,
+                        ByteBuffer
+                            .allocate(24)
+                            .putInt(scene)
+                            .putInt(device.displayWidth / 2)
+                            .putInt(device.displayHeight * 4 / 5)
+                            .putInt(device.displayWidth / 2)
+                            .putInt(device.displayHeight / 3)
+                            .putInt(300)
+                            .array(),
+                    ),
+                )
+                Thread.sleep(400)
+            }
+            result(0, tap("unrestricted_remote_control", capture()))
+            view(By.text("Allow unrestricted remote control?"))
+            assertTrue(withView(By.textContains("Their access lasts until")) { it.text }.contains("unlock settings"))
+            result(0, androidButton(capture()))
+            waitFor { store.snapshot.settings.unrestrictedRemoteControl && LocalSettingsProtection.unrestricted }
+            result(0, command(6, byteArrayOf(1)))
+            view(selector("host_status"))
+            settings()
+            result(0, tap("saved_pin_settings", capture()))
+            view(selector("save_pin"))
+            assertFalse(status().getBoolean("localSettings"))
+            result(0, tap("save_pin", capture()))
+            view(selector("save_pin_value"))
+            instrumentation.runOnMainSync {
+                val root = WindowInspector.getGlobalWindowViews().first { it.findViewById<View>(R.id.save_pin_value) != null }
+                assertTrue(root.layoutParams is android.view.WindowManager.LayoutParams)
+                assertEquals(
+                    0,
+                    (root.layoutParams as android.view.WindowManager.LayoutParams).flags and
+                        android.view.WindowManager.LayoutParams.FLAG_SECURE,
+                )
+            }
+            // Real remote text operations configure a synthetic saved PIN on this owned emulator.
+            result(0, tap("save_pin_value", capture()))
+            result(0, command(7, "314159".toByteArray()))
+            result(0, tap("save_pin_confirm", capture()))
+            result(0, command(7, "314159".toByteArray()))
+            result(0, androidButton(capture()))
+            waitFor { vault.saved() }
+            assertFalse(assertNotNull(store.device(id)).unlockAllowed, "Saving a PIN does not grant unlock authority")
+            result(0, tap("save_pin", capture()))
+            view(By.text("Forget saved PIN?"))
+            result(0, androidButton(capture()))
+            waitFor { !vault.saved() }
+            result(0, tap("save_pin", capture()))
+            view(selector("save_pin_value"))
+            // A background policy write closes the editor and fences already queued input.
+            val queued = LinkedBlockingQueue<Int>()
+            instrumentation.runOnMainSync {
+                assertNotNull(
+                    ScreenAccessService.current,
+                ).execute(ControlCommand(1, 7, text = "queued input"), owner, { true }) { _, bytes ->
+                    queued.offer(bytes.single().toInt())
+                }
+                LocalSettingsProtection.configure(false)
+            }
+            assertEquals(4, queued.poll(10, TimeUnit.SECONDS))
+            store.unrestrictedRemoteControl(false)
+            waitFor { !device.hasObject(selector("save_pin_value")) && LocalSettingsProtection.blocked }
+            result(4, tap("save_pin", capture()))
+            assertFalse(vault.saved())
+            // Re-enable for pairing-page visibility, then disable without leaving it.
+            store.unrestrictedRemoteControl(true)
+            result(0, command(6, byteArrayOf(2)))
+            assertTrue(device.wait(Until.hasObject(By.pkg("com.google.android.apps.nexuslauncher")), 10000))
+            context.startActivity(
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+            )
+            view(selector("host_status"))
+            click("pair_device")
+            view(selector("give_control"))
+            assertFalse(LocalSettingsProtection.blocked)
+            assertFalse(LocalSettingsProtection.hideCapture)
+            instrumentation.runOnMainSync {
+                assertEquals(0, activity().window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_SECURE)
+            }
+            val observation = command(20)
+            assertEquals(7, observation[4].toInt())
+            capture()
+            store.unrestrictedRemoteControl(false)
+            waitFor { LocalSettingsProtection.hideCapture }
+            instrumentation.runOnMainSync {
+                assertTrue(activity().window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_SECURE != 0)
+            }
+            result(4, command(20))
+            result(4, command(3))
+            result(0, command(6, byteArrayOf(2)))
+            waitFor { !LocalSettingsProtection.blocked }
+        } catch (error: Throwable) {
+            device.takeScreenshot(File(context.filesDir, "ui-unrestricted-failure.png"))
+            device.dumpWindowHierarchy(File(context.filesDir, "unrestricted-failure.xml"))
+            throw error
+        } finally {
+            owner.close()
+            vault.forget()
+            store.unrestrictedRemoteControl(false)
+            store.revoke(id)
+            store.removed(id)
         }
     }
 }

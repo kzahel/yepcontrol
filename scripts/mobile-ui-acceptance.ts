@@ -132,13 +132,13 @@ try {
     const png = execFileSync(
       adbPath,
       ["-s", serial, "exec-out", "run-as", app, "cat", `files/${file}`],
-      { timeout: 20000 },
+      { timeout: 20000, maxBuffer: 8 * 1024 * 1024 },
     );
     await writeFile(path.join(state, file), png, { mode: 0o600 });
   }
   assert.match(
     result,
-    /OK \(2 tests\)/,
+    /OK \(3 tests\)/,
     "Native navigation acceptance failed; see private log/screenshots",
   );
   const storage = process.argv.includes("--storage");

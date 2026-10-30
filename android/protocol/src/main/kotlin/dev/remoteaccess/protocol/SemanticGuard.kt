@@ -8,10 +8,14 @@ object SemanticGuard {
     inline fun <T> perform(
         resolve: () -> T,
         allowed: () -> Boolean,
+        onRefused: () -> Unit = {},
         action: (T) -> Int,
     ): Int {
         val target = resolve()
-        if (!allowed()) return 8
+        if (!allowed()) {
+            onRefused()
+            return 8
+        }
         return action(target)
     }
 

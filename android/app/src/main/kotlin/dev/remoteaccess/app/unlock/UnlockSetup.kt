@@ -8,11 +8,14 @@ import android.view.WindowManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import dev.remoteaccess.app.HostRuntime
 import dev.remoteaccess.app.HostSessions
 import dev.remoteaccess.app.R
+import dev.remoteaccess.app.control.LocalSettingsProtection
 
-/** Local-only credential setup. Never prefill, back up, log or return a saved PIN. */
+/** Credential setup follows the phone-wide configuration policy. Never prefill or return a saved PIN. */
 internal object UnlockSetup {
     fun show(
         activity: Activity,
@@ -55,12 +58,11 @@ internal object UnlockSetup {
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save", null)
                 .create()
-        dialog.setOnDismissListener {
-            pin.text.clear()
-            confirm.text.clear()
-        }
         dialog.setOnShowListener {
-            dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            protectDialog(activity, dialog, hideScreen = true) {
+                pin.text.clear()
+                confirm.text.clear()
+            }
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val value = pin.text.toString()
                 if (!value.matches(Regex("[0-9]{4,16}")) || value != confirm.text.toString()) {
@@ -93,19 +95,62 @@ internal object UnlockSetup {
         activity: Activity,
         changed: () -> Unit,
     ) {
-        AlertDialog
-            .Builder(
-                activity,
-            ).setTitle(
-                "Forget saved PIN?",
-            ).setMessage("Remote sessions will end. Manual PIN entry stays available to devices allowed to unlock.")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Forget") { _, _ ->
-                HostSessions.stop()
-                HostRuntime.io.execute {
-                    PinVault(activity).forget()
-                    activity.runOnUiThread(changed)
+        val dialog =
+            AlertDialog
+                .Builder(
+                    activity,
+                ).setTitle(
+                    "Forget saved PIN?",
+                ).setMessage("Remote sessions will end. Manual PIN entry stays available to devices allowed to unlock.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Forget") { _, _ ->
+                    HostSessions.stop()
+                    HostRuntime.io.execute {
+                        PinVault(activity).forget()
+                        activity.runOnUiThread(changed)
+                    }
+                }.create()
+        dialog.setOnShowListener { protectDialog(activity, dialog, hideScreen = false) {} }
+        dialog.show()
+    }
+
+    /** A stopped activity's dialog must not block input or capture in another app. */
+    private fun protectDialog(
+        activity: Activity,
+        dialog: AlertDialog,
+        hideScreen: Boolean,
+        dismissed: () -> Unit,
+    ) {
+        val lifecycle = (activity as LifecycleOwner).lifecycle
+        val observer =
+            object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) {
+                    LocalSettingsProtection.set(dialog, dialog.isShowing, hideScreen)
                 }
-            }.show()
+
+                override fun onStop(owner: LifecycleOwner) {
+                    LocalSettingsProtection.set(dialog, false)
+                }
+
+                override fun onDestroy(owner: LifecycleOwner) {
+                    dialog.dismiss()
+                }
+            }
+        val policyChanged: () -> Unit = {
+            if (!LocalSettingsProtection.unrestricted) {
+                dialog.dismiss()
+            } else {
+                dialog.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
+        }
+        dialog.setOnDismissListener {
+            LocalSettingsProtection.listeners.remove(policyChanged)
+            lifecycle.removeObserver(observer)
+            LocalSettingsProtection.set(dialog, false)
+            dismissed()
+        }
+        LocalSettingsProtection.listeners.add(policyChanged)
+        lifecycle.addObserver(observer)
+        if (hideScreen && !LocalSettingsProtection.unrestricted) dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 }

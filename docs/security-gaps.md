@@ -28,9 +28,13 @@ This is intentional product behavior, not an isolation boundary between an
 active controller and the phone's on-screen UI.
 
 The product should say plainly that enabling control is comparable to handing
-someone an unlocked phone for the duration of the session. Pairing approval,
-granting saved-PIN access and other actions explicitly designated local-only
-remain separate security boundaries. Global and per-browser access switches
+someone an unlocked phone for the duration of the session. With **Allow
+unrestricted remote control** enabled, it also includes pairing approval,
+per-device unlock configuration and saved-PIN setup. These screens are protected
+when that setting is off, but an existing trusted controller can intentionally
+enable it from ordinary Settings. Code 11 enables it once for eligible paired
+upgrades; see [the release-specific rule](cli-control.md#one-release-upgrade-rule).
+Changing this setting does not itself grant credential-entry authority. Global and per-browser access switches
 remain useful for the local owner to pause or revoke access, but they must not
 be described as protection from a malicious controller that is already active
 and allowed to operate those same screens.

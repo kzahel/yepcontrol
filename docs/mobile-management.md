@@ -65,6 +65,14 @@ phone, hosted deployment or Play release was changed.
 
 ## Local security settings (2026-10-22)
 
+The behavior below remains the **unrestricted-control off** policy. Android
+0.10.0 adds an owner-authorized Settings switch allowing trusted remote
+controllers to configure these screens, including pairing-code capture. See
+[the configuration plan and evidence](cli-control.md#next-slice-unrestricted-remote-configuration).
+The code-11 upgrade exception is persistent and one-time; existing pause,
+revocation and credential-entry permission remain separate.
+
+
 Pairing/approval, per-device unlock permission and saved-PIN management use
 dedicated native screens that suspend remote input while visible. Ordinary
 management pages remain remotely usable. Both the phone and viewer explain:

@@ -43,4 +43,51 @@ class SemanticGuardTest {
         assertNotEquals(SemanticGuard.fingerprint(listOf("ab", "c")), SemanticGuard.fingerprint(listOf("a", "bc")))
         assertNull(SemanticGuard.fingerprint(listOf("x".repeat(4097))))
     }
+
+    @Test fun policyChangeDuringSnapshotDiscardsObservationBeforeReply() {
+        val traversing = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val allowed = AtomicBoolean(true)
+        var observation: ByteArray? = null
+        var delivered: ByteArray? = null
+        var result = -1
+        val worker =
+            thread {
+                result =
+                    SemanticGuard.perform(
+                        resolve = {
+                            traversing.countDown()
+                            check(release.await(3, TimeUnit.SECONDS))
+                            byteArrayOf(7, 1, 2).also { observation = it }
+                        },
+                        allowed = { allowed.get() },
+                        onRefused = { observation = null },
+                        action = {
+                            delivered = it
+                            0
+                        },
+                    )
+            }
+        assertTrue(traversing.await(3, TimeUnit.SECONDS))
+        allowed.set(false)
+        release.countDown()
+        worker.join(3000)
+        assertEquals(8, result)
+        assertNull(delivered)
+        assertNull(observation)
+        assertEquals(
+            0,
+            SemanticGuard.perform(
+                resolve = { byteArrayOf(1).also { observation = it } },
+                allowed = { true },
+                onRefused = { observation = null },
+                action = {
+                    delivered = it
+                    0
+                },
+            ),
+        )
+        assertTrue(delivered.contentEquals(byteArrayOf(1)))
+        assertTrue(observation.contentEquals(byteArrayOf(1)))
+    }
 }

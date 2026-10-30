@@ -377,3 +377,38 @@ The requested Yep Anywhere Sol 6.1 High reviewer independently checked the
 migration chain and initialization logic with bypass permissions and approved
 phase 1 with no actionable findings. Enforcement and release evidence follow
 separately; private review receipts remain in `.local/unrestricted-proof/`.
+
+### Phase 2: Settings and input/capture enforcement — 2026-10-30
+
+Settings now exposes **Allow unrestricted remote control**, its current state,
+and a warning before manual enablement. The durable choice updates the common
+protection gate synchronously on store publication, including background load;
+UI/window refresh and held-input release run on the main thread. Existing
+protocols, grants and per-device credential-entry permission are unchanged.
+
+Sensitive pages retain their ownership while unrestricted mode is on, so turning
+it off restores input/snapshot restrictions without requiring navigation. Pairing
+and saved-PIN secure windows follow the choice. Disabling dismisses open PIN
+configuration dialogs, invalidates observations and queued input, and refuses
+capture completions from an earlier policy revision. Video offer/poll/configure
+also check capture protection. Dialog ownership follows the parent lifecycle so
+another foreground app remains controllable. PIN values remain redacted from
+semantic snapshots and are never returned as saved credentials.
+
+The owned API-35 native suite passes three tests covering existing disabled-mode
+protection, remote manual enablement and its warning, remote synthetic saved-PIN
+setup/removal, unchanged unlock permission, queued-input refusal, pairing-page
+snapshot/screenshot access and immediate protection/secure-window restoration.
+The 21 storage/migration tests also pass. The dedicated configuration test uses remote swipes to reach the new section
+below existing Settings links and waits for Home before reopening the app.
+Android build/lint, TypeScript typecheck/lint, all 185 TypeScript tests and the
+public-site, all five viewer sizes and phone-management suites pass.
+
+The requested independent Sol 6.1 High review found a snapshot-completion race
+when policy changed during traversal. The shared semantic guard now revalidates
+policy revision, service identity and lock state after building the tree; refusal
+clears its observation before any tree is sent. A deterministic blocked-build
+regression verifies discard/no reply, with an unchanged-policy positive control.
+The reviewer rechecked the correction and reports no outstanding actionable
+source findings. The final native/UI/storage rerun passes after that fix. Actual
+upgrade/adoption and release delivery remain phase 3 and release acceptance.

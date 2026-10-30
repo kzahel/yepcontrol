@@ -1,11 +1,18 @@
 package dev.remoteaccess.app.control
 
+import android.os.Handler
 import android.os.Looper
+import java.util.concurrent.CopyOnWriteArraySet
 
-/** Visible local settings own this gate; every remote transport uses the same input service. */
+/** All transports share this policy. Owners retain their protection while unrestricted mode is on. */
 internal object LocalSettingsProtection {
     private val owners = mutableSetOf<Any>()
     private val hidden = mutableSetOf<Any>()
+    private val main = Handler(Looper.getMainLooper())
+    val listeners = CopyOnWriteArraySet<() -> Unit>()
+
+    @Volatile var unrestricted = false
+        private set
 
     @Volatile var hideCapture = false
         private set
@@ -16,18 +23,38 @@ internal object LocalSettingsProtection {
     @Volatile var revision = 0L
         private set
 
+    /** Called synchronously on store publication, including background initialization. */
+    fun configure(enabled: Boolean) {
+        synchronized(this) {
+            if (unrestricted == enabled) return
+            unrestricted = enabled
+            refresh()
+        }
+        val changed = {
+            ScreenAccessService.current?.settingsChanged()
+            listeners.forEach { it() }
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) changed() else main.post { changed() }
+    }
+
+    private fun refresh() {
+        blocked = !unrestricted && owners.isNotEmpty()
+        hideCapture = !unrestricted && hidden.isNotEmpty()
+        revision++
+    }
+
     fun set(
         owner: Any,
         protected: Boolean,
         hideScreen: Boolean = false,
     ) {
         check(Looper.myLooper() == Looper.getMainLooper())
-        val changed = if (protected) owners.add(owner) else owners.remove(owner)
-        val captureChanged = if (protected && hideScreen) hidden.add(owner) else hidden.remove(owner)
-        if (!changed && !captureChanged) return
-        blocked = owners.isNotEmpty()
-        hideCapture = hidden.isNotEmpty()
-        revision++
+        synchronized(this) {
+            val changed = if (protected) owners.add(owner) else owners.remove(owner)
+            val captureChanged = if (protected && hideScreen) hidden.add(owner) else hidden.remove(owner)
+            if (!changed && !captureChanged) return
+            refresh()
+        }
         ScreenAccessService.current?.settingsChanged()
     }
 }

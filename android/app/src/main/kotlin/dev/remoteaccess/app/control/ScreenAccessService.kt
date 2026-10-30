@@ -16,6 +16,7 @@ import androidx.core.graphics.scale
 import dev.remoteaccess.app.unlock.PinUnlock
 import dev.remoteaccess.app.unlock.PinVault
 import dev.remoteaccess.protocol.ControlCommand
+import dev.remoteaccess.protocol.SemanticGuard
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -196,8 +197,22 @@ class ScreenAccessService : AccessibilityService() {
                 if (gesture || touch.active) return@post result(6)
                 val root = rootInActiveWindow ?: return@post result(4)
                 if (command.op == 20) {
-                    val payload = semantic.snapshot(owner, root)
-                    return@post if (payload == null) result(4) else reply(7, payload)
+                    val code =
+                        SemanticGuard.perform(
+                            resolve = { semantic.snapshot(owner, root) },
+                            allowed = { inputAllowed() && current === this && !locked() },
+                            onRefused = { semantic.clear(owner) },
+                            action = { payload ->
+                                if (payload == null) {
+                                    4
+                                } else {
+                                    reply(7, payload)
+                                    0
+                                }
+                            },
+                        )
+                    if (code != 0) result(code)
+                    return@post
                 }
                 val code = semantic.act(owner, command, root) { inputAllowed() && !locked() }
                 if (code == 0) invalidate()
@@ -321,6 +336,7 @@ class ScreenAccessService : AccessibilityService() {
             return
         }
         val expected = scene
+        val policyRevision = LocalSettingsProtection.revision
         takeScreenshot(
             Display.DEFAULT_DISPLAY,
             main::post,
@@ -347,7 +363,11 @@ class ScreenAccessService : AccessibilityService() {
                             val bytes = output.toByteArray()
                             main.post {
                                 capturing.set(false)
-                                if (!allowed() || LocalSettingsProtection.hideCapture || current !== this@ScreenAccessService) {
+                                if (!allowed() ||
+                                    LocalSettingsProtection.hideCapture ||
+                                    policyRevision != LocalSettingsProtection.revision ||
+                                    current !== this@ScreenAccessService
+                                ) {
                                     reply(2, byteArrayOf(8))
                                 } else if (locked() || expected != scene || bytes.size > 1048540) {
                                     reply(2, byteArrayOf(5))

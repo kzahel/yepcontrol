@@ -7,5 +7,5 @@
     <string name="screen_access_description">Let devices you pair view this phone’s screen and perform actions you request. Screen content and actions are encrypted between this phone and your device. Turn off remote access in the app to stop connections.</string>
     <string name="unlock_pin_explanation">Save this phone’s PIN for remote unlocking. It stays encrypted on this phone and is available while locked after the first local unlock following a restart. Allow unlocking separately for each device. A failed attempt requires local recovery.</string>
     <string name="remote_access_requested">Remote access requested</string>
-    <string name="local_settings_explanation">Change these settings directly on this phone. Remote input is paused here so a connected device cannot pair another device or give itself unlock access. Back and Home still work remotely.</string>
+    <string name="local_settings_explanation">Pairing and unlock configuration is protected while unrestricted remote control is off. Change these settings on this phone, or turn on unrestricted remote control in Settings. Back and Home still work remotely.</string>
 </resources>
