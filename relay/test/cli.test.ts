@@ -42,6 +42,7 @@ let directory: string,
   phone: Identity,
   relay: ReturnType<typeof createRelay>,
   tls: ReturnType<typeof createServer>;
+let loseCompletionReceipt = false;
 const children: ChildProcessWithoutNullStreams[] = [],
   sockets: WebSocket[] = [];
 const device = {
@@ -102,6 +103,7 @@ function cli(args: string[]) {
   return { child, done, stdout: () => stdout };
 }
 beforeEach(async () => {
+  loseCompletionReceipt = false;
   directory = await mkdtemp(path.join(os.tmpdir(), "yep-cli-wire-"));
   execFileSync(
     "openssl",
@@ -129,7 +131,15 @@ beforeEach(async () => {
       key: await readFile(path.join(directory, "key.pem")),
       cert: await readFile(path.join(directory, "cert.pem")),
     },
-    (req, res) => relay.server.emit("request", req, res),
+    (req, res) => {
+      if (loseCompletionReceipt && req.url?.endsWith("/complete")) {
+        res.end = (() => {
+          res.destroy();
+          return res;
+        }) as typeof res.end;
+      }
+      relay.server.emit("request", req, res);
+    },
   );
   tls.on("upgrade", (req, socket, head) =>
     relay.server.emit("upgrade", req, socket, head),
@@ -393,6 +403,47 @@ it("keeps a legacy host session usable after refusing unsupported semantic comma
     reply: { kind: "state" },
   });
   expect(h.actions()).toBe(0);
+  sockets.at(-1)?.terminate();
+  await serving;
+}, 20000);
+
+it("rejects an expired phone invitation before attempting to claim it", async () => {
+  const invite = {
+    v: 1 as const,
+    origin,
+    id: hex(crypto.getRandomValues(new Uint8Array(16))),
+    secret: hex(crypto.getRandomValues(new Uint8Array(32))),
+    phone: b64(phone.publicKey),
+    expires: Math.floor(Date.now() / 1000) - 1,
+  };
+  const c = cli(["pair", "--origin", origin, "--from-stdin", "--json"]);
+  c.child.stdin.end(encodePhoneInvitation(invite));
+  const result = await c.done;
+  expect(result.code).toBe(1);
+  expect(JSON.parse(result.stderr).error.message).toBe("This code expired");
+  expect((await api(invite.id)).status).toBe(404);
+});
+
+it("preserves verified access when the pairing completion receipt is lost", async () => {
+  loseCompletionReceipt = true;
+  const file = path.join(directory, "uncertain-code.txt");
+  const c = cli(["pair", "--origin", origin, "--code-file", file, "--json"]);
+  const uri = await until(() => readFile(file, "utf8"));
+  const invite = decodeInvitation(uri.trim());
+  await offer(invite);
+  const result = await c.done;
+  expect(result.code).toBe(1);
+  expect(result.stderr).toContain("completion is uncertain");
+  const saved = JSON.parse(
+    await readFile(path.join(directory, "client/state.json"), "utf8"),
+  );
+  expect(saved.phones).toHaveLength(1);
+  expect(saved.phones[0].confirmed).toBe(false);
+  expect(saved.phones[0].grant.id).toBe(invite.id);
+  const h = await host(saved.phones[0].grant);
+  const serving = h.serve();
+  const status = await cli(["status"]).done;
+  expect(status.code, status.stderr).toBe(0);
   sockets.at(-1)?.terminate();
   await serving;
 }, 20000);

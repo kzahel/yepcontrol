@@ -22,6 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -109,7 +110,24 @@ class HostedPairingTest {
                 if (approvalStarted()) {
                     true
                 } else {
-                    tap(selector)
+                    // Resolve the live button after render/recreation instead of a cached
+                    // accessibility object. Approval still uses a normal UI touch.
+                    var point: Pair<Int, Int>? = null
+                    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                        val activity =
+                            ActivityLifecycleMonitorRegistry
+                                .getInstance()
+                                .getActivitiesInStage(Stage.RESUMED)
+                                .filterIsInstance<MainActivity>()
+                                .singleOrNull()
+                        val button = activity?.findViewById<View>(R.id.grant_device)
+                        val rect = android.graphics.Rect()
+                        if (button != null && button.isEnabled && button.isShown && button.getGlobalVisibleRect(rect)) {
+                            point = rect.centerX() to rect.centerY()
+                        }
+                    }
+                    point?.let { device.click(it.first, it.second) }
+                    InstrumentationRegistry.getInstrumentation().waitForIdleSync()
                     approvalStarted()
                 }
             }
@@ -253,6 +271,9 @@ class HostedPairingTest {
         val uriFile = File(context.filesDir, "hosted-pair-uri")
         start()
         stage.writeText("ready")
+        var semanticProbe: dev.remoteaccess.app.control.SemanticAccess? = null
+        var probeCommand: dev.remoteaccess.protocol.ControlCommand? = null
+        val probeOwner = Any()
         val deadline = System.nanoTime() + 900_000_000_000L
         while (System.nanoTime() < deadline) {
             if (!command.exists()) {
@@ -298,16 +319,22 @@ class HostedPairingTest {
                             File(context.filesDir, if (before == 0) "ui-first-pair-detail.png" else "ui-next-pair-detail.png"),
                         ),
                     )
-                    // A repair action retains this device across recreation and Back.
-                    click("open_features")
-                    title("Set up this phone")
-                    device.setOrientationLeft()
-                    title("Set up this phone")
-                    device.pressBack()
-                    title(paired.nickname)
-                    device.setOrientationNatural()
-                    title(paired.nickname)
-                    device.pressBack()
+                    if (task.optBoolean("simple")) {
+                        // CLI enrollment qualification does not repeat the separate
+                        // management/rotation UX suite for every additional identity.
+                        start()
+                    } else {
+                        // A repair action retains this device across recreation and Back.
+                        click("open_features")
+                        title("Set up this phone")
+                        device.setOrientationLeft()
+                        title("Set up this phone")
+                        device.pressBack()
+                        title(paired.nickname)
+                        device.setOrientationNatural()
+                        title(paired.nickname)
+                        device.pressBack()
+                    }
                     title("This phone")
                     assertTrue(device.wait(Until.hasObject(By.res("${context.packageName}:id/host_status")), 10000))
                     assertFalse(device.hasObject(By.res("${context.packageName}:id/scan_pairing_code")))
@@ -458,6 +485,61 @@ class HostedPairingTest {
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
                     )
                     assertTrue(device.wait(Until.hasObject(By.text("Tap witness")), 10000))
+                }
+                "semantic-probe-start" -> {
+                    assertTrue(device.executeShellCommand("getprop ro.kernel.qemu").trim() == "1")
+                    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                        // This independent resolver deliberately has no event subscription.
+                        // The normal service's observation still receives every real event.
+                        semanticProbe?.clear()
+                        val service = assertNotNull(dev.remoteaccess.app.control.ScreenAccessService.current)
+                        val probe =
+                            dev.remoteaccess.app.control
+                                .SemanticAccess()
+                        val payload = assertNotNull(probe.snapshot(probeOwner, assertNotNull(service.rootInActiveWindow)))
+                        val snapshot = JSONObject(String(payload))
+                        val nodes = snapshot.getJSONArray("nodes")
+                        val editable = task.optBoolean("editable", true)
+                        val target =
+                            (0 until nodes.length())
+                                .map { nodes.getJSONObject(it) }
+                                .first { it.getBoolean(if (editable) "editable" else "clickable") }
+                        probeCommand =
+                            dev.remoteaccess.protocol.ControlCommand(
+                                1,
+                                if (editable) 23 else 21,
+                                listOf(target.getInt("node")),
+                                "Native guard positive",
+                                observation = snapshot.getString("observation"),
+                            )
+                        semanticProbe = probe
+                    }
+                }
+                "semantic-probe-act" -> {
+                    assertTrue(device.executeShellCommand("getprop ro.kernel.qemu").trim() == "1")
+                    InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                        val service = assertNotNull(dev.remoteaccess.app.control.ScreenAccessService.current)
+                        val code =
+                            assertNotNull(semanticProbe).act(
+                                probeOwner,
+                                assertNotNull(probeCommand),
+                                assertNotNull(service.rootInActiveWindow),
+                                { true },
+                            )
+                        assertEquals(task.getInt("expected"), code)
+                        semanticProbe = null
+                        probeCommand = null
+                    }
+                }
+                "control-fixture-change" -> {
+                    assertTrue(device.executeShellCommand("getprop ro.kernel.qemu").trim() == "1")
+                    context.startActivity(
+                        Intent()
+                            .setClassName("${context.packageName}.test", "dev.remoteaccess.app.ControlFixtureActivity")
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            .putExtra("fixtureMutation", task.getString("mode")),
+                    )
+                    InstrumentationRegistry.getInstrumentation().waitForIdleSync()
                 }
                 "setup" -> {
                     start()

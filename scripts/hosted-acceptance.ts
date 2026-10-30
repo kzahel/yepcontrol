@@ -18,6 +18,7 @@ import { candidateViewer } from "./candidate-viewer.js";
 import { controlAcceptance } from "./control-acceptance.js";
 import { mobileAcceptance } from "./mobile-management-acceptance.js";
 import { admitProofBrowser } from "./proof-relay.js";
+import { restoreSyntheticLock } from "./synthetic-lock.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const origin = process.env.HOSTED_ORIGIN;
@@ -40,6 +41,7 @@ if (
   control &&
   physical &&
   [
+    "HOSTED_CLI",
     "HOSTED_UNLOCK",
     "HOSTED_CONTROL_WAKE",
     "HOSTED_BOOT",
@@ -274,12 +276,7 @@ try {
     await rm(path.join(state, "control-idle-overrides"));
   }
   if (control && !physical && existsSync(path.join(state, "synthetic-lock"))) {
-    const result = adb("shell", "locksettings", "clear", "--old", "314159");
-    if (!result.includes("Lock credential cleared"))
-      throw new Error("Interrupted synthetic fixture lock recovery failed");
-    await rm(path.join(state, "synthetic-lock"));
-    adb("shell", "input", "keyevent", "KEYCODE_WAKEUP");
-    adb("shell", "wm", "dismiss-keyguard");
+    await restoreSyntheticLock({ adb, state });
   }
   for (const [pkg, apk] of [
     [appId, "debug/app-debug.apk"],

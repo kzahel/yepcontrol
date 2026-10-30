@@ -74,12 +74,15 @@ pnpm exec playwright install chromium
 | `pnpm test:interop` | Browser ↔ Android Keystore interoperability. |
 | `pnpm test:smooth-view` | Smooth toggle, consent, video and teardown on an owned emulator. |
 | `pnpm test:mobile-ui` | Native navigation, setup and appearance. |
+| `pnpm test:cli` | Real CLI pairing, accessibility effects/refusals and existing browser controls on an owned emulator. |
 | `pnpm test:hosted` | Hosted QR pairing, reconnect, FCM wake and revocation. |
 | `pnpm test:hosted --pairing-only` | Both QR directions, cancellation, secure QR display and encrypted native checks. |
 | `pnpm test:mobile` | Multiple browsers and native access management. |
 
 PRs and pushes run the browser layout and phone-management checks alongside
 builds, unit tests, lint and secret scanning. CodeQL scans production components.
+CLI process/protocol tests run with the unit suite. Hosted emulator CI jobs also
+run the CLI when a development origin is configured.
 Owned-emulator crypto, native navigation and storage smoke tests run nightly,
 on manual dispatch and before building a signed Android release.
 

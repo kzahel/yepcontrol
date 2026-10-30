@@ -131,8 +131,9 @@ invalidated by accessibility content/window events, other remote input, local
 settings changes and disconnect. The phone resolves the original path and checks
 node identity, signature, visibility, enabled state and supported action before
 acting. Obtain another snapshot after any refusal; there is no automatic retry.
-Password nodes and their descendants are not actionable. Phone-local protected
-settings cannot be observed or controlled. Trees reflect what Android and the
+Password nodes and their descendants are not actionable. Pairing, grant and PIN
+pages remain phone-local and cannot be observed or controlled. General Settings
+keeps its existing remote-access policy. Trees reflect what Android and the
 foreground app expose, and may be incomplete; `truncated` reports traversal limits.
 
 The optional `a11y: 1` capability and opcodes 20–23/reply 7 are additive. Existing
@@ -162,3 +163,77 @@ explicit development `sharingWebsite` corrected the fixture setup.
 The phase-4 reviewer rechecked all three fixes and reports no outstanding
 findings. Native semantic mutation/refusal checks remain explicitly assigned to
 the next phase.
+
+## Repeating CLI/native acceptance
+
+Build TypeScript with `pnpm build` and both debug APKs with
+`./android/gradlew -p android :app:assembleDebug :app:assembleDebugAndroidTest
+-PsharingWebsite=https://YOUR_DEVELOPMENT_ORIGIN` (select JDK 17). With that same
+`HOSTED_ORIGIN`, run `pnpm test:cli`. This owns an API-35 emulator, provisions the
+normal native permission/pairing UI, runs real built Node CLI processes and then
+runs the existing browser control suite. It refuses physical selectors. Use
+`HOSTED_TOUCH=1 HOSTED_VIDEO=1 HOSTED_DIRECT=1` for the full gesture/video/direct
+regression. `HOSTED_DNS_SERVERS` must resolve the origin from the emulator.
+
+The native fixture APK records independent button/text/scroll effects. New
+fixture-only mutations change a label, change a text suffix beyond 256
+characters, and mark a container as a password container. They are not production
+control APIs. ADB sets up the fixture and reads those counters. Lock-refusal qualification
+uses a temporary synthetic PIN on the owned emulator, cleared afterward with
+shared fixture recovery; CLI target actions use only YepControl. Recovery also
+handles interruption before PIN installation or after successful clearing. It
+retains its marker on credential mismatch or failed keyguard restoration.
+The CLI does not enter a PIN or unlock a secure keyguard.
+
+CI retains actual CLI HTTPS/crypto subprocess tests and Kotlin guard/parser
+regressions in its regular unit suite. The configured hosted-control CI jobs also
+set `HOSTED_CLI=1`; native CLI acceptance is skipped when no development origin
+is supplied, as with the existing hosted-control jobs. CLI native acceptance
+requires an isolated origin without the experiment's proof-cookie gate.
+
+Additional native resolver probes use a separate instance of the production
+`SemanticAccess` class with the real active-window root. This test instance is
+not subscribed to service events, so it retains an observation across a label,
+text-suffix or password-ancestor mutation. The actual refreshed resolver must
+refuse the changed target and leave native counters/values unchanged. A positive
+control acts on the same real editable target. These are native resolver tests;
+the separate CLI cases still send their actions through the encrypted session
+and exercise normal service event invalidation. The probes do not qualify
+transport or permission authority; those have separate tests.
+
+Expected CLI exits have explicit acceptance deadlines. Teardown terminates and
+awaits owned child processes, attempts grant cleanup and browser restoration,
+and records restoration failures without replacing the original test failure.
+
+### Final CLI/browser qualification — 2026-10-30
+
+The combined owned API-35 run completed successfully with CLI, touch, video and
+direct transport enabled. Real built CLI processes passed both pairing
+directions, persisted identity, missing-permission refusal, native node click,
+Unicode text and scroll, password redaction/value preservation, stale/changed/
+expired/cross-session reference refusals, protected pairing-page refusal and
+locked-screen refusal. Screenshot, coordinate gestures, navigation, launch and
+independent client pause/removal also passed. Independent native resolver probes
+passed suffix-change and password-ancestor refusal with a positive action
+control. Synthetic-lock recovery passed normal and interrupted-marker cases;
+cleanup removed the marker and reaped the owned emulator.
+
+The same run then passed existing browser native input, held slider, long press,
+multitouch, lost-packet watchdog release and direct-path loss recovering through
+the relay without replay. Encrypted direct H.264 decoded 147 frames in 5.013
+seconds. Global disarm and browser removal passed, with no page errors.
+
+Final checks passed 185 TypeScript tests across 27 files, Kotlin protocol tests,
+TypeScript typecheck/build/lint, Android build/lint and format checks. The
+requested independent Sol 6.1 High review found and prompted stronger native
+resolver probes, bounded child-process cleanup and idempotent synthetic-lock
+recovery; all source findings were resolved. Private candidate hashes, detailed
+receipts and review reports remain under ignored `.local/cli-proof/`.
+The reviewer reconciled the completed CLI/browser run, candidate hashes and
+cleanup receipts and closed phase 5 with no remaining actionable findings.
+
+This qualifies the local emulator build, including the new Android capability.
+Existing public hosts retain basic control but require an updated Android build
+for semantic commands. Physical-device, reboot/first-unlock, overnight and
+Play-installed acceptance were not part of this run; no release or deployment
+was performed.

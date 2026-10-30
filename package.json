@@ -19,6 +19,7 @@
     "test:interop": "tsx scripts/crypto-interop.ts",
     "build:android": "./android/gradlew -p android :app:assembleDebug :app:assembleDebugAndroidTest",
     "check:ts": "biome check protocol client cli web/src web/public web/test scripts relay package.json tsconfig.json biome.json vitest.config.ts web/vite.config.ts web/package.json",
+    "test:cli": "HOSTED_CLI=1 tsx scripts/hosted-acceptance.ts --control",
     "test:hosted": "tsx scripts/hosted-acceptance.ts",
     "test:smooth-view": "pnpm --filter @remote/protocol build && tsx scripts/smooth-view-acceptance.ts",
     "test:mobile-ui": "tsx scripts/mobile-ui-acceptance.ts",

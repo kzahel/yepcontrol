@@ -9,6 +9,7 @@ import { PNG } from "pngjs";
 import { resultMessage } from "../protocol/src/control.js";
 import { nativeFailure } from "./acceptance-diagnostics.js";
 import { candidateViewer } from "./candidate-viewer.js";
+import { cliAcceptance } from "./cli-acceptance.js";
 import { prepareIdleWake } from "./control-recovery.js";
 import { admitProofBrowser } from "./proof-relay.js";
 
@@ -31,6 +32,7 @@ export async function controlAcceptance(f: Fixture) {
   if (
     f.physical &&
     [
+      "HOSTED_CLI",
       "HOSTED_UNLOCK",
       "HOSTED_CONTROL_WAKE",
       "HOSTED_BOOT",
@@ -258,6 +260,18 @@ export async function controlAcceptance(f: Fixture) {
     assert.ok(typeof paired !== "boolean");
     const id = paired.devices[0]?.id;
     assert.ok(id);
+    if (process.env.HOSTED_CLI === "1") {
+      if (f.physical) throw new Error("CLI acceptance owns its emulator only");
+      await cliAcceptance({
+        origin: f.origin,
+        state: f.state,
+        page,
+        browserId: id,
+        adb,
+        privateWrite,
+        command,
+      });
+    }
     await command("enable-screen-access");
     if (process.env.HOSTED_UNLOCK === "1") {
       await command("save-fixture-pin");

@@ -84,6 +84,7 @@ jobs:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
           # The runner-generated debug key is not a public domain-associated signer.
           HOSTED_VERIFY_APP_LINKS: '0'
+          HOSTED_CLI: '1'
           HOSTED_TOUCH: '1'
           HOSTED_VIDEO: '1'
           # Software H.264 and held input are measured in sequence on shared runners.

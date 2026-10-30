@@ -1,6 +1,9 @@
 package dev.remoteaccess.app;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityEvent;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Canvas;
@@ -32,6 +35,8 @@ public final class ControlFixtureActivity extends Activity {
     private boolean keyboardShown;
     private Button target;
     private EditText field;
+    private EditText password;
+    private LinearLayout content;
     private ScrollView scroll;
     private SeekBar slider;
     private View multi;
@@ -45,7 +50,8 @@ public final class ControlFixtureActivity extends Activity {
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        LinearLayout content = new LinearLayout(this);
+        content = new LinearLayout(this);
+        content.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(40, 100, 40, 40);
         content.setBackgroundColor(Color.rgb(225, 242, 255));
@@ -77,6 +83,11 @@ public final class ControlFixtureActivity extends Activity {
         content.addView(target, new LinearLayout.LayoutParams(-1, 160));
         content.addView(field, new LinearLayout.LayoutParams(-1, 160));
         content.addView(slider, new LinearLayout.LayoutParams(-1, 160));
+        password = new EditText(this);
+        password.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        password.setText("fixture-private-password");
+        password.setContentDescription("fixture-private-password");
+        content.addView(password, new LinearLayout.LayoutParams(-1, 110));
         multi = new View(this) {
             final Paint paint = new Paint();
             @Override protected void onDraw(Canvas canvas) {
@@ -120,6 +131,25 @@ public final class ControlFixtureActivity extends Activity {
         scroll.post(this::witness);
     }
 
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        String mode = intent.getStringExtra("fixtureMutation");
+        if ("label".equals(mode)) target.setText("Changed witness");
+        if ("long-old".equals(mode) || "long-new".equals(mode)) {
+            field.setText(new String(new char[256]).replace('\0', 'a') + ("long-old".equals(mode) ? "old" : "new"));
+        }
+        if ("password-container".equals(mode)) {
+            content.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+                @Override public void onInitializeAccessibilityNodeInfo(View view, AccessibilityNodeInfo info) {
+                    super.onInitializeAccessibilityNodeInfo(view, info);
+                    info.setPassword(true);
+                }
+            });
+        }
+        content.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
+        witness();
+    }
+
     private JSONObject center(View view) throws Exception {
         int[] location = new int[2];
         view.getLocationOnScreen(location);
@@ -129,7 +159,7 @@ public final class ControlFixtureActivity extends Activity {
     private void witness() {
         if (scroll == null) return;
         try {
-            JSONObject value = new JSONObject().put("taps", taps).put("text", entered).put("scroll", scroll.getScrollY())
+            JSONObject value = new JSONObject().put("taps", taps).put("text", entered).put("password", password.getText().toString()).put("scroll", scroll.getScrollY())
                 .put("keyboardShown", keyboardShown)
                 .put("fieldFocused", field.hasFocus())
                 .put("target", center(target)).put("field", center(field)).put("slider", center(slider))
