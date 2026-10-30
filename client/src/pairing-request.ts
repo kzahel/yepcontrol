@@ -60,13 +60,16 @@ async function request(url: string, options: RequestInit, creating: boolean) {
   return response;
 }
 
-async function pairingTime(origin: string): Promise<{
+async function pairingTime(
+  origin: string,
+  signal?: AbortSignal,
+): Promise<{
   serverTime: number;
   expires: number;
 }> {
   const response = await request(
     `${origin}/api/pairing-time`,
-    { cache: "no-store" },
+    { cache: "no-store", ...(signal ? { signal } : {}) },
     true,
   );
   const value = await response.json();
@@ -87,14 +90,19 @@ async function pairingRequest(
   action = "",
   body?: unknown,
   wait?: { seen: string; signal: AbortSignal },
+  signal?: AbortSignal,
 ) {
+  const requestSignal = signal ?? wait?.signal;
   const response = await request(
     `${origin}/api/pair/${id}${action ? `/${action}` : ""}`,
     body === undefined
       ? wait
         ? { headers: { "Pair-Wait": wait.seen }, signal: wait.signal }
-        : {}
+        : signal
+          ? { signal }
+          : {}
       : {
+          ...(requestSignal ? { signal: requestSignal } : {}),
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -125,14 +133,14 @@ export function pairingDelay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-export function pairingApi(origin: string) {
+export function pairingApi(origin: string, signal?: AbortSignal) {
   return {
-    time: () => pairingTime(origin),
+    time: () => pairingTime(origin, signal),
     request: (
       id: string,
       action = "",
       body?: unknown,
       wait?: { seen: string; signal: AbortSignal },
-    ) => pairingRequest(origin, id, action, body, wait),
+    ) => pairingRequest(origin, id, action, body, wait, signal),
   };
 }

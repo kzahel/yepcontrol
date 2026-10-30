@@ -20,6 +20,8 @@
     "relay/src",
     "relay/test",
     "client/src",
-    "client/test"
+    "client/test",
+    "cli/src",
+    "cli/test"
   ]
 }

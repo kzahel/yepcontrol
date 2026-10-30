@@ -72,3 +72,45 @@ acquisition, abort-listener/timer cleanup, skipping absent WebRTC, development
 source resolution and direct shared-source regression tests. No wire-format or
 pairing-authority bypass was identified. Private reports and receipts remain in
 `.local/cli-proof/`.
+
+### CLI usage
+
+After `pnpm build`, run `pnpm --silent yepcontrol pair --name 'My agent'` and
+scan the terminal QR with YepControl. To claim a phone's **Show code** invitation,
+pass its link through `pair --from-stdin`. `--code-file PATH` writes a private
+terminal-issued link instead of printing a QR. Pairing uses the same explicit
+phone approval and signed grants as the browser.
+
+`phones` lists saved devices; select with `--phone ID` when more than one is
+paired. `status`, `screenshot --out PATH`, `apps`, `wake`, `sleep`, `home`, `back`,
+`recents` and `launch PACKAGE` are single commands. Screenshots give the scene
+number required by `tap X Y --scene N` and
+`swipe X Y END_X END_Y DURATION_MS --scene N`. Use `text --from-stdin` for text.
+Artifacts refuse overwrite and use owner-only permissions. Identity/grants live
+in `YEPCONTROL_HOME` or `~/.config/yepcontrol`, independently of browser storage.
+
+Agents should use `session --stdio` to retain the encrypted connection. It emits
+one JSON ready record, then accepts one JSON request per line, for example
+`{"id":"s1","op":"status"}` or `{"id":"s2","op":"capture"}`. Each response
+contains the caller's id, `ok`, and a reply or error. JPEG bytes are base64.
+Requests execute sequentially and uncertain commands are never replayed.
+A disconnected session must be reopened and observed before further input.
+
+Results are JSON on stdout. With `--json`, fatal errors are JSON on stderr:
+`{"ok":false,"error":{"code":"CLI_ERROR","message":"..."}}`, with exit 1.
+Progress remains on stderr. Cancellation closes the connection; output and
+shutdown flushing are bounded, including when the caller stops reading.
+The CLI does not accept PINs, unlock, video or transport-negotiation commands.
+
+### CLI process qualification — 2026-10-30
+
+Retained tests run actual CLI subprocesses against a local HTTPS relay and a
+cryptographic phone simulator for both pairing directions, persisted identity,
+encrypted status, lost action replies without replay, cancellation and structured
+failures. A process test fills stdout with a large screenshot, cancels without
+reading it, and checks bounded exit and connection teardown. These tests do not
+claim native input effects; emulator qualification follows in phase 5.
+
+This phase passes 174 TypeScript tests, typecheck, build and TypeScript lint.
+The requested independent Sol 6.1 High review is complete with no outstanding
+findings after fixing blocked-output shutdown and structured fatal errors.

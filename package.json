@@ -8,17 +8,17 @@
   },
   "scripts": {
     "dev": "tsx scripts/dev.ts",
-    "build": "pnpm --filter @remote/protocol build && pnpm --filter @remote/client build && pnpm --filter @remote/relay build && pnpm --filter @remote/web build",
+    "build": "pnpm --filter @remote/protocol build && pnpm --filter @remote/client build && pnpm --filter @remote/relay build && pnpm --filter @remote/web build && pnpm --filter @remote/cli build",
     "typecheck": "pnpm --filter @remote/protocol build && pnpm --filter @remote/client build && pnpm -r typecheck",
     "lint": "pnpm check:ts && ./android/gradlew -p android ktlintCheck :app:lint",
-    "format": "biome check --write protocol client web/src web/public web/test scripts relay",
-    "format:check": "biome format protocol client web/src web/public web/test scripts relay package.json tsconfig.json biome.json vitest.config.ts web/vite.config.ts web/package.json && ./android/gradlew -p android ktlintCheck",
+    "format": "biome check --write protocol client cli web/src web/public web/test scripts relay",
+    "format:check": "biome format protocol client cli web/src web/public web/test scripts relay package.json tsconfig.json biome.json vitest.config.ts web/vite.config.ts web/package.json && ./android/gradlew -p android ktlintCheck",
     "test": "vitest run && ./android/gradlew -p android :protocol:test",
     "test:ts": "vitest run",
     "test:spike": "npm --prefix spike test",
     "test:interop": "tsx scripts/crypto-interop.ts",
     "build:android": "./android/gradlew -p android :app:assembleDebug :app:assembleDebugAndroidTest",
-    "check:ts": "biome check protocol client web/src web/public web/test scripts relay package.json tsconfig.json biome.json vitest.config.ts web/vite.config.ts web/package.json",
+    "check:ts": "biome check protocol client cli web/src web/public web/test scripts relay package.json tsconfig.json biome.json vitest.config.ts web/vite.config.ts web/package.json",
     "test:hosted": "tsx scripts/hosted-acceptance.ts",
     "test:smooth-view": "pnpm --filter @remote/protocol build && tsx scripts/smooth-view-acceptance.ts",
     "test:mobile-ui": "tsx scripts/mobile-ui-acceptance.ts",
@@ -26,7 +26,8 @@
     "test:public-site": "pnpm --filter @remote/web build && tsx scripts/public-site-acceptance.ts",
     "test:viewer-layout": "tsx scripts/viewer-layout-acceptance.ts",
     "test:viewer-phones": "tsx scripts/viewer-phones-acceptance.ts",
-    "test:mobile-smoke": "tsx scripts/mobile-ui-acceptance.ts --storage"
+    "test:mobile-smoke": "tsx scripts/mobile-ui-acceptance.ts --storage",
+    "yepcontrol": "node cli/dist/main.js"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.8",

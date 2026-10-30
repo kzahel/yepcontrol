@@ -12,6 +12,7 @@ export default defineConfig({
     include: [
       "protocol/test/**/*.test.ts",
       "client/test/**/*.test.ts",
+      "cli/test/**/*.test.ts",
       "relay/test/**/*.test.ts",
       "web/test/**/*.test.ts",
       "scripts/**/*.test.ts",

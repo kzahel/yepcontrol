@@ -21,6 +21,7 @@ export async function createPairing(
   identity: Identity,
   name: string,
   expires: number,
+  signal?: AbortSignal,
 ): Promise<Invitation> {
   if (!validBrowserName(name)) throw new Error("Invalid client name");
   const invitation: Invitation = {
@@ -32,7 +33,7 @@ export async function createPairing(
     expires,
     name,
   };
-  await pairingApi(origin).request(invitation.id, "", {
+  await pairingApi(origin, signal).request(invitation.id, "", {
     viewer: invitation.viewer,
     expires,
     signature: b64(await identity.sign(createBytes(origin, invitation))),

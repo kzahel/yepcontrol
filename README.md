@@ -52,6 +52,10 @@ To show a development URL in the Android app, set
 For a separate deployment, build with `-PsharingWebsite=https://YOUR_ORIGIN`.
 See [App Links and installation](docs/app-links.md).
 
+A Node CLI shares the browser's pairing and encrypted control client. See
+[CLI pairing and accessibility control](docs/cli-control.md) for commands and
+agent JSON-lines sessions.
+
 ## Verification
 
 ```sh
