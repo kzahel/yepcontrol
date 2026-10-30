@@ -313,7 +313,7 @@ export async function mobileAcceptance(f: Fixture, pairingOnly = false) {
     await writeFile(path.join(f.state, "database-tests.log"), dbTests, {
       mode: 0o600,
     });
-    assert.match(dbTests, /OK \(6 tests\)/);
+    assert.match(dbTests, /OK \(11 tests\)/);
     await startNative();
     console.log("Native Room tests passed");
     await command("home");

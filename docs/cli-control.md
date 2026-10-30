@@ -513,3 +513,10 @@ and asserts both synthetic values before Save. This checks the actual input
 effects without retrying remote commands. The corrected local suite passes all
 three UI/security tests and 22 storage tests; Linux release acceptance remains
 a separate gate.
+
+Linux release run
+[41140046532](https://github.com/kzahel/yepcontrol/actions/runs/41140046532)
+passes the corrected native UI/storage suite and hosted process-absent FCM wake.
+The following mobile-management harness stopped on its obsolete six-test count:
+`HostStoreTest` now reports eleven passing tests. Its exact-count assertion is
+updated to eleven; no test is skipped or acceptance assertion relaxed.
