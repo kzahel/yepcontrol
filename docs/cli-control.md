@@ -287,6 +287,9 @@ The exception must not become an ongoing default for future installs/pairings.
 
 ### Implementation phases
 
+Use three implementation phases. Each phase includes its relevant retained
+tests and owned-emulator checks before independent review and commit.
+
 1. **Persist and initialize.** Extend the Room settings schema compatibly with
    existing released databases. Keep structural migrations deterministic and
    make the release-specific eligibility decision in a transaction during
@@ -311,6 +314,30 @@ After each implementation phase, use the requested Yep Anywhere API reviewer
 existing owned-emulator/private-evidence discipline. Implementation acceptance
 and actual release delivery are separate; this plan does not claim deployment
 or Play-installed qualification.
+
+### Emulator and physical verification
+
+Owned emulators are sufficient to implement and qualify all three phases.
+Phase 1 covers the upgrade/default/persistence matrix, including interrupted
+initialization and skipped releases. Phase 2 verifies remote configuration,
+capture and immediate restoration of protections. Phase 3 proves actual
+browser-to-CLI adoption after an in-place upgrade, independent revocation and
+the existing browser touch/video/direct-to-relay recovery regression suite.
+Use synthetic credentials for unlock-configuration cases. Implementation does
+not require physical PIN entry, physical reboot tests or debugging/lock-setting
+changes on a real phone.
+
+Before shipping, perform a small physical acceptance check through internal
+Play on an already-paired phone. Update in place, preserving app data and its
+existing pairing; do not uninstall/re-pair to make the check pass. Verify
+automatic enablement, reconnect from the existing browser, obtain a pairing
+code remotely, pair the CLI and exercise independent control/removal. Turn the
+switch off and confirm protected-page input/capture restrictions return while
+ordinary control remains usable. Record real-device accessibility/capture
+behavior and actual installed-build evidence separately from emulator results.
+
+This physical check validates release delivery and real-device behavior; it is
+not a repeat of the full emulator campaign. Complete it before public promotion.
 
 ### Required acceptance
 
