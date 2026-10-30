@@ -12,6 +12,7 @@ import { candidateViewer } from "./candidate-viewer.js";
 import { cliAcceptance } from "./cli-acceptance.js";
 import { prepareIdleWake } from "./control-recovery.js";
 import { admitProofBrowser } from "./proof-relay.js";
+import { remoteAdoption } from "./remote-adoption.js";
 
 type Fixture = {
   browser: Browser;
@@ -260,6 +261,27 @@ export async function controlAcceptance(f: Fixture) {
     assert.ok(typeof paired !== "boolean");
     const id = paired.devices[0]?.id;
     assert.ok(id);
+    const upgradeDirectory = process.env.HOSTED_UPGRADE_APK_DIRECTORY;
+    if (upgradeDirectory) {
+      if (f.physical || process.env.HOSTED_CLI === "1")
+        throw Error(
+          "Upgrade/adoption owns an emulator and runs separately from CLI permission fixtures",
+        );
+      await command("enable-screen-access");
+      await stopNative();
+      for (const apk of [
+        "debug/app-debug.apk",
+        "androidTest/debug/app-debug-androidTest.apk",
+      ]) {
+        adb("install", "-r", path.join(path.resolve(upgradeDirectory), apk));
+      }
+      await startNative();
+      await command("control-ready", { id });
+      await page.reload();
+      console.log(
+        "Existing browser pairing retained across in-place Android upgrade",
+      );
+    }
     if (process.env.HOSTED_CLI === "1") {
       if (f.physical) throw new Error("CLI acceptance owns its emulator only");
       await cliAcceptance({
@@ -368,6 +390,9 @@ export async function controlAcceptance(f: Fixture) {
         "Fresh pinned-identity session established over native WebRTC",
       );
     }
+    const adoption = upgradeDirectory
+      ? await remoteAdoption({ page, origin: f.origin, state: f.state })
+      : undefined;
     if (process.env.HOSTED_UNLOCK === "1") {
       await page
         .getByRole("button", { name: "Lock phone", exact: true })
@@ -822,6 +847,14 @@ export async function controlAcceptance(f: Fixture) {
           ),
         10000,
       );
+    }
+    if (adoption && process.env.HOSTED_VIDEO === "1") {
+      await page
+        .getByRole("switch", { name: "Smooth view", exact: true })
+        .click();
+      await command("approve-video");
+      await freshFrames();
+      await adoption.verifyProtection();
     }
     await command("global", { enabled: false });
     await page

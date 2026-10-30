@@ -24,7 +24,7 @@ class HostStoreTest {
     fun setup() {
         legacy.edit().clear().commit()
         db = Room.inMemoryDatabaseBuilder(context, HostDatabase::class.java).build()
-        store = HostStore.fixture(context, db)
+        store = HostStore.fixture(context, db, HostStore.UNRESTRICTED_UPGRADE_VERSION_CODE)
     }
 
     @After
@@ -260,5 +260,42 @@ class HostStoreTest {
         val reopened = HostStore.fixture(context, db).load()
         assertEquals(1, reopened.events().count { it.kind == "Unrestricted remote control enabled by update" })
         assertEquals(1, reopened.events().count { it.kind == "Previous pairing imported" })
+    }
+
+    @Test fun initializedChoicesSurviveDatabaseCloseAndLaterVersion() {
+        val name = "unrestricted-persistence-fixture"
+        context.deleteDatabase(name)
+
+        fun open() = Room.databaseBuilder(context, HostDatabase::class.java, name).build()
+        var disk = open()
+        try {
+            disk.dao().put(HostSettings())
+            disk.dao().put(Device("persisted", grant("persisted").toString(), "Saved device", 1))
+            val designated = HostStore.fixture(context, disk, HostStore.UNRESTRICTED_UPGRADE_VERSION_CODE).load()
+            assertTrue(designated.snapshot.settings.unrestrictedRemoteControl)
+            disk.close()
+            disk = open()
+            val later = HostStore.fixture(context, disk, HostStore.UNRESTRICTED_UPGRADE_VERSION_CODE + 1).load()
+            assertTrue(later.snapshot.settings.unrestrictedRemoteControl)
+            assertTrue(later.snapshot.settings.unrestrictedUpgradeNotice)
+            later.unrestrictedRemoteControl(false)
+            later.dismissUnrestrictedUpgradeNotice()
+            disk.close()
+            disk = open()
+            val reopened = HostStore.fixture(context, disk, HostStore.UNRESTRICTED_UPGRADE_VERSION_CODE + 2).load()
+            assertFalse(reopened.snapshot.settings.unrestrictedRemoteControl)
+            assertFalse(reopened.snapshot.settings.unrestrictedUpgradeNotice)
+            assertTrue(reopened.snapshot.settings.unrestrictedInitialized)
+            assertEquals(
+                "persisted",
+                reopened.snapshot.devices
+                    .single()
+                    .id,
+            )
+            assertEquals(1, reopened.events().count { it.kind == "Unrestricted remote control enabled by update" })
+        } finally {
+            disk.close()
+            context.deleteDatabase(name)
+        }
     }
 }

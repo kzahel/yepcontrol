@@ -412,3 +412,90 @@ regression verifies discard/no reply, with an unchanged-policy positive control.
 The reviewer rechecked the correction and reports no outstanding actionable
 source findings. The final native/UI/storage rerun passes after that fix. Actual
 upgrade/adoption and release delivery remain phase 3 and release acceptance.
+
+### Repeating the in-place upgrade and remote adoption check
+
+The control runner accepts `HOSTED_UPGRADE_APK_DIRECTORY` for the candidate's
+`debug/` and `androidTest/debug/` APK directories. `HOSTED_APK_DIRECTORY` supplies
+matching baseline APKs rebuilt from released source, with the same fixture
+origin and local debug signer. This mode refuses physical selectors and runs
+separately from `HOSTED_CLI=1` permission/refusal acceptance. It needs Tesseract
+(`tesseract` on PATH, or `TESSERACT` pointing to its executable) for the received
+phone-image labels; QR decoding uses the actual received browser/CLI pixels.
+
+```sh
+HOSTED_ORIGIN=https://YOUR_DEVELOPMENT_ORIGIN \
+HOSTED_APK_DIRECTORY=/PATH/TO/BASELINE/apk \
+HOSTED_UPGRADE_APK_DIRECTORY=/PATH/TO/CANDIDATE/apk \
+HOSTED_TOUCH=1 HOSTED_VIDEO=1 HOSTED_DIRECT=1 \
+pnpm test:hosted --control
+```
+
+The owned fixture pairs the baseline browser and grants normal screen access,
+then updates both APKs in place without clearing data. Existing browser keys and
+phone authority must reconnect. After upgrade, browser input opens Give control
+and its received screen supplies the invitation to a real `pair --from-stdin`
+process. The CLI independently controls apps, observes/captures configuration
+and is removed through the browser. Relay HTTP 410 and a refused CLI reconnect
+confirm removal while the browser stays connected. No phone-side invitation
+export or local input delivers these adoption actions.
+
+With video enabled, the runner additionally reads a configuration QR from live
+video, disables unrestricted control remotely, and checks that protected-page
+capture restrictions return while ordinary control remains usable. The existing gesture,
+video and direct-to-relay recovery checks remain in the run. All evidence stays
+private under the selected owned state directory. Repeating an upgrade fixture
+restores its compatible candidate schema reader and revokes prior authority
+before replacing that disposable baseline. This reset is restricted to the owned emulator; the
+physical Play update must preserve its installation and baseline grant.
+
+These APKs are fixture builds of released/candidate source, not Play delivery.
+The separate internal Play-installed update is still required before promotion.
+
+### Phase 3: upgrade, adoption and complete regression — 2026-10-30
+
+An owned API-35 emulator, initially running a local fixture build of released
+0.9.0/code-10 source, retained its actual browser grant through an in-place
+0.10.0/code-11 update. The browser displayed the automatic-enablement notice,
+reconnected and remotely opened Give control. The received browser image supplied
+the QR to a real CLI process through stdin, without phone-side code export or
+post-upgrade local approval. The CLI independently launched apps, observed and
+captured configuration, then was removed through the original browser. The
+relay confirmed HTTP 410, CLI reconnect refused, and the browser remained usable.
+
+The same run decoded a configuration QR from real H.264 video frames, then used
+browser input to disable unrestricted control. Protected-page input/capture
+restrictions returned, while Back restored ordinary viewing/control. The full
+browser campaign also passed native tap/text/scroll, held slider/long press,
+multitouch, watchdog release, direct video and mid-input direct loss recovering
+over the relay without replay. The acceptance runner targets received image
+content and waits for visible postconditions, rather than treating input delivery
+or a renderer frame counter as a completed UI transition.
+
+A separate fresh-install CLI/browser run passed both pairing directions,
+accessibility effects/refusals, independent client pause/removal, screenshots,
+coordinate input, navigation, app launch, touch/video, rotation and direct/relay
+recovery. Synthetic saved/manual unlock and failed-attempt recovery passed on
+that owned emulator; no physical credential was entered. Both runs revoked
+fixture authority, restored overrides and reaped their owned processes.
+
+Native navigation/protection passes all three tests and the storage suite now
+passes 22 tests. The additional file-backed test closes/reopens Room across later
+version values, proving both persistent automatic-on and explicit-off choices,
+notice dismissal and a single initialization event. Origin-comparison fixtures
+now construct valid host/port variants when a development service uses a port.
+Android build/lint, typecheck, 185 TypeScript tests, Kotlin protocol tests and
+TypeScript lint pass. Private run/review evidence remains under
+`.local/unrestricted-proof/`. Independent review and actual Play delivery are
+recorded separately; emulator qualification does not establish physical or
+Play-installed acceptance.
+
+The third independent Sol 6.1 High review found one fixture-only stream-framing
+issue. The new reader preserves UTF-8 across chunks and parses only complete
+newline-delimited records. Retained tests use a real subprocess with split
+Unicode/large replies and refuse truncated EOF. Both the implementation and
+reviewer checks pass on pinned Node 24; the full TypeScript suite now has 187
+passing tests. The reviewer rechecked the correction and approves phase 3 with
+no outstanding actionable findings. Existing successful native/emulator evidence
+is retained; this reader correction does not change Android behavior or claim
+Play-installed acceptance.

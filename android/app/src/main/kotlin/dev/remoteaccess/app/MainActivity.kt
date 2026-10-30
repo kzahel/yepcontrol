@@ -649,7 +649,7 @@ class MainActivity : ComponentActivity() {
             row(
                 optional,
                 "Unlock from ${device.nickname}",
-                if (device.unlockAllowed) "Allowed · Change on this phone" else "Not allowed · Change on this phone",
+                if (device.unlockAllowed) "Allowed" else "Not allowed",
                 R.id.unlock_settings,
             ) { navigate("unlock", device.id) }
         }
@@ -923,7 +923,7 @@ class MainActivity : ComponentActivity() {
         row(
             layout,
             "Unlocking",
-            if (device.unlockAllowed) "Allowed · Change on this phone" else "Not allowed · Change on this phone",
+            if (device.unlockAllowed) "Allowed" else "Not allowed",
             R.id.unlock_settings,
         ) { navigate("unlock", device.id) }
         shell.titleAction("Rename ${device.nickname}", R.drawable.ic_edit, R.id.rename_device) {

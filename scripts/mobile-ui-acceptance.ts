@@ -167,7 +167,7 @@ try {
     });
     assert.match(
       storageResult,
-      /OK \(21 tests\)/,
+      /OK \(22 tests\)/,
       "Native storage acceptance failed; see private storage.log",
     );
   }

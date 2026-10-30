@@ -11,13 +11,11 @@ through an end-to-end encrypted session. The browser-first QR flow also works.
 - Optional background wake and saved-PIN unlock.
 - Android 11+; application ID `com.yepcontrol.app`.
 
-**Play release:** version 0.8.0/code 6 is publicly released, confirmed in Console
-2026-10-26. Android 0.9.0/code 10 is available to internal testers and has passed
-Play-installed acceptance. Its full public rollout was submitted for Google
-review on 2026-10-27; approval and public availability remain pending. See the
-current submission status in the
-[production release record](docs/distribution/android-production.md) and
-[installed-build evidence](docs/distribution/android-beta.md#android-090--code-10--2026-10-26).
+**Play release:** version 0.9.0/code 10 is publicly released, confirmed in Console
+2026-10-30. The 0.10.0/code-11 candidate adds CLI accessibility control and the
+**Allow unrestricted remote control** setting. Its implementation and release
+acceptance are recorded in [the CLI plan](docs/cli-control.md); publication is
+recorded separately in the [production release record](docs/distribution/android-production.md).
 
 Screen control requires Android's screen-access permission; smooth video asks
 for screen-sharing consent. After a reboot, the phone needs its first local

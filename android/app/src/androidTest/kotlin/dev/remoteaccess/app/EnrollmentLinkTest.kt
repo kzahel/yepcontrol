@@ -73,13 +73,15 @@ class EnrollmentLinkTest {
     }
 
     @Test fun matchingAttackerOriginsAndNearMatchesAreRejected() {
+        val endpoint = java.net.URI(origin)
+        val port = if (endpoint.port == -1) "" else ":${endpoint.port}"
         for (service in listOf(
             "https://other.example",
-            "$origin.attacker.example",
-            origin.replaceFirst("://", "://www."),
-            origin.replaceFirst("://", "://subdomain."),
-            "$origin:4443",
-            "$origin.",
+            "https://${endpoint.host}.attacker.example$port",
+            "https://www.${endpoint.host}$port",
+            "https://subdomain.${endpoint.host}$port",
+            "https://${endpoint.host}:${if (endpoint.port == 4443) 4444 else 4443}",
+            "https://${endpoint.host}.$port",
         )) {
             assertFailsWith<EnrollmentOriginMismatch>(service) { Enrollment(link(service), origin) }
         }

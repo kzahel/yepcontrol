@@ -35,6 +35,13 @@ const multi =
   process.env.HOSTED_MULTI === "1" ||
   process.argv.includes("--multi");
 const physical = process.env.HOSTED_DEVICE;
+if (
+  process.env.HOSTED_UPGRADE_APK_DIRECTORY &&
+  (physical || !control || process.env.HOSTED_CLI === "1")
+)
+  throw Error(
+    "Upgrade/adoption requires its owned control emulator and a separate CLI regression run",
+  );
 if (multi && physical)
   throw new Error("Multi-browser acceptance owns an emulator only");
 if (
@@ -278,6 +285,60 @@ try {
   if (control && !physical && existsSync(path.join(state, "synthetic-lock"))) {
     await restoreSyntheticLock({ adb, state });
   }
+  let upgradeBaselineReset = false;
+  if (process.env.HOSTED_UPGRADE_APK_DIRECTORY) {
+    // A previous owned run may have upgraded its reusable AVD. Revoke with
+    // the currently installed schema before replacing that disposable baseline.
+    let present = false;
+    try {
+      present = adb("shell", "dumpsys", "package", appId).includes(
+        "versionCode=",
+      );
+    } catch {}
+    if (present) {
+      // Recover an interrupted baseline replacement with the newer schema reader.
+      for (const apk of [
+        "debug/app-debug.apk",
+        "androidTest/debug/app-debug-androidTest.apk",
+      ]) {
+        adb(
+          "install",
+          "-r",
+          path.join(
+            path.resolve(process.env.HOSTED_UPGRADE_APK_DIRECTORY),
+            apk,
+          ),
+        );
+      }
+      adb("shell", "run-as", appId, "mkdir", "-p", "files");
+      privateWrite("hosted-stage", "owned-fixture-cleanup");
+      const result = adb(
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "-e",
+        "class",
+        "dev.remoteaccess.app.HostedPairingTest#revokeFixture",
+        `${appId}.test/androidx.test.runner.AndroidJUnitRunner`,
+      );
+      await writeFile(
+        path.join(state, "upgrade-baseline-cleanup.log"),
+        result,
+        { mode: 0o600 },
+      );
+      if (!result.includes("OK (1 test)"))
+        throw Error(
+          "Cannot reset the owned upgrade baseline before authority cleanup",
+        );
+      adb("uninstall", `${appId}.test`);
+      adb("uninstall", appId);
+      upgradeBaselineReset = true;
+      console.log(
+        "Owned upgrade baseline reset after compatible-reader authority cleanup",
+      );
+    }
+  }
   for (const [pkg, apk] of [
     [appId, "debug/app-debug.apk"],
     [`${appId}.test`, "androidTest/debug/app-debug-androidTest.apk"],
@@ -299,25 +360,31 @@ try {
   if (!physical) {
     // An interrupted owned fixture must revoke its grants before a data reset
     // destroys the only signing key capable of cleaning up hosted authority.
-    adb("shell", "run-as", appId, "mkdir", "-p", "files");
-    privateWrite("hosted-stage", "owned-fixture-cleanup");
-    const cleanup = adb(
-      "shell",
-      "am",
-      "instrument",
-      "-w",
-      "-e",
-      "class",
-      "dev.remoteaccess.app.HostedPairingTest#revokeFixture",
-      `${appId}.test/androidx.test.runner.AndroidJUnitRunner`,
-    );
-    await writeFile(path.join(state, "previous-fixture-cleanup.log"), cleanup, {
-      mode: 0o600,
-    });
-    if (!cleanup.includes("OK (1 test)"))
-      throw new Error(
-        "Previous owned fixture cleanup failed; preserving authority and keys",
+    if (!upgradeBaselineReset) {
+      adb("shell", "run-as", appId, "mkdir", "-p", "files");
+      privateWrite("hosted-stage", "owned-fixture-cleanup");
+      const cleanup = adb(
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "-e",
+        "class",
+        "dev.remoteaccess.app.HostedPairingTest#revokeFixture",
+        `${appId}.test/androidx.test.runner.AndroidJUnitRunner`,
       );
+      await writeFile(
+        path.join(state, "previous-fixture-cleanup.log"),
+        cleanup,
+        {
+          mode: 0o600,
+        },
+      );
+      if (!cleanup.includes("OK (1 test)"))
+        throw new Error(
+          "Previous owned fixture cleanup failed; preserving authority and keys",
+        );
+    }
     adb("shell", "pm", "clear", appId);
   }
   if (fcm && !physical)
