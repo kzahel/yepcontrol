@@ -237,3 +237,94 @@ Existing public hosts retain basic control but require an updated Android build
 for semantic commands. Physical-device, reboot/first-unlock, overnight and
 Play-installed acceptance were not part of this run; no release or deployment
 was performed.
+
+## Next slice: unrestricted remote configuration
+
+Owner decision, 2026-10-30. **Planned, not implemented.** Allow an existing
+browser controller to configure the phone and pair a separate CLI without a
+phone-local approval step. Use one persistent phone-wide **Allow unrestricted
+remote control** switch in ordinary Settings. No timer, browser bridge,
+delegation protocol or separate pairing/PIN configuration tiers.
+
+### Behavior
+
+When enabled, all YepControl configuration pages are remotely viewable and
+controllable, including Give control, grant approval, unlocking and saved-PIN
+setup. Audit both input gates and app-owned capture restrictions so a hidden
+pairing code does not leave adoption unusable. Android's own restrictions still
+apply. This setting does not itself unlock the phone, change a PIN or enable
+saved-PIN use; it allows the controller to operate those configuration screens.
+
+When disabled, retain the existing protection of those pages. Ordinary Settings
+remains remotely accessible, including this switch. Enabling remotely is an
+intentional capability of an existing trusted controller. Before manual
+enablement, explain that the controller can change unlock settings and add
+controllers whose access lasts until removed. Show the current state in Settings.
+
+Global remote-access state, per-device pause, revocation and existing unlock
+permissions remain authoritative. Enabling unrestricted configuration never
+reactivates paused/revoked clients or changes those permissions automatically.
+The newly paired CLI has its own identity and can be removed independently.
+
+### One-release upgrade rule
+
+For the designated next Android release only, initialize the switch **on** for
+an existing install with at least one saved, non-revoked pairing. A pairing need
+not be connected or currently enabled. Here, “existing sessions” means saved
+pairings, not live sockets. Fresh installs, installs with no pairings and
+revoked-only installs initialize **off**.
+
+Persist both the setting and a one-time initialization decision. Never repeat
+the automatic enablement: an explicit off choice must survive reconnects,
+process death, restarts and all later updates. Enabling during upgrade is
+persistent; it does not automatically turn off at the following release.
+
+Pin eligibility to an explicit release version code selected during release
+preparation. An old install that skips this designated release and first runs
+a later version initializes **off**. Do not use a permanent “old database means
+on” migration or a check against whatever the current version happens to be.
+The exception must not become an ongoing default for future installs/pairings.
+
+### Implementation phases
+
+1. **Persist and initialize.** Extend the Room settings schema compatibly with
+   existing released databases. Keep structural migrations deterministic and
+   make the release-specific eligibility decision in a transaction during
+   `HostStore.load()`, after legacy pairing import and before publishing state
+   or admitting commands. Record the decision for fresh installs before any
+   new pairing can be created. Initialization must also work when the app wakes
+   in the background; opening Settings is not required. Record an activity
+   entry and show a nonblocking explanation for automatically enabled installs.
+2. **Expose and enforce the switch.** Add the warning and persistent Settings
+   control. Apply the choice consistently to protected-page input, snapshots,
+   screenshots and video, including app-owned secure windows/dialogs. Refresh
+   gates immediately when changed; invalidate old observations and handle
+   in-flight input so disabling restores protection promptly. Preserve existing
+   protocol/grants and the disabled-mode behavior.
+3. **Qualify remote adoption.** Upgrade an owned emulator with a real existing
+   browser pairing. Through that browser alone, open Give control, read the
+   invitation and pair a real CLI using `pair --from-stdin`. Prove independent
+   CLI control and removal, and rerun the existing browser regression suite.
+
+After each implementation phase, use the requested Yep Anywhere API reviewer
+(Sol 6.1 High, bypass permissions), resolve findings and commit. Follow the
+existing owned-emulator/private-evidence discipline. Implementation acceptance
+and actual release delivery are separate; this plan does not claim deployment
+or Play-installed qualification.
+
+### Required acceptance
+
+- Paired upgrade into the designated release initializes on, including an idle
+  or paused pairing; fresh, unpaired and revoked-only installs initialize off.
+- Direct upgrade from an older release to a later, ineligible release stays off.
+- Explicit off survives process death, reopen and later updates; interrupted
+  initialization cannot reset a completed choice or leave partially saved state.
+- Enabled mode permits configuration and pairing-code capture through both
+  browser and CLI; disabled mode restores all previous protected-page behavior.
+- Global disarm, individual pause/removal and existing unlock permissions still
+  work. Remote configuration does not itself grant credential-entry authority.
+- Real browser-to-CLI adoption works without local phone interaction after the
+  upgrade. Revoking the CLI leaves the browser usable, and vice versa.
+- Existing pairing, ordinary control, continuous touch, video and direct/relay
+  recovery remain covered; run schema/migration tests, build, lint and relevant
+  unit suites. Use only synthetic credentials on owned emulators for PIN cases.
