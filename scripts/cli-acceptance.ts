@@ -506,10 +506,18 @@ export async function cliAcceptance(f: Fixture) {
       const reply = (await s.request({ op: "status" })).reply;
       return reply?.kind === "state" && !reply.state.locked;
     });
-    await s.request({ op: "navigation", action: "home" });
-    assert.match(
-      adb("shell", "dumpsys", "activity", "activities"),
-      /topResumedActivity=.*launcher/i,
+    assert.equal(
+      (
+        (await s.request({ op: "navigation", action: "home" })).reply as {
+          code: number;
+        }
+      ).code,
+      0,
+    );
+    await until(() =>
+      /topResumedActivity=.*launcher/i.test(
+        adb("shell", "dumpsys", "activity", "activities"),
+      ),
     );
     await s.request({ op: "launch", packageName: `${app}.test` });
     await until(() =>

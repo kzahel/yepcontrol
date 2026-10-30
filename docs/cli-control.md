@@ -528,3 +528,10 @@ Save/Forget buttons on the main thread, retaining their listeners and durable
 effects. It does not call storage directly. The unrestricted-mode case retains
 actual remote taps/text and the focus/value assertions; protected-mode remote
 refusals remain in place.
+
+The next Linux run passes native UI/storage, hosted FCM and both QR directions,
+then reaches the CLI's immediate launcher assertion after remote Home. That
+fixture now requires the Home result to succeed and polls the existing bounded
+activity-state condition, matching its following launch check. The Home command
+is sent once; an accepted navigation request does not imply the activity
+transition has already completed.
