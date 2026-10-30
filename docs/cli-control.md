@@ -499,3 +499,9 @@ passing tests. The reviewer rechecked the correction and approves phase 3 with
 no outstanding actionable findings. Existing successful native/emulator evidence
 is retained; this reader correction does not change Android behavior or claim
 Play-installed acceptance.
+
+The shared-runner release gate exposed the original security fixture reopening
+MainActivity before its remote Home transition settled. It now observes the
+launcher and a fresh Home status before opening pairing, matching the already
+passing unrestricted-configuration case. This changes test sequencing only;
+production Android input/capture policy and the deployed website are unchanged.

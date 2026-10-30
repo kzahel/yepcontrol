@@ -295,3 +295,26 @@ removed homepage guide, compact pairing page and QR creation. These tests use
 isolated browsers and synthetic phone identities; they neither measure the
 reported physical phone's clock nor change any phone setting. No Android update,
 new protocol/storage format or re-pairing of existing grants is required.
+
+## Unrestricted configuration and CLI client release — 2026-10-30
+
+`relay-v0.4.0`, source `3a4646b125c7f1701967c5c5431a9bebda67884b`, passed
+[complete Checks](https://github.com/kzahel/yepcontrol/actions/runs/41135439477),
+the [tag build](https://github.com/kzahel/yepcontrol/actions/runs/41136069925)
+and [production deployment](https://github.com/kzahel/yepcontrol/actions/runs/41136069666).
+The deployment receipt and independent canonical-origin health check agree on
+Worker `530bb4d5-8b87-486c-ad9a-d51815bd6aca`, version 0.4.0, that exact source
+and public admission.
+
+The matched viewer uses the shared encrypted client, retains existing phone
+storage/pairings and removes the obsolete claim that an active controller cannot
+grant more configuration authority. The live privacy page explains the new
+Android unrestricted-control setting and one-release upgrade rule. No relay
+pairing authority, grant format or production database migration is changed.
+
+Fresh isolated mobile/desktop Chromium checks against the deployed origin pass
+public installation links, actual rendered pairing QR and privacy disclosure.
+The physical Play-installed 0.9.0/code-10 phone reconnects from its preserved
+browser grant through this deployed viewer. Android 0.10.0 delivery and its
+Play-installed acceptance are recorded separately in the Android release records.
+See [the feature qualification](cli-control.md#phase-3-upgrade-adoption-and-complete-regression--2026-10-30).

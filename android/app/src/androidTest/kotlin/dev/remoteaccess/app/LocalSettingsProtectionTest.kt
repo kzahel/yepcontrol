@@ -314,6 +314,7 @@ class LocalSettingsProtectionTest {
             waitFor { !vault.saved() }
             result(0, command(6, byteArrayOf(2))) // Home also exits when the PIN editor left an IME open.
             waitFor { !LocalSettingsProtection.blocked }
+            assertTrue(device.wait(Until.hasObject(By.pkg("com.google.android.apps.nexuslauncher")), 10000))
 
             // A remote viewer cannot create or capture the phone's bearer code.
             context.startActivity(
@@ -321,6 +322,7 @@ class LocalSettingsProtectionTest {
                     Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK,
                 ),
             )
+            view(selector("host_status"))
             click("pair_device")
             view(selector("give_control"))
             assertTrue(LocalSettingsProtection.hideCapture)
