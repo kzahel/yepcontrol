@@ -1,0 +1,35 @@
+{
+  "name": "@remote/client",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./relay": {
+      "development": "./src/relay.ts",
+      "types": "./dist/relay.d.ts",
+      "import": "./dist/relay.js"
+    },
+    "./control-session": {
+      "development": "./src/control-session.ts",
+      "types": "./dist/control-session.d.ts",
+      "import": "./dist/control-session.js"
+    },
+    "./pairing-request": {
+      "development": "./src/pairing-request.ts",
+      "types": "./dist/pairing-request.d.ts",
+      "import": "./dist/pairing-request.js"
+    },
+    "./pairing": {
+      "development": "./src/pairing.ts",
+      "types": "./dist/pairing.d.ts",
+      "import": "./dist/pairing.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@remote/protocol": "workspace:*"
+  },
+  "license": "MIT"
+}

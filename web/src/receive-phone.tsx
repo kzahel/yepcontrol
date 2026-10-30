@@ -1,16 +1,5 @@
-import { b64 } from "@remote/protocol";
-import { openDevice } from "@remote/protocol/device";
-import {
-  type Grant,
-  grantBytes,
-  grantMac,
-  hex,
-  verifyOffer,
-} from "@remote/protocol/enrollment";
-import {
-  claimBytes,
-  decodePhoneInvitation,
-} from "@remote/protocol/phone-invitation";
+import { acceptOffer, phoneClaim } from "@remote/client/pairing";
+import { decodePhoneInvitation } from "@remote/protocol/phone-invitation";
 import { useEffect, useState } from "react";
 import { browserName } from "./browser-name.js";
 import {
@@ -57,10 +46,8 @@ export function ReceivePhone() {
         )
           throw Error("This code expired.");
         const identity = await browserIdentity();
-        const claim = { viewer: b64(identity.publicKey), name: browserName() };
-        const bytes = claimBytes(invite.origin, invite, claim);
-        const signature = b64(await identity.sign(bytes));
-        const mac = hex(await grantMac(invite.secret, bytes));
+        const claim = await phoneClaim(identity, invite, browserName());
+        const { signature, mac } = claim;
         if (abort.signal.aborted) return;
         try {
           await pairingRequest(invite.id, "claim", {
@@ -116,15 +103,14 @@ export function ReceivePhone() {
             const grant = result.grant;
             if (grant.phone !== invite.phone)
               throw Error("Phone identity changed.");
-            await verifyOffer(invitation, grant, now());
-            const device = await openDevice(
-              invite.secret,
-              invite.id,
+            const { grant: paired, device } = await acceptOffer(
+              identity,
+              invitation,
+              grant,
               result.device ?? "",
+              now(),
             );
-            const viewerSignature = b64(
-              await identity.sign(grantBytes(invite.origin, grant)),
-            );
+            const viewerSignature = paired.viewerSignature;
             if (abort.signal.aborted) return;
             completing = true;
             const accepted = await pairingRequest(invite.id, "complete", {
@@ -133,7 +119,6 @@ export function ReceivePhone() {
             if (abort.signal.aborted) return;
             if (accepted.state !== "paired")
               throw Error("Pairing wasn’t confirmed.");
-            const paired: Grant = { ...grant, viewerSignature };
             const id = await rememberPhone(paired, device);
             if (!abort.signal.aborted)
               location.replace(`${phoneURL(id)}?connect=1`);

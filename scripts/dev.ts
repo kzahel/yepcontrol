@@ -21,6 +21,10 @@ execFileSync("pnpm", ["--filter", "@remote/protocol", "build"], {
   cwd: root,
   stdio: "inherit",
 });
+execFileSync("pnpm", ["--filter", "@remote/client", "build"], {
+  cwd: root,
+  stdio: "inherit",
+});
 const children: ChildProcess[] = [];
 let stopping = false;
 function child(command: string, args: string[], env: NodeJS.ProcessEnv = {}) {

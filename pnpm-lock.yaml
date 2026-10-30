@@ -39,6 +39,12 @@ importers:
         specifier: 4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@22.19.15)(vite@6.4.4(@types/node@22.19.15)(tsx@4.23.15))
 
+  client:
+    dependencies:
+      '@remote/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+
   protocol: {}
 
   relay:
@@ -59,6 +65,9 @@ importers:
 
   web:
     dependencies:
+      '@remote/client':
+        specifier: workspace:*
+        version: link:../client
       '@remote/protocol':
         specifier: workspace:*
         version: link:../protocol

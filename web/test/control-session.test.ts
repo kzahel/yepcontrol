@@ -153,3 +153,49 @@ describe("control path recovery", () => {
     session.close();
   });
 });
+
+describe("shared session lifecycle", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    vi.resetAllMocks();
+  });
+  it("does not open or send commands for a canceled connection", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      RemoteSession.connect(identity, grant, vi.fn(), controller.signal),
+    ).rejects.toThrow();
+    expect(mocks.relay).not.toHaveBeenCalled();
+  });
+  it("removes its listener and upgrade timer on explicit close", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("RTCPeerConnection", class {});
+    const hosted = lane();
+    mocks.relay.mockResolvedValue(hosted);
+    const controller = new AbortController();
+    const remove = vi.spyOn(controller.signal, "removeEventListener");
+    const { session } = await RemoteSession.connect(
+      identity,
+      grant,
+      vi.fn(),
+      controller.signal,
+    );
+    session.close();
+    expect(remove).toHaveBeenCalledWith("abort", expect.any(Function));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(mocks.direct).not.toHaveBeenCalled();
+    expect(hosted.close).toHaveBeenCalledOnce();
+  });
+  it("skips direct negotiation when WebRTC is absent", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("RTCPeerConnection", undefined);
+    const hosted = lane();
+    mocks.relay.mockResolvedValue(hosted);
+    const session = await connect();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(hosted.sent).toEqual([1]);
+    expect(mocks.direct).not.toHaveBeenCalled();
+    session.close();
+  });
+});

@@ -11,7 +11,8 @@
     "@remote/protocol": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "uqr": "0.1.3"
+    "uqr": "0.1.3",
+    "@remote/client": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "19.2.14",

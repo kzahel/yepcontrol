@@ -18,6 +18,8 @@
     "web/test",
     "scripts",
     "relay/src",
-    "relay/test"
+    "relay/test",
+    "client/src",
+    "client/test"
   ]
 }

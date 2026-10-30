@@ -1,14 +1,5 @@
-import { b64 } from "@remote/protocol";
-import { openDevice } from "@remote/protocol/device";
-import {
-  createBytes,
-  encodeInvitation,
-  type Grant,
-  grantBytes,
-  hex,
-  type Invitation,
-  verifyOffer,
-} from "@remote/protocol/enrollment";
+import { acceptOffer, createPairing } from "@remote/client/pairing";
+import { encodeInvitation, type Invitation } from "@remote/protocol/enrollment";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { encode } from "uqr";
 import { browserName } from "./browser-name.js";
@@ -52,20 +43,12 @@ export function PairPhone() {
       const { serverTime, expires } = await pairingTime();
       const received = performance.now();
       clock.current = () => serverTime + performance.now() - received;
-      const i: Invitation = {
-        v: 1,
-        origin: location.origin,
-        id: hex(crypto.getRandomValues(new Uint8Array(16))),
-        viewer: b64(identity.publicKey),
-        secret: hex(crypto.getRandomValues(new Uint8Array(32))),
+      const i = await createPairing(
+        location.origin,
+        identity,
+        browserName(),
         expires,
-        name: browserName(),
-      };
-      await api(i.id, "", {
-        viewer: i.viewer,
-        expires: i.expires,
-        signature: b64(await identity.sign(createBytes(i.origin, i))),
-      });
+      );
       setInvitation(i);
       setStatus("Waiting for phone approval");
     } catch (error) {
@@ -145,16 +128,15 @@ export function PairPhone() {
           setStatus("Waiting for phone approval");
           if (result.state === "offered" && result.grant) {
             const g = result.grant;
-            await verifyOffer(invitation, g, now());
-            const device = await openDevice(
-              invitation.secret,
-              invitation.id,
-              result.device ?? "",
-            );
             const identity = await browserIdentity();
-            const viewerSignature = b64(
-              await identity.sign(grantBytes(invitation.origin, g)),
+            const { grant: paired, device } = await acceptOffer(
+              identity,
+              invitation,
+              g,
+              result.device ?? "",
+              now(),
             );
+            const viewerSignature = paired.viewerSignature;
             if (stopped()) return;
             completionStarted = true;
             const accepted = await api(invitation.id, "complete", {
@@ -162,7 +144,6 @@ export function PairPhone() {
             });
             if (stopped()) return;
             if (accepted.state !== "paired") throw new Error("Pairing failed");
-            const paired: Grant = { ...g, viewerSignature };
             const id = await rememberPhone(paired, device);
             location.assign(phoneURL(id));
             return;
