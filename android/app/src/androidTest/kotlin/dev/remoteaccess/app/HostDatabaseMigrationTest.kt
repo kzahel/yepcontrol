@@ -52,7 +52,7 @@ class HostDatabaseMigrationTest {
         val database =
             Room
                 .databaseBuilder(instrumentation.targetContext, HostDatabase::class.java, "chain-migration-fixture")
-                .addMigrations(HostStore.MIGRATION_1_2, HostStore.MIGRATION_2_3)
+                .addMigrations(HostStore.MIGRATION_1_2, HostStore.MIGRATION_2_3, HostStore.MIGRATION_3_4)
                 .build()
         try {
             val stored = database.dao().devices().single()
@@ -62,6 +62,23 @@ class HostDatabaseMigrationTest {
         } finally {
             database.close()
             instrumentation.targetContext.deleteDatabase("chain-migration-fixture")
+        }
+    }
+
+    @Test fun structuralMigrationDoesNotMakeTheReleaseDecision() {
+        migration.createDatabase("unrestricted-migration-fixture", 3).use { db ->
+            db.execSQL("INSERT INTO devices VALUES ('a','{}','Saved device',123,456,0,0,'generation',1,1,1)")
+            db.execSQL("INSERT INTO settings VALUES (1,0,1)")
+        }
+        migration.runMigrationsAndValidate("unrestricted-migration-fixture", 4, true, HostStore.MIGRATION_3_4).use { db ->
+            db
+                .query(
+                    "SELECT armed, automatic, unrestrictedRemoteControl, unrestrictedInitialized, " +
+                        "unrestrictedUpgradeNotice FROM settings",
+                ).use { row ->
+                    assertTrue(row.moveToFirst())
+                    assertEquals(listOf(0, 1, 0, 0, 0), (0..4).map { row.getInt(it) })
+                }
         }
     }
 }

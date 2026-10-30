@@ -248,3 +248,17 @@ existing grants, use short-lived single-use codes and internal Play-installed
 acceptance before public promotion. Physical credential entry, lock/debugging
 changes and unrelated infrastructure remain outside scope. See
 `docs/phone-first-pairing.md`.
+
+## Unrestricted configuration and release authorization — 2026-10-30
+
+The owner authorized the three-phase unrestricted remote configuration plan in
+`docs/cli-control.md`, with independent Sol 6.1 High reviews through Yep Anywhere
+between phases, incremental verified commits/pushes, website production release
+and a 100% Android Play production rollout. The one-release automatic enablement
+is designated for Android 0.10.0/code 11. Require internal Play delivery and an
+in-place update on the already-paired physical phone before public promotion.
+Owned emulators cover the full upgrade/default/persistence and remote adoption
+matrix. Preserve released hosts, existing pairings and all existing authority
+switches. Physical credential entry and lock/debugging changes remain outside
+scope. Publication submission, Google approval and actual availability must be
+reported separately.

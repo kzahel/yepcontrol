@@ -52,4 +52,6 @@
     <item name="save_pin_confirm" type="id" />
     <item name="restore_setup" type="id" />
     <item name="privacy_policy" type="id" />
+    <item name="dismiss_unrestricted_notice" type="id" />
+    <item name="unrestricted_remote_control" type="id" />
 </resources>

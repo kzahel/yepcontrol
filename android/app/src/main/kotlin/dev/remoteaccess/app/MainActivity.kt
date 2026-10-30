@@ -292,6 +292,15 @@ class MainActivity : ComponentActivity() {
             text(layout, "Loading…")
             return
         }
+        if (store.snapshot.settings.unrestrictedUpgradeNotice && page in setOf("home", "settings")) {
+            text(
+                layout,
+                "This update enabled unrestricted remote control for your paired devices. " +
+                    "They can change unlock settings and add controllers. You can turn this off in Settings.",
+                14f,
+            )
+            button(layout, "Got it", R.id.dismiss_unrestricted_notice) { change { it.dismissUnrestrictedUpgradeNotice() } }
+        }
         if (protected) {
             if (!secretPage) text(layout, getString(R.string.local_settings_explanation), 14f).id = R.id.local_settings_notice
             // An already dispatched swipe or held-contact release must finish before

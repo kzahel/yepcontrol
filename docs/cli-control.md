@@ -240,7 +240,8 @@ was performed.
 
 ## Next slice: unrestricted remote configuration
 
-Owner decision, 2026-10-30. **Planned, not implemented.** Allow an existing
+Owner decision, 2026-10-30. Implementation and release qualification are recorded
+below. Allow an existing
 browser controller to configure the phone and pair a separate CLI without a
 phone-local approval step. Use one persistent phone-wide **Allow unrestricted
 remote control** switch in ordinary Settings. No timer, browser bridge,
@@ -355,3 +356,24 @@ not a repeat of the full emulator campaign. Complete it before public promotion.
 - Existing pairing, ordinary control, continuous touch, video and direct/relay
   recovery remain covered; run schema/migration tests, build, lint and relevant
   unit suites. Use only synthetic credentials on owned emulators for PIN cases.
+
+### Phase 1: storage and initialization — 2026-10-30
+
+Android **0.10.0/code 11** is the designated upgrade release. Room version 4
+adds default-off settings and a durable initialization marker without changing
+pairing authority. `HostStore.load()` imports legacy grants and commits the
+release-specific decision and activity event in one transaction before publishing
+state. The normal application/background wake path uses this initialization;
+opening Settings is not required. Eligible installations receive a persistent,
+dismissible explanation. General settings edits preserve the new fields.
+
+The owned API-35 emulator passes native navigation/protection and all 21 storage,
+migration, enrollment and unlock-storage tests. Coverage includes paused paired
+upgrades, fresh/unpaired/revoked-only installations, skipping code 11, explicit-off
+persistence and a forced transaction interruption during legacy import. The
+first-build test-asset dependency now packages the newly generated Room schema.
+Android build/lint/format, 185 TypeScript tests and Kotlin protocol tests pass.
+The requested Yep Anywhere Sol 6.1 High reviewer independently checked the
+migration chain and initialization logic with bypass permissions and approved
+phase 1 with no actionable findings. Enforcement and release evidence follow
+separately; private review receipts remain in `.local/unrestricted-proof/`.

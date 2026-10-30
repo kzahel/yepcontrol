@@ -164,4 +164,101 @@ class HostStoreTest {
                 .toSet(),
         )
     }
+
+    @Test fun designatedUpgradeIncludesPausedPairingsWithoutChangingAuthority() {
+        db.dao().put(HostSettings(armed = false, automatic = true))
+        val paired = Device("upgrade", grant("upgrade").toString(), "Existing", 1, enabled = false, unlockAllowed = false)
+        db.dao().put(paired)
+        store.load()
+        assertTrue(store.snapshot.settings.unrestrictedRemoteControl)
+        assertTrue(store.snapshot.settings.unrestrictedInitialized)
+        assertTrue(store.snapshot.settings.unrestrictedUpgradeNotice)
+        assertEquals(paired, store.device(paired.id))
+        assertFalse(store.allowed(paired.id, paired.generation))
+        assertFalse(store.snapshot.settings.armed)
+        assertEquals(1, store.events().count { it.kind == "Unrestricted remote control enabled by update" })
+        store.dismissUnrestrictedUpgradeNotice()
+        store.unrestrictedRemoteControl(false)
+        store.settings(automatic = false)
+        val later = HostStore.fixture(context, db, HostStore.UNRESTRICTED_UPGRADE_VERSION_CODE + 1).load()
+        assertFalse(later.snapshot.settings.unrestrictedRemoteControl)
+        assertTrue(later.snapshot.settings.unrestrictedInitialized)
+        assertFalse(later.snapshot.settings.unrestrictedUpgradeNotice)
+        assertFalse(
+            HostStore
+                .fixture(context, db)
+                .load()
+                .snapshot.settings.unrestrictedRemoteControl,
+        )
+        assertEquals(1, later.events().count { it.kind == "Unrestricted remote control enabled by update" })
+    }
+
+    @Test fun freshAndUnpairedAndRevokedOnlyRemainOff() {
+        store.load()
+        assertTrue(store.snapshot.settings.unrestrictedInitialized)
+        assertFalse(store.snapshot.settings.unrestrictedRemoteControl)
+        store.pair(grant("new"))
+        assertFalse(
+            HostStore
+                .fixture(context, db)
+                .load()
+                .snapshot.settings.unrestrictedRemoteControl,
+        )
+        // An old database with no initialization decision and only a revoked grant.
+        db.dao().put(HostSettings())
+        store.revoke("new")
+        val revokedOnly = HostStore.fixture(context, db).load()
+        assertFalse(revokedOnly.snapshot.settings.unrestrictedRemoteControl)
+        assertTrue(revokedOnly.snapshot.settings.unrestrictedInitialized)
+        revokedOnly.removed("new")
+        db.dao().put(HostSettings())
+        assertFalse(
+            HostStore
+                .fixture(context, db)
+                .load()
+                .snapshot.settings.unrestrictedRemoteControl,
+        )
+    }
+
+    @Test fun skippingDesignatedReleaseNeverEnablesAndLegacyImportPrecedesDecision() {
+        legacy.edit().putString("grant", grant("legacy").toString()).commit()
+        val later = HostStore.fixture(context, db, HostStore.UNRESTRICTED_UPGRADE_VERSION_CODE + 1).load()
+        assertEquals(
+            "legacy",
+            later.snapshot.devices
+                .single()
+                .id,
+        )
+        assertFalse(later.snapshot.settings.unrestrictedRemoteControl)
+        assertTrue(later.snapshot.settings.unrestrictedInitialized)
+        assertFalse(
+            HostStore
+                .fixture(context, db)
+                .load()
+                .snapshot.settings.unrestrictedRemoteControl,
+        )
+    }
+
+    @Test fun legacyPairingInitializesOnceAndInterruptedInitializationRollsBack() {
+        legacy.edit().putString("grant", grant("legacy").toString()).commit()
+        // Abort between saving the policy decision and its activity entry.
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER interrupt_initialization BEFORE INSERT ON activity " +
+                "WHEN NEW.kind = 'Unrestricted remote control enabled by update' BEGIN SELECT RAISE(ABORT, 'fixture interruption'); END",
+        )
+        assertFailsWith<android.database.sqlite.SQLiteException> { store.load() }
+        assertEquals(null, db.dao().settings())
+        assertTrue(db.dao().devices().isEmpty())
+        assertTrue(legacy.contains("grant"))
+        assertTrue(store.snapshot.devices.isEmpty())
+        assertFalse(store.snapshot.settings.armed)
+        db.openHelper.writableDatabase.execSQL("DROP TRIGGER interrupt_initialization")
+        store.load()
+        assertTrue(store.snapshot.settings.unrestrictedRemoteControl)
+        assertEquals(1, store.snapshot.devices.size)
+        assertFalse(legacy.contains("grant"))
+        val reopened = HostStore.fixture(context, db).load()
+        assertEquals(1, reopened.events().count { it.kind == "Unrestricted remote control enabled by update" })
+        assertEquals(1, reopened.events().count { it.kind == "Previous pairing imported" })
+    }
 }

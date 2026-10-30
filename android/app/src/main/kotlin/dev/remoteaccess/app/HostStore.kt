@@ -43,6 +43,9 @@ internal data class HostSettings(
     @PrimaryKey val id: Int = 1,
     val armed: Boolean = true,
     val automatic: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val unrestrictedRemoteControl: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val unrestrictedInitialized: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val unrestrictedUpgradeNotice: Boolean = false,
 )
 
 @Entity(tableName = "activity")
@@ -81,7 +84,7 @@ internal interface HostDao {
     fun deleteDevice(id: String)
 }
 
-@Database(entities = [Device::class, HostSettings::class, ActivityEvent::class], version = 3, exportSchema = true)
+@Database(entities = [Device::class, HostSettings::class, ActivityEvent::class], version = 4, exportSchema = true)
 internal abstract class HostDatabase : RoomDatabase() {
     abstract fun dao(): HostDao
 }
@@ -95,6 +98,7 @@ internal data class HostSnapshot(
 internal class HostStore private constructor(
     private val legacy: android.content.SharedPreferences,
     internal val database: HostDatabase,
+    private val versionCode: Int = BuildConfig.VERSION_CODE,
 ) {
     private val dao = database.dao()
 
@@ -107,8 +111,9 @@ internal class HostStore private constructor(
     @Synchronized
     fun load(): HostStore {
         if (loaded) return this
-        if (dao.settings() == null) {
-            database.runInTransaction {
+        // Import and policy initialization commit together, before any authority is published.
+        database.runInTransaction {
+            if (dao.settings() == null) {
                 dao.put(HostSettings(automatic = legacy.getBoolean("wakeEnabled", false)))
                 legacy.getString("grant", null)?.let { raw ->
                     val grant = JSONObject(raw)
@@ -123,6 +128,18 @@ internal class HostStore private constructor(
                     dao.put(device)
                     append("Previous pairing imported", device)
                 }
+            }
+            val settings = requireNotNull(dao.settings())
+            if (!settings.unrestrictedInitialized) {
+                val enabled = versionCode == UNRESTRICTED_UPGRADE_VERSION_CODE && dao.devices().any { !it.revoked }
+                dao.put(
+                    settings.copy(
+                        unrestrictedRemoteControl = enabled,
+                        unrestrictedInitialized = true,
+                        unrestrictedUpgradeNotice = enabled,
+                    ),
+                )
+                if (enabled) append("Unrestricted remote control enabled by update")
             }
         }
         // The transaction is the migration marker. A crash before this cleanup cannot reimport.
@@ -204,11 +221,30 @@ internal class HostStore private constructor(
         val before = snapshot.settings
         if (before.armed == armed && before.automatic == automatic) return
         database.runInTransaction {
-            dao.put(HostSettings(armed = armed, automatic = automatic))
+            dao.put(before.copy(armed = armed, automatic = automatic))
             snapshot.devices.forEach { dao.put(it.copy(generation = generation(), synced = false, wakeReady = false)) }
             if (before.armed != armed) append(if (armed) "Remote access enabled" else "Remote access disabled")
             if (before.automatic != automatic) append(if (automatic) "Automatic requests enabled" else "Automatic requests disabled")
         }
+        publish()
+    }
+
+    @Synchronized
+    fun unrestrictedRemoteControl(enabled: Boolean) {
+        load()
+        if (snapshot.settings.unrestrictedRemoteControl == enabled) return
+        database.runInTransaction {
+            dao.put(snapshot.settings.copy(unrestrictedRemoteControl = enabled))
+            append(if (enabled) "Unrestricted remote control enabled" else "Unrestricted remote control disabled")
+        }
+        publish()
+    }
+
+    @Synchronized
+    fun dismissUnrestrictedUpgradeNotice() {
+        load()
+        if (!snapshot.settings.unrestrictedUpgradeNotice) return
+        dao.put(snapshot.settings.copy(unrestrictedUpgradeNotice = false))
         publish()
     }
 
@@ -311,6 +347,9 @@ internal class HostStore private constructor(
     }
 
     companion object {
+        // A fixed exception for this release, never a comparison with the current version.
+        const val UNRESTRICTED_UPGRADE_VERSION_CODE = 11
+
         private val EVENT_KINDS =
             setOf(
                 "Connection requested",
@@ -349,6 +388,15 @@ internal class HostStore private constructor(
                 }
             }
 
+        val MIGRATION_3_4 =
+            object : Migration(3, 4) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE settings ADD COLUMN unrestrictedRemoteControl INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("ALTER TABLE settings ADD COLUMN unrestrictedInitialized INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("ALTER TABLE settings ADD COLUMN unrestrictedUpgradeNotice INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+
         @Volatile private var instance: HostStore? = null
 
         fun get(context: Context): HostStore =
@@ -357,7 +405,7 @@ internal class HostStore private constructor(
                     WakeSupport.preferences(context.applicationContext),
                     Room
                         .databaseBuilder(context.applicationContext, HostDatabase::class.java, "remote-access.db")
-                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                         .build(),
                 ).also {
                     instance = it
@@ -367,6 +415,7 @@ internal class HostStore private constructor(
         fun fixture(
             context: Context,
             database: HostDatabase,
-        ) = HostStore(context.getSharedPreferences("host-store-fixture", Context.MODE_PRIVATE), database)
+            versionCode: Int = BuildConfig.VERSION_CODE,
+        ) = HostStore(context.getSharedPreferences("host-store-fixture", Context.MODE_PRIVATE), database, versionCode)
     }
 }
