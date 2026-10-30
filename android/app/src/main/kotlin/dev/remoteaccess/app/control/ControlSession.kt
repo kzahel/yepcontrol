@@ -77,6 +77,7 @@ internal class ControlSession(
                     .put("height", 0)
                     .put("scene", 0)
             val vault = PinVault(context)
+            state.put("a11y", 1)
             state.put("localSettings", LocalSettingsProtection.blocked)
             state.put("video", VideoStream.state(this)).put("videoActive", VideoStream.available(context, this))
             state

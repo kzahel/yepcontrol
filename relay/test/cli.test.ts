@@ -370,3 +370,29 @@ it("reports sanitized failed pairing in JSON mode", async () => {
   );
   expect(result.stderr).not.toContain("private-invalid-code");
 });
+
+it("keeps a legacy host session usable after refusing unsupported semantic commands", async () => {
+  const grant = await pairCli();
+  const h = await host(grant);
+  const serving = h.serve();
+  const c = cli(["session", "--stdio"]);
+  await until(async () => c.stdout().includes('"type":"ready"'));
+  c.child.stdin.end(
+    '{"id":"semantic","op":"snapshot"}\n{"id":"old","op":"status"}\n',
+  );
+  const result = await c.done;
+  expect(result.code, result.stderr).toBe(0);
+  const replies = result.stdout
+    .trim()
+    .split("\n")
+    .map((s) => JSON.parse(s));
+  expect(replies[1]).toMatchObject({ id: "semantic", ok: false });
+  expect(replies[2]).toMatchObject({
+    id: "old",
+    ok: true,
+    reply: { kind: "state" },
+  });
+  expect(h.actions()).toBe(0);
+  sockets.at(-1)?.terminate();
+  await serving;
+}, 20000);

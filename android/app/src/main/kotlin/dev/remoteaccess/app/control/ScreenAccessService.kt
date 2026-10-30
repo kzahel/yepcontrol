@@ -34,6 +34,7 @@ class ScreenAccessService : AccessibilityService() {
     private var gesture = false
     private val touch = TouchController(this, main)
     private val unlock = PinUnlock(this, main)
+    private val semantic = SemanticAccess()
 
     internal val inputInFlight get() = gesture || touch.dispatching
 
@@ -57,8 +58,12 @@ class ScreenAccessService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        semantic.clear()
         unlock.observeUnlocked()
-        val next = rootInActiveWindow?.windowId ?: -1
+        val root = rootInActiveWindow
+        val next = root?.windowId ?: -1
+        @Suppress("DEPRECATION")
+        root?.recycle()
         val display = getSystemService(android.hardware.display.DisplayManager::class.java).getDisplay(Display.DEFAULT_DISPLAY)
         val nextRotation = display?.rotation ?: -1
         if (next != window || nextRotation != rotation) {
@@ -69,6 +74,7 @@ class ScreenAccessService : AccessibilityService() {
     }
 
     private fun invalidate() {
+        semantic.clear()
         touch.release()
         scene = if (scene == Int.MAX_VALUE) 1 else scene + 1
         capturedAt = 0
@@ -135,7 +141,7 @@ class ScreenAccessService : AccessibilityService() {
         reply: (Int, ByteArray) -> Unit,
     ) {
         val inputRevision = LocalSettingsProtection.revision
-        val input = command.op in listOf(4, 5, 7, 8, 11, 13, 14) || (command.op == 6 && command.values[0] == 3)
+        val input = command.op in listOf(4, 5, 7, 8, 11, 13, 14, 20, 21, 22, 23) || (command.op == 6 && command.values[0] == 3)
         val inputAllowed = {
             allowed() && (!input || (!LocalSettingsProtection.blocked && inputRevision == LocalSettingsProtection.revision))
         }
@@ -143,6 +149,7 @@ class ScreenAccessService : AccessibilityService() {
             fun result(code: Int) = reply(2, byteArrayOf(code.toByte()))
             if (!allowed() || current !== this) return@post result(8)
             if (!inputAllowed()) return@post result(4)
+            if (command.op !in listOf(1, 2, 3, 10, 17, 18, 20, 21, 22, 23)) semantic.clear()
             if (command.op == 2) return@post reply(1, state().toString().toByteArray())
             if (command.op == 9) {
                 unlock.wake()
@@ -185,6 +192,17 @@ class ScreenAccessService : AccessibilityService() {
                 return@post result(0)
             }
             if (locked()) return@post result(3)
+            if (command.op in 20..23) {
+                if (gesture || touch.active) return@post result(6)
+                val root = rootInActiveWindow ?: return@post result(4)
+                if (command.op == 20) {
+                    val payload = semantic.snapshot(owner, root)
+                    return@post if (payload == null) result(4) else reply(7, payload)
+                }
+                val code = semantic.act(owner, command, root) { inputAllowed() && !locked() }
+                if (code == 0) invalidate()
+                return@post result(code)
+            }
             if (command.op == 11) {
                 val batch = checkNotNull(command.touch)
                 if (!touch.active && (capturedAt == 0L || android.os.SystemClock.elapsedRealtime() - capturedAt > 10000)) {
@@ -284,6 +302,7 @@ class ScreenAccessService : AccessibilityService() {
 
     fun release(owner: Any) {
         main.post {
+            semantic.clear(owner)
             touch.release(owner)
             VideoStream.close(this, owner)
         }

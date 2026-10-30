@@ -23,6 +23,13 @@ class ControlTest {
                 "navigation" -> assertEquals(listOf(2), parsed.values)
                 "text" -> assertEquals(expected.getString("text"), parsed.text)
                 "launch" -> assertEquals(expected.getString("packageName"), parsed.text)
+                "snapshot" -> assertEquals(20, parsed.op)
+                "nodeClick", "nodeScroll", "nodeText" -> {
+                    assertEquals(expected.getString("observation"), parsed.observation)
+                    assertEquals(7, parsed.values[0])
+                    if (parsed.op == 22) assertEquals(2, parsed.values[1])
+                    if (parsed.op == 23) assertEquals(expected.getString("text"), parsed.text)
+                }
                 "touch" -> {
                     val batch = requireNotNull(parsed.touch)
                     assertEquals(42, batch.gesture)
@@ -76,5 +83,17 @@ class ControlTest {
             bad[index] = 255.toByte()
             assertFails { ControlCommand.decode(bad) }
         }
+    }
+
+    @Test fun nodeActionsRejectMalformedTargetsBeforeExecution() {
+        val click = bytes("41524331150000000000001500112233445566778899aabbccddeeff00000007")
+        for (length in 12 until click.size) assertFails { ControlCommand.decode(click.copyOf(length)) }
+        assertFails { ControlCommand.decode(click + byteArrayOf(0)) }
+        assertFails { ControlCommand.decode(click.copyOf().also { it[it.lastIndex] = 128.toByte() }) }
+        val scroll = click.copyOf().also { it[4] = 22 }
+        for (direction in listOf(0, 3, 255)) assertFails { ControlCommand.decode(scroll + byteArrayOf(direction.toByte())) }
+        val text = click.copyOf().also { it[4] = 23 }
+        assertFails { ControlCommand.decode(text + byteArrayOf(255.toByte())) }
+        assertFails { ControlCommand.decode(text + ByteArray(4097)) }
     }
 }

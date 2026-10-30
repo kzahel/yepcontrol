@@ -41,7 +41,7 @@
     "id": 5,
     "command": {
       "op": "text",
-      "text": "Hi \ud83c\udf1e"
+      "text": "Hi 🌞"
     },
     "hex": "415243310700000000000005486920f09f8c9e"
   },
@@ -77,5 +77,41 @@
       }
     },
     "hex": "415243310b00000000000007000000030000002a0000000000280100000000000101000042f0800043708000"
+  },
+  {
+    "id": 20,
+    "command": {
+      "op": "snapshot"
+    },
+    "hex": "415243311400000000000014"
+  },
+  {
+    "id": 21,
+    "command": {
+      "op": "nodeClick",
+      "observation": "00112233445566778899aabbccddeeff",
+      "node": 7
+    },
+    "hex": "41524331150000000000001500112233445566778899aabbccddeeff00000007"
+  },
+  {
+    "id": 22,
+    "command": {
+      "op": "nodeScroll",
+      "observation": "00112233445566778899aabbccddeeff",
+      "node": 7,
+      "direction": "backward"
+    },
+    "hex": "41524331160000000000001600112233445566778899aabbccddeeff0000000702"
+  },
+  {
+    "id": 23,
+    "command": {
+      "op": "nodeText",
+      "observation": "00112233445566778899aabbccddeeff",
+      "node": 7,
+      "text": "Hello 🌞"
+    },
+    "hex": "41524331170000000000001700112233445566778899aabbccddeeff0000000748656c6c6f20f09f8c9e"
   }
 ]

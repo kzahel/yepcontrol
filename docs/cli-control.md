@@ -114,3 +114,51 @@ claim native input effects; emulator qualification follows in phase 5.
 This phase passes 174 TypeScript tests, typecheck, build and TypeScript lint.
 The requested independent Sol 6.1 High review is complete with no outstanding
 findings after fixing blocked-output shutdown and structured fatal errors.
+
+### Accessibility observation and actions
+
+`snapshot` returns a bounded active-window tree (128 visited nodes, depth 20,
+256-character labels) with password values redacted. In a persistent JSON-lines
+session, send `{"id":"ui","op":"snapshot"}` and select a returned node by its
+text/role/actions. Then send `nodeClick`, `nodeScroll` (direction `forward` or
+`backward`) or `nodeText` with the returned `observation` token and numeric `node`.
+For example: `{"id":"click","op":"nodeClick","observation":"...","node":7}`.
+A single-command snapshot is useful for observation, but its references cannot be
+used in another process/session. Use `session --stdio` for observation plus action.
+
+References expire after 30 seconds, are consumed on an attempted action, and are
+invalidated by accessibility content/window events, other remote input, local
+settings changes and disconnect. The phone resolves the original path and checks
+node identity, signature, visibility, enabled state and supported action before
+acting. Obtain another snapshot after any refusal; there is no automatic retry.
+Password nodes and their descendants are not actionable. Phone-local protected
+settings cannot be observed or controlled. Trees reflect what Android and the
+foreground app expose, and may be incomplete; `truncated` reports traversal limits.
+
+The optional `a11y: 1` capability and opcodes 20–23/reply 7 are additive. Existing
+wire formats and pairing grants are unchanged. The CLI refuses semantic commands
+without sending them to a public host that lacks the capability, preserving its
+status/screenshot/gesture connection. No web UI redesign is required.
+
+### Accessibility protocol qualification — 2026-10-30
+
+The additive implementation passes 178 TypeScript tests, shared Kotlin command
+vectors and malformed-target tests, Android build/lint, typecheck/build and
+format checks. The independent Sol 6.1 High review led to a final live authority
+and lock check after node resolution, refresh/password checks on every ancestor,
+and private fingerprints of complete values (up to 4096 characters per field;
+larger values cannot be acted on). Length-prefixed fingerprints detect changes
+beyond truncated wire labels and include checked/selected state. A deterministic
+blocked-resolution test verifies that losing authority prevents dispatch.
+
+Public-site, all five layout sizes and browser phone-management checks pass.
+The owned API-35 browser regression passes native input, held slider/long press,
+multitouch, watchdog release, direct H.264 and direct loss recovering to relay
+without replay. This run preceded the final semantic-only guard hardening; the
+combined CLI/browser acceptance in phase 5 exercises the final build. An earlier
+emulator attempt had an APK built for the default origin; rebuilding with the
+explicit development `sharingWebsite` corrected the fixture setup.
+
+The phase-4 reviewer rechecked all three fixes and reports no outstanding
+findings. Native semantic mutation/refusal checks remain explicitly assigned to
+the next phase.

@@ -6,6 +6,10 @@ export function parseCommand(value: unknown): Command {
   const v = value as Record<string, unknown>;
   const fields: Record<string, string[]> = {
     status: [],
+    snapshot: [],
+    nodeClick: ["observation", "node"],
+    nodeScroll: ["observation", "node", "direction"],
+    nodeText: ["observation", "node", "text"],
     capture: [],
     wake: [],
     sleep: [],
@@ -24,7 +28,7 @@ export function parseCommand(value: unknown): Command {
     allowed.some((k) => v[k] === undefined)
   )
     throw new Error("Unsupported or invalid control operation");
-  if (v.op === "text" && typeof v.text !== "string")
+  if ((v.op === "text" || v.op === "nodeText") && typeof v.text !== "string")
     throw new Error("Invalid text");
   if (
     v.op === "navigation" &&
@@ -33,5 +37,16 @@ export function parseCommand(value: unknown): Command {
     throw new Error("Invalid navigation action");
   const command = value as Command;
   encodeCommand(1, command).fill(0);
+  return command;
+}
+
+export function requireCapability(command: Command, state: { a11y?: 1 }) {
+  if (
+    (command.op === "snapshot" || command.op.startsWith("node")) &&
+    state.a11y !== 1
+  )
+    throw new Error(
+      "Update YepControl on the phone to use accessibility snapshots",
+    );
   return command;
 }

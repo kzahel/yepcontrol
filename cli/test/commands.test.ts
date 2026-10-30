@@ -17,3 +17,13 @@ it("refuses out-of-scope operations and malformed input before dispatch", () => 
     text: "Hello 🌞",
   });
 });
+
+it("gates semantic commands before sending to a legacy public host", async () => {
+  const { requireCapability } = await import("../src/commands.js");
+  const snapshot = parseCommand({ op: "snapshot" });
+  expect(() => requireCapability(snapshot, {})).toThrow("Update YepControl");
+  expect(requireCapability(snapshot, { a11y: 1 })).toEqual(snapshot);
+  expect(requireCapability(parseCommand({ op: "status" }), {})).toEqual({
+    op: "status",
+  });
+});

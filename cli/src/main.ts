@@ -6,7 +6,7 @@ import { RemoteSession } from "@remote/client/control-session";
 import { openEncryptedSession } from "@remote/client/relay";
 import { type Reply, resultMessage } from "@remote/protocol/control";
 import { encode } from "uqr";
-import { parseCommand } from "./commands.js";
+import { parseCommand, requireCapability } from "./commands.js";
 import { output as writeOutput } from "./output.js";
 import { pair } from "./pair.js";
 import { privateArtifact, Store } from "./store.js";
@@ -14,7 +14,7 @@ import { privateArtifact, Store } from "./store.js";
 const help = `YepControl CLI (Node 24+)
   pair [--name NAME] [--from-stdin | --code-file PATH] [--origin HTTPS_ORIGIN]
   phones
-  status | screenshot [--out PATH] | apps | wake | sleep
+  status | snapshot | screenshot [--out PATH] | apps | wake | sleep
   tap X Y --scene N
   swipe X Y END_X END_Y DURATION_MS --scene N
   text --from-stdin
@@ -154,7 +154,8 @@ async function main() {
       case "session":
         break;
       case "status":
-        command = { op: "status" };
+      case "snapshot":
+        command = { op: action };
         break;
       case "screenshot":
         command = { op: "capture" };
@@ -237,7 +238,9 @@ async function main() {
           if (typeof id !== "string" || id.length < 1 || id.length > 80)
             throw new Error("Request id must be a 1–80 character string");
           const { id: _, ...operation } = request;
-          const reply = await session.command(parseCommand(operation));
+          const reply = await session.command(
+            requireCapability(parseCommand(operation), connected.state),
+          );
           await output({
             id,
             ok: reply.kind !== "result" || reply.code === 0,
@@ -260,7 +263,9 @@ async function main() {
       controller.signal.throwIfAborted();
       return;
     }
-    const reply = await session.command(parseCommand(command));
+    const reply = await session.command(
+      requireCapability(parseCommand(command), connected.state),
+    );
     if (action === "screenshot" && values.out && reply.kind === "image") {
       await privateArtifact(values.out, reply.jpeg);
       await output({

@@ -10,6 +10,7 @@ data class ControlCommand(
     val values: List<Int> = emptyList(),
     val text: String = "",
     val touch: TouchBatch? = null,
+    val observation: String = "",
 ) {
     companion object {
         fun decode(bytes: ByteArray): ControlCommand {
@@ -23,8 +24,9 @@ data class ControlCommand(
             val values = mutableListOf<Int>()
             var text = ""
             var touch: TouchBatch? = null
+            var observation = ""
             when (op) {
-                1, 2, 3, 9, 10, 12, 14, 15, 17, 18 -> require(!input.hasRemaining())
+                1, 2, 3, 9, 10, 12, 14, 15, 17, 18, 20 -> require(!input.hasRemaining())
                 4, 5 -> {
                     val count = if (op == 4) 3 else 6
                     require(input.remaining() == count * 4)
@@ -61,10 +63,33 @@ data class ControlCommand(
                     if (op == 13) require(text.matches(Regex("[0-9]{4,16}")))
                     if (op == 8) require(text.matches(Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")))
                 }
+                21, 22, 23 -> {
+                    require(input.remaining() >= 20)
+                    val token = ByteArray(16).also { input.get(it) }
+                    observation = token.joinToString("") { "%02x".format(it.toInt() and 255) }
+                    values.add(input.int.also { require(it in 0..127) })
+                    when (op) {
+                        21 -> require(!input.hasRemaining())
+                        22 -> {
+                            require(input.remaining() == 1)
+                            values.add(input.get().toInt().also { require(it in 1..2) })
+                        }
+                        23 -> {
+                            require(input.remaining() <= 4096)
+                            text =
+                                Charsets.UTF_8
+                                    .newDecoder()
+                                    .onMalformedInput(CodingErrorAction.REPORT)
+                                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                                    .decode(input)
+                                    .toString()
+                        }
+                    }
+                }
                 11 -> touch = TouchBatch.decode(input)
                 else -> error("Unknown command")
             }
-            return ControlCommand(id, op, values, text, touch)
+            return ControlCommand(id, op, values, text, touch, observation)
         }
 
         fun reply(
@@ -72,7 +97,7 @@ data class ControlCommand(
             kind: Int,
             payload: ByteArray,
         ): ByteArray {
-            require(id in 1..0xffffffffL && kind in 1..6 && payload.size <= 1048564)
+            require(id in 1..0xffffffffL && kind in 1..7 && payload.size <= 1048564)
             return ByteBuffer
                 .allocate(12 + payload.size)
                 .putInt(0x41525031)

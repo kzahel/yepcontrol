@@ -1,3 +1,8 @@
+import {
+  parseSnapshot,
+  type UiSnapshot,
+  validObservation,
+} from "./accessibility.js";
 import { type DeviceInfo, parseDevice } from "./device.js";
 
 /** Commands travel only inside an authenticated application record. Integers are big-endian. */
@@ -17,7 +22,8 @@ export type Command =
         | "wake"
         | "apps"
         | "videoFrame"
-        | "videoKey";
+        | "videoKey"
+        | "snapshot";
     }
   | { op: "tap"; scene: number; x: number; y: number }
   | {
@@ -36,7 +42,15 @@ export type Command =
   | { op: "release" | "unlockSaved" | "sleep" }
   | { op: "unlock"; pin: string }
   | { op: "video"; quality: 0 | 1 | 2 | 3 }
-  | { op: "directOffer"; sdp: string };
+  | { op: "directOffer"; sdp: string }
+  | { op: "nodeClick"; observation: string; node: number }
+  | {
+      op: "nodeScroll";
+      observation: string;
+      node: number;
+      direction: "forward" | "backward";
+    }
+  | { op: "nodeText"; observation: string; node: number; text: string };
 const operations = [
   "start",
   "status",
@@ -57,6 +71,10 @@ const operations = [
   "videoFrame",
   "videoKey",
   "directOffer",
+  "snapshot",
+  "nodeClick",
+  "nodeScroll",
+  "nodeText",
 ] as const;
 export const MAX_COMMAND = 32784;
 export function encodeCommand(
@@ -69,6 +87,40 @@ export function encodeCommand(
   let tail = new Uint8Array();
   if (command.op === "touch") tail = encodeTouch(command.batch);
   switch (command.op) {
+    case "nodeClick":
+    case "nodeScroll":
+    case "nodeText": {
+      if (
+        !validObservation(command.observation) ||
+        !Number.isInteger(command.node) ||
+        command.node < 0 ||
+        command.node >= 128
+      )
+        throw new Error("Invalid UI reference");
+      const text =
+        command.op === "nodeText"
+          ? new TextEncoder().encode(command.text)
+          : new Uint8Array();
+      if (
+        text.length > 4096 ||
+        (command.op === "nodeScroll" &&
+          !["forward", "backward"].includes(command.direction))
+      )
+        throw new Error("Invalid UI action");
+      tail = new Uint8Array(
+        20 + (command.op === "nodeScroll" ? 1 : text.length),
+      );
+      for (let i = 0; i < 16; i++)
+        tail[i] = Number.parseInt(
+          command.observation.slice(i * 2, i * 2 + 2),
+          16,
+        );
+      new DataView(tail.buffer).setUint32(16, command.node);
+      if (command.op === "nodeScroll")
+        tail[20] = command.direction === "forward" ? 1 : 2;
+      else tail.set(text, 20);
+      break;
+    }
     case "tap":
       values = [command.scene, command.x, command.y];
       break;
@@ -166,9 +218,12 @@ export type ControlState = {
   unlockBlocked?: boolean;
   /** The phone is showing settings that accept only local input. */
   localSettings?: boolean;
+  /** Snapshot and observation-bound node actions. Absent on existing public hosts. */
+  a11y?: 1;
 };
 export type AppEntry = { name: string; packageName: string };
 export type Reply = { id: number } & (
+  | { kind: "snapshot"; snapshot: UiSnapshot }
   | { kind: "apps"; apps: AppEntry[] }
   | { kind: "directAnswer"; sdp: string }
   | { kind: "state"; state: ControlState }
@@ -224,6 +279,8 @@ export function decodeReply(data: Uint8Array<ArrayBuffer>): Reply {
         state.height > 16384
       )
         throw new Error("Invalid state");
+      if (state.a11y !== undefined && state.a11y !== 1)
+        throw new Error("Invalid UI capability");
       state.device = parseDevice(state.device);
       if (state.video !== undefined) {
         const video = state.video;
@@ -261,6 +318,18 @@ export function decodeReply(data: Uint8Array<ArrayBuffer>): Reply {
           throw new Error("Invalid unlock state");
       }
       return { id, kind: "state", state };
+    }
+    case 7: {
+      if (data.length > 524288) throw new Error("UI snapshot too large");
+      return {
+        id,
+        kind: "snapshot",
+        snapshot: parseSnapshot(
+          JSON.parse(
+            new TextDecoder("utf-8", { fatal: true }).decode(data.slice(12)),
+          ),
+        ),
+      };
     }
     case 2:
       if (data.length !== 13 || data[12] === undefined || data[12] > 9)
