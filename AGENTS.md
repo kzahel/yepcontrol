@@ -1,5 +1,22 @@
 # YepControl — agent instructions
 
+## Camera and microphone delivery authorization — 2026-10-31
+
+The owner authorized the six-phase plan in `docs/camera-microphone-plan.md`,
+autonomous end-to-end implementation and incremental verified commits. Use
+independent Sol 6.1 High reviewers through the Yep Anywhere API at
+`http://localhost:3400` with bypass permissions after every phase. Preserve
+released hosts and pairings. Follow the existing development/deployment and
+Play process, with internal Play-installed acceptance before public promotion.
+The attached Moto and Pixel 7a are authorized for sensor/accessibility/capture
+and recovery tests. The owner explicitly directed using the configured Machine
+Control stored-PIN route to unlock the Pixel when needed: use its guarded
+one-attempt helper without reading/printing the PIN or retrying failed delivery.
+Do not reboot physical phones or change lock/debugging settings. Private device
+selectors, PIN locators, review receipts and the exact local unlock procedure
+remain under ignored `.local/` or private controller inventory. See the plan
+and `docs/camera-microphone-spike.md` for the measured scope and limits.
+
 ## Product intent
 
 Build understanding of a potential standalone consumer product for remotely

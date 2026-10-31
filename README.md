@@ -113,6 +113,8 @@ Natural overnight availability and broader device qualification remain pending. 
 - [Pairing roles, links and scanner feedback](docs/onboarding.md)
 - [Browser phone management](docs/browser-phones.md)
 - [Android platform limits](docs/android-platform.md)
+- [Camera and microphone feasibility spike](docs/camera-microphone-spike.md)
+- [Camera and microphone implementation plan](docs/camera-microphone-plan.md)
 - [Original prototype](spike/README.md)
 
 The encryption design has not had an independent security review.
