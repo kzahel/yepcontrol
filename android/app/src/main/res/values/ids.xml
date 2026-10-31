@@ -1,4 +1,7 @@
 <resources>
+    <item name="media_notifications" type="id" />
+    <item name="allow_camera" type="id" />
+    <item name="allow_microphone" type="id" />
     <item name="give_control" type="id" />
     <item name="give_control_qr" type="id" />
     <item name="give_control_status" type="id" />

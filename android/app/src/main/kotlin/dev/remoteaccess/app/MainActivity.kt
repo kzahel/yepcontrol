@@ -46,6 +46,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import dev.remoteaccess.app.control.LocalSettingsProtection
 import dev.remoteaccess.app.control.ScreenAccessService
+import dev.remoteaccess.app.media.MediaController
 import dev.remoteaccess.app.unlock.PinVault
 import dev.remoteaccess.app.unlock.UnlockSetup
 import java.lang.ref.WeakReference
@@ -92,6 +93,16 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             refreshSystemReadiness()
+        }
+
+    // Separate restored launchers preserve the sensor identity across recreation/process loss.
+    private val cameraPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) change { it.media(cameraAllowed = true) } else render()
+        }
+    private val microphonePermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) change { it.media(microphoneAllowed = true) } else render()
         }
     private val unusedAppSettings =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -643,6 +654,38 @@ class MainActivity : ComponentActivity() {
         check(list, "Reconnect after restart", "After you unlock the phone once", restore, R.id.restore_setup) {
             perform { RestartRecovery.setEnabled(this, !restore) }
         }
+        val sensors = section(layout)
+        text(sensors, "Optional · Camera and microphone", 14f)
+        for (camera in listOf(true, false)) {
+            val enabled = MediaController.allowed(this, camera)
+            val permission = MediaController.permission(this, camera)
+            check(
+                sensors,
+                if (camera) "Allow remote camera" else "Allow remote microphone",
+                when {
+                    !enabled -> "Off · enable for paired controllers"
+                    !permission -> "Android permission needed"
+                    else -> "On · Android privacy controls still apply"
+                },
+                enabled,
+                if (camera) R.id.allow_camera else R.id.allow_microphone,
+            ) {
+                if (enabled) {
+                    change { if (camera) it.media(cameraAllowed = false) else it.media(microphoneAllowed = false) }
+                } else {
+                    allowSensor(camera)
+                }
+            }
+            if (enabled &&
+                !permission
+            ) {
+                button(sensors, if (camera) "Camera permission" else "Microphone permission") { allowSensor(camera) }
+            }
+        }
+        if (!notifications && (store.snapshot.settings.cameraAllowed || store.snapshot.settings.microphoneAllowed)) {
+            text(sensors, "Notifications are off. Allow them to show active sharing and its Stop sharing action.", 14f)
+            button(sensors, "Allow sharing notifications", R.id.media_notifications) { allowNotifications(prompt = true) }
+        }
         val optional = section(layout)
         text(optional, "Optional · Unlocking", 14f)
         if (device != null) {
@@ -660,6 +703,33 @@ class MainActivity : ComponentActivity() {
             if (saved) "Unlock without typing the PIN" else "Otherwise type the PIN to unlock",
             R.id.saved_pin_settings,
         ) { navigate("saved-pin") }
+    }
+
+    private fun allowSensor(camera: Boolean) {
+        AlertDialog
+            .Builder(this)
+            .setTitle(if (camera) "Allow remote camera?" else "Allow remote microphone?")
+            .setMessage(
+                "Enabled paired controllers can start " +
+                    (if (camera) "this phone’s camera" else "listening through this phone’s microphone") +
+                    ", including while the screen is off. " +
+                    "Sharing is encrypted between your devices. Android shows sensor indicators; when notifications are allowed, " +
+                    "an active sharing notification provides Stop sharing. " +
+                    "You can turn this off here or remove the Android permission at any time. This does not start sharing now.",
+            ).setNegativeButton("Cancel") { _, _ -> render() }
+            .setNeutralButton("Android settings") { _, _ ->
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri()))
+            }.setPositiveButton("Allow") { _, _ ->
+                if (MediaController.permission(this, camera)) {
+                    change { if (camera) it.media(cameraAllowed = true) else it.media(microphoneAllowed = true) }
+                } else {
+                    if (camera) {
+                        cameraPermission.launch(Manifest.permission.CAMERA)
+                    } else {
+                        microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            }.show()
     }
 
     private fun screenAccess(enabled: Boolean) {

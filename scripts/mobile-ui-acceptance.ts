@@ -2,7 +2,15 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, open, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  copyFile,
+  mkdir,
+  open,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -51,6 +59,32 @@ await rm(path.join(state, "result.json"), { force: true });
 for (const file of await readdir(state)) {
   if (/^ui-[a-z-]+\.png$/.test(file)) await rm(path.join(state, file));
 }
+// Snapshot validated inputs before boot, so another build cannot replace this run's APKs.
+const apkInputs = path.join(state, "apks");
+await mkdir(apkInputs, { recursive: true, mode: 0o700 });
+const buildTools = (await readdir(path.join(sdk, "build-tools")))
+  .filter((value) => /^\d+\.\d+\.\d+$/.test(value))
+  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+const aapt = path.join(sdk, "build-tools", buildTools.at(-1) ?? "", "aapt2");
+for (const [source, name, id] of [
+  ["debug/app-debug.apk", "host.apk", app],
+  ["androidTest/debug/app-debug-androidTest.apk", "tests.apk", `${app}.test`],
+]) {
+  const destination = path.join(apkInputs, name ?? "");
+  await copyFile(
+    path.join(root, "android/app/build/outputs/apk", source ?? ""),
+    destination,
+  );
+  await chmod(destination, 0o600);
+  const badging = execFileSync(aapt, ["dump", "badging", destination], {
+    encoding: "utf8",
+  });
+  assert.equal(
+    /package: name='([^']+)'/.exec(badging)?.[1],
+    id,
+    "Refusing an unexpected acceptance APK package",
+  );
+}
 const avd = "remote-mobile-ui-api35";
 if (!existsSync(path.join(env.ANDROID_AVD_HOME, `${avd}.ini`))) {
   execFileSync(
@@ -84,6 +118,9 @@ const emulator = spawn(
     "-no-boot-anim",
     "-gpu",
     "swiftshader_indirect",
+    ...(process.argv.includes("--media")
+      ? ["-camera-back", "emulated", "-camera-front", "emulated"]
+      : []),
   ],
   { env, stdio: ["ignore", log.fd, log.fd] },
 );
@@ -104,43 +141,67 @@ try {
   adb("shell", "wm", "size", "1080x1920");
   adb("shell", "input", "keyevent", "KEYCODE_WAKEUP");
   adb("shell", "wm", "dismiss-keyguard");
-  for (const apk of [
-    "debug/app-debug.apk",
-    "androidTest/debug/app-debug-androidTest.apk",
-  ]) {
-    adb(
-      "install",
-      "-r",
-      "-t",
-      path.join(root, "android/app/build/outputs/apk", apk),
-    );
+  for (const apk of ["host.apk", "tests.apk"]) {
+    adb("install", "-r", "-t", path.join(apkInputs, apk));
   }
   adb("shell", "pm", "clear", app);
-  const result = adb(
-    "shell",
-    "am",
-    "instrument",
-    "-w",
-    "-e",
-    "class",
-    "dev.remoteaccess.app.MobileNavigationTest,dev.remoteaccess.app.LocalSettingsProtectionTest",
-    `${app}.test/androidx.test.runner.AndroidJUnitRunner`,
+  const nativeNavigation = !process.argv.includes("--media-only");
+  assert(
+    nativeNavigation || process.argv.includes("--media"),
+    "--media-only requires --media",
   );
-  await writeFile(path.join(state, "native.log"), result, { mode: 0o600 });
-  for (const file of adb("shell", "run-as", app, "ls", "files").split(/\s+/)) {
-    if (!/^ui-[a-z-]+\.png$/.test(file)) continue;
-    const png = execFileSync(
-      adbPath,
-      ["-s", serial, "exec-out", "run-as", app, "cat", `files/${file}`],
-      { timeout: 20000, maxBuffer: 8 * 1024 * 1024 },
+  if (nativeNavigation) {
+    const result = adb(
+      "shell",
+      "am",
+      "instrument",
+      "-w",
+      "-e",
+      "class",
+      "dev.remoteaccess.app.MobileNavigationTest,dev.remoteaccess.app.LocalSettingsProtectionTest",
+      `${app}.test/androidx.test.runner.AndroidJUnitRunner`,
     );
-    await writeFile(path.join(state, file), png, { mode: 0o600 });
+    await writeFile(path.join(state, "native.log"), result, { mode: 0o600 });
+    for (const file of adb("shell", "run-as", app, "ls", "files").split(
+      /\s+/,
+    )) {
+      if (!/^ui-[a-z-]+\.png$/.test(file)) continue;
+      const png = execFileSync(
+        adbPath,
+        ["-s", serial, "exec-out", "run-as", app, "cat", `files/${file}`],
+        { timeout: 20000, maxBuffer: 8 * 1024 * 1024 },
+      );
+      await writeFile(path.join(state, file), png, { mode: 0o600 });
+    }
+    assert.match(
+      result,
+      /OK \(3 tests\)/,
+      "Native navigation acceptance failed; see private log/screenshots",
+    );
   }
-  assert.match(
-    result,
-    /OK \(3 tests\)/,
-    "Native navigation acceptance failed; see private log/screenshots",
-  );
+  const media = process.argv.includes("--media");
+  if (media) {
+    // Fresh permissions for each independent consent, then actual OS sensor interruptions.
+    adb("shell", "pm", "clear", app);
+    const mediaResult = adb(
+      "shell",
+      "am",
+      "instrument",
+      "-w",
+      "-e",
+      "class",
+      "dev.remoteaccess.app.SensorPermissionUiTest,dev.remoteaccess.app.SensorInterruptionTest",
+      `${app}.test/androidx.test.runner.AndroidJUnitRunner`,
+    );
+    await writeFile(path.join(state, "media.log"), mediaResult, {
+      mode: 0o600,
+    });
+    assert.match(
+      mediaResult,
+      /OK \(5 tests\)/,
+      "Native media consent/interruption acceptance failed; see private media.log",
+    );
+  }
   const storage = process.argv.includes("--storage");
   if (storage) {
     // Independent state from UI tests; no hosted relay, credentials or physical phone.
@@ -175,29 +236,39 @@ try {
     path.join(state, "result.json"),
     JSON.stringify(
       {
-        nativeNavigation: true,
+        nativeNavigation,
+        mediaConsentAndInterruptions: media,
         storageAndMigrations: storage,
-        drawerAndBack: true,
-        fixedTitleBar: true,
-        simpleHome: true,
-        appearancePersists: true,
-        explicitModeOverridesSystem: true,
-        followsSystemChanges: true,
-        rotationPreservesHierarchy: true,
-        screenshotsCaptured: true,
-        localSecuritySettings: true,
-        remoteInputRejectedOnProtectedScreens: true,
-        localSecurityChangesWork: true,
+        ...(nativeNavigation
+          ? {
+              drawerAndBack: true,
+              fixedTitleBar: true,
+              simpleHome: true,
+              appearancePersists: true,
+              explicitModeOverridesSystem: true,
+              followsSystemChanges: true,
+              rotationPreservesHierarchy: true,
+              screenshotsCaptured: true,
+              localSecuritySettings: true,
+              remoteInputRejectedOnProtectedScreens: true,
+              localSecurityChangesWork: true,
+            }
+          : {}),
       },
       null,
       2,
     ),
     { mode: 0o600 },
   );
-  console.log(
-    "Native navigation, appearance, rotation and local-only security settings passed.",
-  );
-  console.log("Screenshots and receipt: .local/mobile-ui-proof/");
+  if (nativeNavigation)
+    console.log(
+      "Native navigation, appearance, rotation and local-only security settings passed.",
+    );
+  if (media)
+    console.log(
+      "Native media consent recreation and OS interruption checks passed.",
+    );
+  console.log("Private receipts: .local/mobile-ui-proof/");
 } finally {
   if (emulator.exitCode === null) {
     try {

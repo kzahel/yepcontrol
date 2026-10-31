@@ -42,6 +42,8 @@ if (proofKey.isNotEmpty()) {
 }
 
 val releaseVersion = Properties().apply { rootProject.file("version.properties").reader().use { load(it) } }
+// Opt-in acceptance APK, with production capture code and no entry point in release.
+val mediaFixture = providers.gradleProperty("mediaFixture").orNull == "true"
 
 android {
     namespace = "dev.remoteaccess.app"
@@ -63,6 +65,7 @@ android {
     }
     buildTypes {
         getByName("debug") {
+            if (mediaFixture) applicationIdSuffix = ".mediafixture"
             buildConfigField("String", "DEV_SHARING_WEBSITE", "\"$devSharingWebsite\"")
             buildConfigField("boolean", "PROOF_RELAY", proofKey.isNotEmpty().toString())
             buildConfigField("String", "PROOF_RELAY_KEY", "\"$proofKey\"")
@@ -74,6 +77,11 @@ android {
     }
     sourceSets["androidTest"].assets.directories.add("../../protocol/vectors")
     sourceSets["androidTest"].assets.directories.add("$projectDir/schemas")
+    if (mediaFixture) {
+        sourceSets["debug"].kotlin.srcDir("../../experiments/media-host/kotlin")
+        sourceSets["debug"].manifest.srcFile("../../experiments/media-host/AndroidManifest.xml")
+        sourceSets["debug"].res.srcDir("../../experiments/media-host/res")
+    }
     lint {
         abortOnError = true
         warningsAsErrors = true
@@ -131,3 +139,5 @@ dependencies {
 tasks.matching { it.name == "mergeDebugAndroidTestAssets" }.configureEach {
     dependsOn("kspDebugKotlin")
 }
+// This sensor-only fixture neither enrolls nor registers for FCM.
+if (mediaFixture) tasks.matching { it.name == "processDebugGoogleServices" }.configureEach { enabled = false }

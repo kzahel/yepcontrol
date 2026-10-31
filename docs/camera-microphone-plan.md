@@ -32,7 +32,33 @@ lock/debugging-setting changes remain excluded.
   migration. Independent Sol 6.1 High review through Yep Anywhere returned no
   remaining actionable Phase 1 findings after corrections to rejection semantics,
   boundary coverage, native command assertions and new result-code decoding.
-  Detailed reviews and receipts remain private. Later phases are pending.
+  Detailed reviews and receipts remain private. Subsequent evidence follows.
+
+- **Phase 2 complete, 2026-10-31:** independent native optional
+  settings and normal Android consent, separate camera/microphone foreground
+  services, Camera2 JPEG/H.264 with upright pixels, PCM recording, local Stop,
+  permission/authority checks, lease/start deadlines and late-callback cleanup.
+  The [noninstrumented acceptance fixture](../experiments/media-host/README.md)
+  uses production capture code in a separate package. Moto/API 31 camera-only
+  worked before microphone permission; Pixel/API 37 microphone-only worked before
+  camera permission. Both passed combined front JPEG/rear H.264 plus PCM, local
+  Stop, feature/owner revocation, canceled startup, lease expiry, fresh background
+  screen-off capture and disconnect cleanup. Three-second H.264 samples decoded
+  30/27 frames on Pixel (awake/locked ambient) and 36/37 on Moto (awake/asleep),
+  with non-silent PCM and zero decoder errors. Pixel keyguard was independently
+  secure, showing and locked before fresh startup. Cleanup removed fixture/tunnel,
+  preserved other accessibility services and restored Pixel unlocked using one
+  guarded delivery. Normal product APK excludes fixture code; app lint/build,
+  ktlint/JVM protocol checks and 3 UI + 24 storage tests passed. Sensor hardware
+  remains optional in APK feature filtering. No production transport, browser
+  playback, FCM/process recovery, Doze or release claim is made by this fixture.
+  Review corrections add separate restored permission launchers, five native
+  consent/OS interruption tests, deterministic late-open/closed ordering tests,
+  real notification PendingIntent Stop while backgrounded, and physical runtime
+  permission-loss/process recovery acceptance. The final extra suite passed all
+  five checks plus the 24 storage tests; the three navigation tests passed against
+  the identical normal-host APK. Camera contention now maps synchronous platform
+  busy errors to the existing busy reason. Independent Sol 6.1 High re-review approved Phase 2 with no remaining actionable findings.
 
 ## Product behavior
 

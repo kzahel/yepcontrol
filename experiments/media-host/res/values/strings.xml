@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">YepControl media acceptance</string>
+    <string name="screen_access_label">YepControl media acceptance</string>
+    <string name="media_fixture_description">Production sensor acceptance. Sharing requires the optional phone settings and Android permissions.</string>
+    <string name="media_fixture_settings">Phone settings</string>
+    <string name="media_fixture_stop">Stop sharing</string>
+</resources>

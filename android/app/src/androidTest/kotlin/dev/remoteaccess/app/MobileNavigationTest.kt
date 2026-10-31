@@ -9,6 +9,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
@@ -44,6 +45,9 @@ class MobileNavigationTest {
                     view.click()
                     instrumentation.waitForIdleSync()
                     return
+                }
+                if (view == null && id in setOf("background_settings", "appearance_settings", "about_settings")) {
+                    device.findObject(By.scrollable(true))?.scroll(Direction.DOWN, 0.6f)
                 }
             } catch (_: StaleObjectException) {
                 // Theme/configuration changes can replace the Activity between lookup and click.
