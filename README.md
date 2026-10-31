@@ -14,7 +14,8 @@ through an end-to-end encrypted session. The browser-first QR flow also works.
 **Play release:** version 0.9.0/code 10 is publicly released, confirmed in Console
 2026-10-30. Version 0.10.0/code 11 is active on internal testing and adds CLI
 accessibility control and the **Allow unrestricted remote control** setting.
-Play-installed paired-upgrade acceptance precedes public promotion. Implementation and release
+Its in-place Play update and physical browser/CLI acceptance pass; public promotion
+is recorded separately below. Implementation and release
 acceptance are recorded in [the CLI plan](docs/cli-control.md); publication is
 recorded separately in the [production release record](docs/distribution/android-production.md).
 

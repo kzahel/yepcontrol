@@ -495,6 +495,37 @@ API confirmation of the Console delivery, not a fix or successful retry of the
 guarded edit commit. CI remains internal-only; no app-wide review submission or
 permission expansion was introduced.
 
-The paired physical phone's Play update and acceptance remain pending store
-propagation. Internal publication does not establish physical acceptance or
-public production delivery.
+### Play-installed paired-upgrade acceptance
+
+The already-paired Pixel 7a (Android 17/API 37) receives **0.10.0/code 11 through
+Google Play** in place. The version, Vending installer, original Play signing
+certificate and unchanged first-install timestamp are verified. App data and
+the original persistent browser profile remain intact; no uninstall, data reset
+or replacement browser pairing is used.
+
+That browser reconnects securely and sees the automatic-enablement explanation.
+Through its received screen and remote input alone, it displays/decodes the
+phone's code and adopts a real CLI through `pair --from-stdin`. The CLI's own
+identity launches apps, captures their screens, observes configuration and
+captures/decodes another configuration QR. The original browser then removes
+the CLI. Relay HTTP 410 and a refused real CLI reconnect confirm independent
+revocation while the browser remains usable.
+
+Normal Android screen-sharing consent enables actual decoded `VideoFrame`
+capture of a configuration QR. The browser cancels that unused code and turns
+unrestricted control off in ordinary Settings. Entering Give control restores
+the protected-page overlay and remote-input pause, stops video, and produces
+a system capture black across the app area. Back restores ordinary viewing;
+a browser Home action independently reaches Android's launcher with the setting
+still off. The browser then restores the setting on through its warning dialog.
+The temporary CLI grants are removed, the browser is disconnected, and media
+projection is null. Its original pairing and the Play-installed app remain.
+No physical credential, lock or debugging change is involved.
+
+The image driver needed palette-aware OCR and bounded new observations after
+explicit native pre-action stale refusals. A later moving layout shifted a target;
+removal and protection checks continued against fresh browser images manually.
+This is a completed physical acceptance check, with that automation limit recorded
+separately from the passing full owned-emulator campaign. Private receipts remain
+in ignored `.local/unrestricted-proof/`. Production promotion is separate from
+internal delivery and this acceptance.

@@ -101,15 +101,19 @@ export async function remoteAdoption(f: {
       lines.push(...grouped.values());
     }
     read(bytes, "11");
+    // Standard layout OCR also reads the light-green buttons on physical dynamic palettes.
+    read(bytes, "3");
     // Sparse OCR misses white labels on the native green primary buttons.
-    // Find broad green rows in the received pixels and invert only those crops.
+    // Find saturated green rows, excluding tinted page surfaces, and invert only those crops.
     const source = PNG.sync.read(bytes);
     const green = (x: number, y: number) => {
       const at = (y * source.width + x) * 4;
       return (
         (source.data[at + 1] ?? 0) > (source.data[at] ?? 0) * 1.2 &&
         (source.data[at + 1] ?? 0) > (source.data[at + 2] ?? 0) * 1.1 &&
-        (source.data[at + 1] ?? 0) < 180
+        (source.data[at + 1] ?? 0) - (source.data[at] ?? 0) > 20 &&
+        (source.data[at + 1] ?? 0) - (source.data[at + 2] ?? 0) > 10 &&
+        (source.data[at + 1] ?? 0) < 240
       );
     };
     let start = -1;
@@ -334,7 +338,11 @@ export async function remoteAdoption(f: {
       "Real CLI paired through stdin and connected with its own identity",
     );
     let requestId = 0;
-    async function request(command: Record<string, unknown>) {
+    let staleNodeRefusals = 0;
+    async function request(
+      command: Record<string, unknown>,
+      allowStale = false,
+    ) {
       assert.ok(live);
       const id = String(++requestId);
       live.c.stdin.write(`${JSON.stringify({ id, ...command })}\n`);
@@ -342,9 +350,17 @@ export async function remoteAdoption(f: {
         () => live?.records().find((record) => record.id === id),
         "Missing CLI adoption reply",
       );
-      assert.equal(response.ok, true);
       assert.ok(response.reply);
-      return response.reply as Reply;
+      const reply = response.reply as Reply;
+      if (
+        allowStale &&
+        response.ok === false &&
+        reply.kind === "result" &&
+        reply.code === 2
+      )
+        return reply;
+      assert.equal(response.ok, true);
+      return reply;
     }
     assert.equal((await request({ op: "status" })).kind, "state");
     assert.equal((await request({ op: "capture" })).kind, "image");
@@ -364,19 +380,38 @@ export async function remoteAdoption(f: {
       return (r as { snapshot: UiSnapshot }).snapshot;
     }
     async function nodeClick(text: string) {
-      const tree = await snapshot();
-      const node = tree.nodes.find(
-        (n) => n.clickable && (n.text === text || n.label === text),
-      );
-      assert.ok(node, `No CLI target ${text}`);
-      const r = await request({
-        op: "nodeClick",
-        observation: tree.observation,
-        node: node.node,
-      });
-      assert.equal(r.kind, "result");
-      assert.equal((r as { code: number }).code, 0);
-      await delay(600);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const tree = await snapshot();
+        const node = tree.nodes.find(
+          (n) => n.clickable && (n.text === text || n.label === text),
+        );
+        assert.ok(node, `No CLI target ${text}`);
+        const r = await request(
+          {
+            op: "nodeClick",
+            observation: tree.observation,
+            node: node.node,
+          },
+          true,
+        );
+        assert.equal(r.kind, "result");
+        const code = (r as { code: number }).code;
+        if (code === 2) {
+          // Native code 2 precedes the action. Obtain a new observation after that refusal.
+          staleNodeRefusals++;
+          await appendFile(
+            path.join(directory, "actions.jsonl"),
+            `${JSON.stringify({ event: "stale-node-refusal", target: text, attempt })}\n`,
+            { mode: 0o600 },
+          );
+          await delay(300);
+          continue;
+        }
+        assert.equal(code, 0);
+        await delay(600);
+        return;
+      }
+      throw Error(`CLI target remained stale: ${text}`);
     }
     for (let n = 0; n < 4; n++) {
       if (
@@ -448,6 +483,7 @@ export async function remoteAdoption(f: {
         cliRemovedByBrowser: true,
         relayRevocationConfirmed: true,
         browserStillUsable: true,
+        staleNodeRefusals,
         id,
       }),
       { mode: 0o600 },

@@ -535,3 +535,26 @@ fixture now requires the Home result to succeed and polls the existing bounded
 activity-state condition, matching its following launch check. The Home command
 is sent once; an accepted navigation request does not imply the activity
 transition has already completed.
+
+### Play-installed physical acceptance — 2026-10-31
+
+Android 0.10.0/code 11 passes an in-place internal Play update on the paired
+Pixel 7a, retaining the original browser authority and showing the automatic
+enablement explanation. Browser-only code capture adopts a real independent CLI;
+its own app control and configuration-QR capture pass. The original browser
+removes it, with relay revocation and refused CLI reconnect verified. Actual
+video exposes the configuration code while enabled. Remote disable restores
+protected-page input/capture restrictions, and ordinary control remains useful.
+The setting is restored on through the browser warning. Full receipts and
+physical limits are recorded in the
+[Android beta record](distribution/android-beta.md#android-0100--code-11--2026-10-31).
+
+The physical dynamic palette requires standard-layout OCR alongside sparse OCR
+and saturated-button crops that exclude tinted page surfaces. Saved physical
+Home/Give-control images and a retained emulator Home image pass focused image
+probes. The fixture driver obtains a fresh observation after native semantic
+code 2 only, capped at three total attempts, recording each refusal; accepted
+or uncertain actions are not replayed. Independent review verifies the pre-action
+contract and bounded failure branches. A moving layout later required manual
+browser continuation for the physical removal/protection check; this does not
+claim that the full generic image-driver run completed automatically on the phone.
