@@ -270,3 +270,19 @@ managed-publishing hold.
 The [website/relay 0.4.0 release](../relay-releases.md) is already live with public
 admission. Existing public 0.9.0 hosts remain compatible. Private submission and
 installed-build receipts remain in ignored `.local/unrestricted-proof/`.
+
+## Android 0.10.0 / code 11 — public availability confirmed, 2026-10-31
+
+A fresh authenticated Console check confirms approval and publication:
+Publishing overview says **Last published on October 31, 2026**, and the
+production release details show **Available on Google Play**, **11 (0.10.0)**,
+**100%** rollout and **Available in 178 of 178 countries / regions**. Console
+records **Released on Oct 31 2:41 AM** in its displayed time zone. This supersedes
+the pending-review status above.
+
+A separate signed-out HTTP fetch of the [public Google Play listing](https://play.google.com/store/apps/details?id=com.yepcontrol.app&hl=en&gl=US)
+confirms version **0.10.0**, updated October 31 and the terminal/unrestricted-control
+release notes. The production update is publicly available; delivery to each
+individual device can still take longer. No rollout changes were needed.
+Private Console snapshots and the public response remain in ignored
+`.local/unrestricted-proof/`.

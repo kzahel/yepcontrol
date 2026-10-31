@@ -1,6 +1,6 @@
 # YepControl
 
-View and control your Android phone from a browser. With Android 0.9.0, choose
+View and control your Android phone from a browser. Choose
 **Give control → Show code**. Scan it with the other device's camera to connect
 through an end-to-end encrypted session. The browser-first QR flow also works.
 
@@ -11,10 +11,10 @@ through an end-to-end encrypted session. The browser-first QR flow also works.
 - Optional background wake and saved-PIN unlock.
 - Android 11+; application ID `com.yepcontrol.app`.
 
-**Play release:** version 0.9.0/code 10 is publicly released, confirmed in Console
-2026-10-30. Version 0.10.0/code 11 passes an in-place internal Play update and
-physical browser/CLI acceptance, and is submitted for **100% production rollout**;
-Google approval is pending. It adds CLI accessibility control and the
+**Play release:** version 0.10.0/code 11 is publicly released at **100% rollout**
+across all 178 targeted countries/regions, confirmed in Console and the public
+listing on 2026-10-31 after an in-place internal Play update and physical
+browser/CLI acceptance. It adds CLI accessibility control and the
 **Allow unrestricted remote control** setting. See [the CLI plan](docs/cli-control.md)
 and [production release record](docs/distribution/android-production.md).
 
