@@ -153,3 +153,21 @@ separate sensors, front JPEG/live H.264, playback suspension, transport loss and
 ordinary screen recovery are checked against the selected physical host.
 The native app and relay retain no recording. Receipts stay under ignored
 `.local/media-access/implementation/phase-4/`.
+
+
+CLI qualification (Phase 5):
+
+```sh
+pnpm build
+MEDIA_DEVICE=EXPLICIT_SERIAL MEDIA_DEVICE_MODEL='EXACT_MODEL' \
+MEDIA_CLI=1 MEDIA_HOST_APK=PATH_TO_FIXTURE_APK node experiments/media-host/run.mjs
+```
+
+The real built CLI pairs through normal native approval, then sends snapshot,
+sampled-frame and microphone commands through the production encrypted relay.
+An isolated browser only independently decodes local JPEG/WAV artifacts; it does
+not issue the media commands. The persistent agent checks simultaneous draining,
+recent audio, independent Stop and termination with unread stdout. Native
+app-ops/service witnesses and phone-owned pairing revocation qualify cleanup.
+Each run has a fresh private output/identity directory; paths, pairing links,
+keys and raw artifacts stay ignored. No published app is replaced.

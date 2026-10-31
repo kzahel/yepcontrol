@@ -4,10 +4,13 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { RemoteSession } from "@remote/client/control-session";
 import { openEncryptedSession } from "@remote/client/relay";
-import { type Reply, resultMessage } from "@remote/protocol/control";
 import { encode } from "uqr";
+import { AgentSession } from "./agent-session.js";
 import { parseCommand, requireCapability } from "./commands.js";
-import { output as writeOutput } from "./output.js";
+import { MediaCliError } from "./media-errors.js";
+import { MediaJobs } from "./media-jobs.js";
+import { commandMediaRequest } from "./media-requests.js";
+import { serializeReply, output as writeOutput } from "./output.js";
 import { pair } from "./pair.js";
 import { privateArtifact, Store } from "./store.js";
 
@@ -19,11 +22,21 @@ const help = `YepControl CLI (Node 24+)
   swipe X Y END_X END_Y DURATION_MS --scene N
   text --from-stdin
   home | back | recents | launch PACKAGE
+  camera snapshot --out photo.jpg [--facing rear|front]
+  camera frames --duration 10s --fps 1 --out-dir frames/ [--facing rear|front]
+  microphone record --duration 10s --out audio.wav
   session --stdio      JSON lines: {"id":"1","op":"capture"}
 Options: --phone ID, --json (fatal errors are JSON on stderr), --help
 State: YEPCONTROL_HOME or ~/.config/yepcontrol (owner-only).
 Pairing links and text use stdin, never command arguments. Screenshots return JPEG
 base64 in session replies, or an owner-only --out artifact in screenshot mode.
+Media captures use private files (no overwrite/symlinks), up to 60s, 1–5 camera fps,
+100 artifacts and 64 MiB per job. Durations accept ms or s. Camera frames sample
+for up to the chosen duration. The output parent directory must already exist.
+Agent media ops: cameraSnapshot, cameraStart, microphoneStart, mediaReceive,
+mediaStop. Starts require bounded duration and output; receive can save a recent
+microphone second with out. Polling is independent of capture. Keep stdin open;
+EOF/cancellation stops media. New media replies contain metadata, never bytes.
 `;
 async function* lines(stream: NodeJS.ReadableStream, max: number) {
   let pending = Buffer.alloc(0);
@@ -51,13 +64,6 @@ async function readInput(max: number) {
   }
   return value.replace(/\r?\n$/, "");
 }
-function serialize(reply: Reply) {
-  if (reply.kind === "image")
-    return { ...reply, jpeg: Buffer.from(reply.jpeg).toString("base64") };
-  if (reply.kind === "result")
-    return { ...reply, message: resultMessage(reply.code) };
-  return reply;
-}
 async function main() {
   const argumentsForCli = () =>
     parseArgs({
@@ -71,6 +77,10 @@ async function main() {
         "from-stdin": { type: "boolean" },
         "code-file": { type: "string" },
         out: { type: "string" },
+        "out-dir": { type: "string" },
+        duration: { type: "string" },
+        fps: { type: "string" },
+        facing: { type: "string" },
         scene: { type: "string" },
         stdio: { type: "boolean" },
       },
@@ -87,17 +97,23 @@ async function main() {
     process.stdout.write(help);
     return;
   }
+  const capture = commandMediaRequest(action, args, values);
   const controller = new AbortController();
   const output = (value: unknown) => writeOutput(value, controller.signal);
-  const stop = () => {
-    controller.abort(new Error("Canceled"));
+  let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
+  const stop = (error: Error = new Error("Canceled")) => {
+    controller.abort(error);
     process.stdin.destroy();
+    shutdownTimer ??= setTimeout(() => process.exit(1), 3000);
+    shutdownTimer.unref();
   };
-  process.once("SIGINT", stop);
-  process.once("SIGTERM", stop);
-  const timeout = setTimeout(stop, action === "pair" ? 310000 : 3600000);
+  const cancel = () => stop();
+  process.once("SIGINT", cancel);
+  process.once("SIGTERM", cancel);
+  const timeout = setTimeout(cancel, action === "pair" ? 310000 : 3600000);
   timeout.unref();
   let session: RemoteSession | undefined;
+  let jobs: MediaJobs | undefined;
   try {
     const store = await Store.load(
       path.resolve(
@@ -151,6 +167,9 @@ async function main() {
       throw new Error("Use session --stdio");
     let command: unknown;
     switch (action) {
+      case "camera":
+      case "microphone":
+        break;
       case "session":
         break;
       case "status":
@@ -199,7 +218,7 @@ async function main() {
       default:
         throw new Error("Unknown command; use --help");
     }
-    if (action !== "session") parseCommand(command);
+    if (action !== "session" && !capture) parseCommand(command);
     const phone = store.select(values.phone);
     const connected = await RemoteSession.connect(
       store.identity,
@@ -218,48 +237,27 @@ async function main() {
       },
     );
     session = connected.session;
+    jobs = new MediaJobs(session, connected.state, controller.signal, stop);
+    if (capture) {
+      const job = await jobs.start(capture);
+      const result = await job.done;
+      await output({ ok: result.state === "complete", ...result });
+      if (result.state !== "complete") process.exitCode = 1;
+      return;
+    }
     if (action === "session") {
-      if (!values.stdio) throw new Error("Use session --stdio");
       await output({ type: "ready", state: connected.state });
-      for await (const line of lines(process.stdin, 16384)) {
-        controller.signal.throwIfAborted();
-        if (!line.trim()) continue;
-        let id: unknown;
-        try {
-          let request: Record<string, unknown>;
-          try {
-            request = JSON.parse(line);
-          } catch {
-            throw new Error("Invalid JSON request");
-          }
-          if (!request || typeof request !== "object" || Array.isArray(request))
-            throw new Error("Invalid request");
-          id = request.id;
-          if (typeof id !== "string" || id.length < 1 || id.length > 80)
-            throw new Error("Request id must be a 1–80 character string");
-          const { id: _, ...operation } = request;
-          const reply = await session.command(
-            requireCapability(parseCommand(operation), connected.state),
-          );
-          await output({
-            id,
-            ok: reply.kind !== "result" || reply.code === 0,
-            reply: serialize(reply),
-          });
-        } catch (error) {
-          controller.signal.throwIfAborted();
-          if (process.stdout.destroyed) throw error;
-          await output({
-            id: typeof id === "string" ? id : null,
-            ok: false,
-            error: error instanceof Error ? error.message : "Command failed",
-          });
-          if (!session.connected)
-            throw new Error(
-              "Session ended; reconnect and observe before further input",
-            );
-        }
-      }
+      const agent = new AgentSession(
+        session,
+        connected.state,
+        jobs,
+        controller.signal,
+        output,
+        stop,
+      );
+      for await (const line of lines(process.stdin, 16384))
+        await agent.accept(line);
+      await agent.finish();
       controller.signal.throwIfAborted();
       return;
     }
@@ -275,13 +273,20 @@ async function main() {
         width: reply.width,
         height: reply.height,
       });
-    } else await output(serialize(reply));
+    } else await output(serializeReply(reply));
     if (reply.kind === "result" && reply.code !== 0) process.exitCode = 1;
   } finally {
+    if (jobs?.active) {
+      shutdownTimer ??= setTimeout(() => process.exit(1), 3000);
+      shutdownTimer.unref();
+    }
+    const closing = jobs?.close();
     session?.close();
+    await closing;
     clearTimeout(timeout);
-    process.removeListener("SIGINT", stop);
-    process.removeListener("SIGTERM", stop);
+    clearTimeout(shutdownTimer);
+    process.removeListener("SIGINT", cancel);
+    process.removeListener("SIGTERM", cancel);
   }
 }
 main().catch((error) => {
@@ -289,7 +294,7 @@ main().catch((error) => {
   setTimeout(() => process.exit(1), 1000).unref();
   process.stderr.write(
     process.argv.includes("--json")
-      ? `${JSON.stringify({ ok: false, error: { code: "CLI_ERROR", message: error instanceof Error ? error.message : "YepControl failed" } })}\n`
+      ? `${JSON.stringify({ ok: false, error: { code: error instanceof MediaCliError ? error.code : "CLI_ERROR", message: error instanceof Error ? error.message : "YepControl failed" } })}\n`
       : `${error instanceof Error ? error.message : "YepControl failed"}\n`,
     () => process.exit(1),
   );

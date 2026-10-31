@@ -1,4 +1,13 @@
 import { once } from "node:events";
+import { type Reply, resultMessage } from "@remote/protocol/control";
+
+export function serializeReply(reply: Reply): unknown {
+  if (reply.kind === "image")
+    return { ...reply, jpeg: Buffer.from(reply.jpeg).toString("base64") };
+  if (reply.kind === "result")
+    return { ...reply, message: resultMessage(reply.code) };
+  return reply;
+}
 
 /** Bound backpressure and release the pipe on cancellation; never retry a reply. */
 export async function output(value: unknown, signal: AbortSignal) {

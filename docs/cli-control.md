@@ -20,8 +20,9 @@ the Yep Anywhere API with bypass permissions, address findings, and commit.
 5. Qualify the real CLI and existing browser against an owned emulator; retain
    meaningful regression coverage in CI and document exact evidence and limits.
 
-ADB extensions, reboot redesign, MCP, video in the CLI and an autonomous planner
-are outside this implementation. The existing screen-access permission and
+ADB extensions, reboot redesign, MCP, live video rendering in the CLI and an
+autonomous planner are outside this initial implementation. The subsequent
+[camera/microphone plan](camera-microphone-plan.md) adds bounded media artifacts. The existing screen-access permission and
 phone-local access controls remain authoritative.
 
 ## Acceptance
@@ -93,14 +94,16 @@ Agents should use `session --stdio` to retain the encrypted connection. It emits
 one JSON ready record, then accepts one JSON request per line, for example
 `{"id":"s1","op":"status"}` or `{"id":"s2","op":"capture"}`. Each response
 contains the caller's id, `ok`, and a reply or error. JPEG bytes are base64.
-Requests execute sequentially and uncertain commands are never replayed.
+Ordinary requests execute sequentially and uncertain commands are never replayed.
+Media receive and Stop can complete while an ordinary reply is pending.
 A disconnected session must be reopened and observed before further input.
 
 Results are JSON on stdout. With `--json`, fatal errors are JSON on stderr:
 `{"ok":false,"error":{"code":"CLI_ERROR","message":"..."}}`, with exit 1.
 Progress remains on stderr. Cancellation closes the connection; output and
 shutdown flushing are bounded, including when the caller stops reading.
-The CLI does not accept PINs, unlock, video or transport-negotiation commands.
+The CLI does not accept PINs, unlock, live-video rendering or transport-negotiation
+commands. Camera and microphone artifact operations are described below.
 
 ### CLI process qualification — 2026-10-30
 
@@ -558,3 +561,77 @@ or uncertain actions are not replayed. Independent review verifies the pre-actio
 contract and bounded failure branches. A moving layout later required manual
 browser continuation for the physical removal/protection check; this does not
 claim that the full generic image-driver run completed automatically on the phone.
+
+
+## Camera and microphone artifacts
+
+These commands require an updated phone advertising media support, its separate
+**Allow remote camera** / **Allow remote microphone** settings and corresponding
+Android permissions. They use the existing paired authority and encrypted relay;
+older hosts refuse locally without changing ordinary screen control.
+
+```sh
+yepcontrol camera snapshot --facing rear --out photo.jpg
+yepcontrol camera frames --facing front --fps 1 --duration 10s --out-dir frames
+yepcontrol microphone record --duration 10s --out audio.wav
+```
+
+Output parents must already exist, with no symlinks or paths replaceable by other
+local users. Destinations must be new. Files are staged privately, then published
+exclusively with mode 0600; frame directories use 0700. The initial artifact writer
+requires Unix ownership/permission semantics. Sampled frames use JPEG and a
+`capture.json` manifest. Audio is WAV, PCM16LE mono at 16 kHz. Durations accept
+100ms–60s, camera sampling 1–5 fps, with at most 100 frames/artifacts and 64 MiB per
+job. One camera job and one microphone job can run concurrently.
+
+`session --stdio` adds the following JSON-lines requests (each needs its own id):
+
+```json
+{"id":"c1","op":"cameraSnapshot","out":"photo.jpg","facing":"rear"}
+{"id":"c2","op":"cameraStart","outDir":"frames","duration":"10s","fps":1,"facing":"front"}
+{"id":"m1","op":"microphoneStart","out":"audio.wav","duration":"10s"}
+{"id":"r1","op":"mediaReceive","stream":3,"after":0,"waitMs":1000}
+{"id":"r2","op":"mediaReceive","stream":4,"out":"recent.wav"}
+{"id":"s1","op":"mediaStop","stream":3}
+{"id":"s2","op":"mediaStop","stream":0}
+```
+
+Start returns a stream/job identifier after native acceptance; snapshot waits for
+its artifact. Jobs drain continuously, independently of stdin polling and stdout.
+`mediaReceive` reports state and at most eight committed frames; pass `nextAfter`
+as the next cursor. `waitMs` is bounded to 0–1000. For microphone jobs, optional
+`out` writes a new WAV containing the most recent available second (a bounded
+32 kB ring), while the full recording continues. `mediaStop` stops one stream or
+all with stream 0 and waits for native release confirmation. Stop-all also cancels
+earlier starts still queued behind ordinary actions; later explicit starts remain
+allowed. `stopConfirmed`
+distinguishes a confirmed native terminal from uncertain transport loss.
+
+Replies contain local artifact paths, format, dimensions or sample count,
+duration and native monotonic `timestampUs` (not wall time). No media bytes or
+output paths are sent to the phone; routine media JSON has no base64. Legacy
+screen `capture` replies retain their original base64 representation. Use an
+image/audio analysis tool on the returned files when needed.
+
+EOF, SIGINT/SIGTERM, connection loss and hard job deadlines cancel capture.
+A valid partial WAV or already committed JPEGs may remain after cancellation;
+job `state`, `error` and the frame manifest describe partial results. A planned
+`output` path alone does not prove a file exists; `latest`/`manifest` describe
+committed artifacts. Hard deadlines include bounded native shutdown and file
+finalization; blocked stdout cannot keep the owner alive indefinitely.
+Completed jobs retain bounded metadata in the current session, with at most
+16 retained jobs. Connecting or reopening a CLI never resumes recording.
+
+Errors preserve the ordinary `error` string and add `errorCode` for agent replies;
+one-shot `--json` errors use `error.code`. Media codes include
+`MEDIA_UNSUPPORTED`, `MEDIA_PERMISSION`, `MEDIA_DISABLED`, `MEDIA_BUSY`,
+`MEDIA_UNAVAILABLE`, `MEDIA_INTERRUPTED`, `MEDIA_TIMEOUT`, `MEDIA_CANCELED`,
+`MEDIA_INVALID_ARGUMENT`, `MEDIA_LIMIT`, `MEDIA_NOT_READY`, `MEDIA_NOT_FOUND`,
+`MEDIA_OUTPUT_EXISTS`, `MEDIA_UNSAFE_OUTPUT` and `MEDIA_OUTPUT_ERROR`.
+
+Phase-five physical qualification used the production shared client and actual
+CLI subprocesses through the encrypted relay to a separate-package Moto/API 31
+host. Rear/front JPEGs and a 16,000-sample WAV independently decoded. Concurrent
+agent capture, recent audio, independent Stop and unread-output termination all
+released native app-ops/services; pairing/package/tunnel cleanup passed. These
+checks do not establish cold FCM wake, Play installation or overnight availability.

@@ -117,6 +117,22 @@ lock/debugging-setting changes remain excluded.
   re-review approved the final 27-file candidate with no remaining actionable
   findings or required Phase 4 validation.
 
+- **Phase 5 complete, 2026-10-31:** bounded CLI JPEG snapshot/sampling and
+  PCM WAV jobs, private exclusive artifact publication, independent continuous
+  draining and persistent agent start/receive/Stop. Jobs use the shared encrypted
+  client and preserve legacy screen commands. Stop waits for native release;
+  cancellation, EOF, blocked output and hard deadlines have bounded cleanup.
+  Real Moto CLI acceptance decoded rear/front JPEGs, exact one-second audio,
+  concurrent sensors and recent audio. Independent Stop and unread-output SIGTERM
+  released native resources; pairing/package/tunnel cleanup passed. Subprocess
+  tests cover real encrypted relay interoperability and legacy refusal; process
+  tests cover blocked output cancellation and automatic deadlines. The full suite
+  passed 224 TS tests before a review correction; nine targeted media tests pass
+  afterward. The correction makes Stop-all cancel earlier queued starts while
+  preserving later explicit starts. Final typecheck/build/Biome/diff checks pass.
+  Independent Sol 6.1 High re-review approved the final 16-file candidate with no
+  remaining actionable findings or required Phase 5 validation.
+
 ## Product behavior
 
 The Android app has two optional settings, initially off: **Allow remote camera**

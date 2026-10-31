@@ -13,6 +13,7 @@ import {
   observeMediaBrowser,
 } from "../../scripts/media-browser-evidence.ts";
 import { decodeMedia } from "../../protocol/dist/media.js";
+import { cliMediaAcceptance } from "./cli-acceptance.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const require = createRequire(
@@ -29,7 +30,9 @@ assert(
 assert(["camera", "microphone"].includes(firstSensor));
 const sleepTest = process.env.MEDIA_SCREEN_OFF === "1";
 const webUi = process.env.MEDIA_WEB_UI === "1";
-const encrypted = process.env.MEDIA_ENCRYPTED === "1" || webUi;
+const cliMedia = process.env.MEDIA_CLI === "1";
+assert(!(webUi && cliMedia), "Choose one UI or CLI acceptance mode");
+const encrypted = process.env.MEDIA_ENCRYPTED === "1" || webUi || cliMedia;
 const focus = process.env.MEDIA_FOCUS ?? "full";
 assert(["full", "permission-loss"].includes(focus));
 const adapter =
@@ -82,7 +85,7 @@ const component = `${pkg}/dev.remoteaccess.app.media.MediaFixtureActivity`;
 const token = randomBytes(32).toString("hex");
 const stateDir = path.join(
   root,
-  `.local/media-access/implementation/${webUi ? "phase-4" : encrypted ? "phase-3" : "phase-2"}`,
+  `.local/media-access/implementation/${cliMedia ? "phase-5" : webUi ? "phase-4" : encrypted ? "phase-3" : "phase-2"}`,
   model.replace(/[^a-zA-Z0-9_-]/g, "_"),
 );
 await mkdir(stateDir, { recursive: true, mode: 0o700 });
@@ -94,6 +97,7 @@ const results = {
   focus,
   encrypted,
   webUi,
+  cliMedia,
   samples: [],
   checks: [],
   events: [],
@@ -567,6 +571,27 @@ try {
   results.checks.push("actual-accessibility-binding");
   await (async () => {
     if (encrypted) {
+      if (cliMedia) {
+        await cliMediaAcceptance({
+          root,
+          stateDir,
+          page,
+          command,
+          shell,
+          click,
+          until,
+          delay,
+          state,
+          assertReleased,
+          results,
+          setInvitation: (id, paired = false) => {
+            invitationId = id;
+            canRemoveFixture = false;
+            if (paired) pairedId = id;
+          },
+        });
+        return;
+      }
       const invitation = await page.evaluate(() => window.mediaProof.invite());
       invitationId = invitation.id;
       canRemoveFixture = false;

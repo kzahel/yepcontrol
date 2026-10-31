@@ -5,7 +5,7 @@ import {
   spawn,
 } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
 import { createServer } from "node:https";
 import os from "node:os";
 import path from "node:path";
@@ -34,6 +34,7 @@ import {
 } from "@remote/protocol/phone-invitation";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { WebSocket } from "ws";
+import { phoneLane } from "../../client/test/phone.js";
 import { createRelay } from "../src/server.js";
 
 let directory: string,
@@ -206,7 +207,7 @@ async function pairCli() {
   expect(result.stdout).not.toContain(invite.secret);
   return grant;
 }
-async function host(grant: Grant, drop = false) {
+async function host(grant: Grant, drop = false, media = false) {
   const ws = new WebSocket(`${origin.replace("https:", "wss:")}/api/socket`, {
     ca: await readFile(path.join(directory, "cert.pem")),
   });
@@ -217,9 +218,15 @@ async function host(grant: Grant, drop = false) {
     queue.push(Buffer.from(data as Buffer));
     wake?.();
   });
+  ws.on("close", () => wake?.());
   const next = async () => {
-    await until(async () => {
-      if (queue.length) return true;
+    const end = Date.now() + 10000;
+    while (!queue.length && Date.now() < end) {
+      if (
+        ws.readyState === WebSocket.CLOSED ||
+        ws.readyState === WebSocket.CLOSING
+      )
+        throw Error("Fixture socket closed");
       await new Promise<void>((r) => {
         const t = setTimeout(r, 30);
         wake = () => {
@@ -227,8 +234,8 @@ async function host(grant: Grant, drop = false) {
           r();
         };
       });
-      return queue.length > 0;
-    });
+    }
+    if (!queue.length) throw Error("Fixture socket timed out");
     return new Uint8Array(queue.shift() ?? []);
   };
   const challenge = JSON.parse(Buffer.from(await next()).toString());
@@ -261,6 +268,60 @@ async function host(grant: Grant, drop = false) {
     ws.send(h.offer);
     const accepted = await h.finish(await next());
     ws.send(accepted.finish);
+    if (media) {
+      const timers = new Set<ReturnType<typeof setInterval>>();
+      const simulated = phoneLane(true, (command) => {
+        if (command.op === 24 || command.op === 25) {
+          const timer = setInterval(
+            () => {
+              if (!simulated.streams.has(command.stream)) {
+                clearInterval(timer);
+                timers.delete(timer);
+                return;
+              }
+              const data =
+                command.op === 24
+                  ? new Uint8Array([255, 216, 255, 217])
+                  : new Uint8Array(640);
+              if (command.op === 25)
+                for (let i = 0; i < data.length; i += 2) data[i] = 1;
+              simulated.media(
+                command.stream,
+                command.op === 24 ? "jpeg" : "pcm",
+                data,
+              );
+            },
+            command.op === 24 ? 1000 : 20,
+          );
+          timers.add(timer);
+        }
+        return false;
+      });
+      const close = () => {
+        for (const timer of timers) clearInterval(timer);
+        simulated.close();
+      };
+      ws.once("close", close);
+      // A single loop seals both replies and unsolicited records in nonce order.
+      const sending = (async () => {
+        while (ws.readyState === WebSocket.OPEN) {
+          const bytes = await simulated.read();
+          if (bytes) ws.send(await accepted.channel.seal(bytes));
+        }
+      })().catch(() => {});
+      try {
+        while (ws.readyState === WebSocket.OPEN) {
+          const bytes = await accepted.channel.open(await next());
+          if (bytes[4] !== 1 && bytes[4] !== 2) actions++;
+          await simulated.send(bytes);
+        }
+      } catch {
+      } finally {
+        close();
+        await sending;
+      }
+      return;
+    }
     while (ws.readyState === WebSocket.OPEN) {
       let bytes: Uint8Array<ArrayBuffer>;
       try {
@@ -312,6 +373,87 @@ it("pairs from a private terminal code and persists the identity across CLI proc
   const list = await cli(["phones"]).done;
   expect(JSON.parse(list.stdout).phones[0].id).toBe(grant.id);
 }, 20000);
+
+it("writes authenticated camera bytes with private metadata-only CLI output", async () => {
+  const grant = await pairCli(),
+    h = await host(grant, false, true),
+    serving = h.serve();
+  const out = path.join(await realpath(directory), "camera.jpg");
+  const result = await cli(["camera", "snapshot", "--out", out, "--json"]).done;
+  expect(result.code, result.stderr).toBe(0);
+  const output = JSON.parse(result.stdout);
+  expect(output).toMatchObject({
+    ok: true,
+    state: "complete",
+    sensor: "camera",
+    latest: { path: out, format: "jpeg" },
+  });
+  expect(output.latest).not.toHaveProperty("scene");
+  expect(result.stdout).not.toContain("base64");
+  expect(result.stdout).not.toContain("255,216");
+  expect(await readFile(out)).toEqual(Buffer.from([255, 216, 255, 217]));
+  expect((await stat(out)).mode & 0o077).toBe(0);
+  sockets.at(-1)?.terminate();
+  await serving;
+}, 15000);
+
+it("records exact PCM samples into a WAV through the encrypted CLI transport", async () => {
+  const grant = await pairCli(),
+    h = await host(grant, false, true),
+    serving = h.serve();
+  const out = path.join(await realpath(directory), "microphone.wav");
+  const result = await cli([
+    "microphone",
+    "record",
+    "--duration",
+    "200ms",
+    "--out",
+    out,
+    "--json",
+  ]).done;
+  expect(result.code, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout)).toMatchObject({
+    ok: true,
+    state: "complete",
+    latest: { format: "wav", samples: 3200, durationMs: 200 },
+  });
+  const wave = await readFile(out);
+  expect(wave.length).toBe(6444);
+  expect(wave.readUInt32LE(40)).toBe(6400);
+  expect(wave.readInt16LE(44)).toBe(1);
+  sockets.at(-1)?.terminate();
+  await serving;
+}, 15000);
+
+it("keeps a legacy encrypted host usable after local media refusal", async () => {
+  const grant = await pairCli(),
+    h = await host(grant),
+    serving = h.serve();
+  const c = cli(["session", "--stdio", "--json"]);
+  await until(async () => c.stdout().includes('"type":"ready"'));
+  c.child.stdin.write(
+    `${JSON.stringify({ id: "camera", op: "cameraStart", outDir: path.join(await realpath(directory), "frames"), duration: "1s" })}\n`,
+  );
+  await until(async () => c.stdout().includes('"id":"camera"'));
+  c.child.stdin.end('{"id":"status","op":"status"}\n');
+  const result = await c.done;
+  expect(result.code, result.stderr).toBe(0);
+  const records = result.stdout
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  expect(records.find((record) => record.id === "camera")).toMatchObject({
+    ok: false,
+    errorCode: "MEDIA_UNSUPPORTED",
+  });
+  expect(records.find((record) => record.id === "status")).toMatchObject({
+    ok: true,
+    reply: { kind: "state" },
+  });
+  expect(h.actions()).toBe(0);
+  sockets.at(-1)?.terminate();
+  await serving;
+}, 15000);
 it("claims a phone-issued code using a distinct signed CLI identity", async () => {
   const invite = {
     v: 1 as const,
