@@ -91,7 +91,7 @@ class SmoothViewLifecycleTest {
     }
 
     private fun newOwner() {
-        owner = ControlSession(context, "smooth-view-fixture", { allowed }, { replies.offer(it) })
+        owner = ControlSession(context, "smooth-view-fixture", { allowed }, { replies.offer(it.copyOf()) })
     }
 
     private fun command(

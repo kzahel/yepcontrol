@@ -104,6 +104,7 @@ jobs:
       - run: pnpm build
       - run: pnpm test:public-site
       - run: pnpm test:viewer-layout
+      - run: pnpm test:viewer-media
       - run: pnpm test:viewer-phones
   browser-android-interop:
     if: github.event_name == 'workflow_dispatch'

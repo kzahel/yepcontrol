@@ -69,6 +69,7 @@ pnpm exec playwright install chromium
 | --- | --- |
 | `pnpm test:public-site` | Public homepage, installation, QR links and returning browsers. |
 | `pnpm test:viewer-layout` | Responsive viewer layout in isolated Chromium. |
+| `pnpm test:viewer-media` | Camera/listening UI, real browser playback, bounds and independent teardown. |
 | `pnpm test:viewer-phones` | Browser phone storage, multiple phones and tabs. |
 | `pnpm test:interop` | Browser ↔ Android Keystore interoperability. |
 | `pnpm test:smooth-view` | Smooth toggle, consent, video and teardown on an owned emulator. |

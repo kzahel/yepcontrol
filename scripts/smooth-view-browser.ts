@@ -17,7 +17,7 @@ export async function smoothViewBrowser(
     configFile: false,
     root: path.join(root, "web"),
     logLevel: "error",
-    server: { host: "127.0.0.1", port: 0, fs: { allow: [root] } },
+    server: { host: "127.0.0.1", port: 0, fs: { allow: [root] }, hmr: false },
     plugins: [
       {
         name: "native-smooth-fixture",
@@ -105,10 +105,21 @@ export async function smoothViewBrowser(
     await exchange({ action: "approve" });
     await expect(toggle).toBeChecked({ timeout: 20000 });
     assert.equal((await exchange({ action: "inspect" })).prompt, false);
-    await toggle.click();
+    // Camera selection must actually stop the screen source before exposing its controls.
+    await page.getByRole("button", { name: "Camera", exact: true }).click();
+    await expect(page.locator(".remote-viewer")).toHaveAttribute(
+      "data-source",
+      "camera",
+    );
     await expect
       .poll(async () => (await exchange({ action: "inspect" })).video?.phase)
       .toBe("off");
+    await expect(
+      page.getByRole("navigation", { name: "Android navigation" }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "Screen", exact: true }).click();
+    await expect(toggle).not.toBeChecked();
+    assert.equal((await exchange({ action: "inspect" })).prompt, false);
     assert.deepEqual(errors, []);
   } finally {
     await browser?.close();

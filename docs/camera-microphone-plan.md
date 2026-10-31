@@ -89,6 +89,34 @@ lock/debugging-setting changes remain excluded.
   or actionable finding remains. Browser playback, CLI and release acceptance
   remain in their later phases.
 
+- **Phase 4 complete, 2026-10-31:** web Screen/Camera selection,
+  front/rear and live/still options, explicit Start/Stop and independent Listen.
+  Camera pixels use a separate canvas with no input bindings. Source changes wait
+  for screen/camera Stop; microphone state remains visible in normal/fullscreen
+  views. Sensor readiness, actual playback and terminal reasons remain distinct.
+  AudioContext resumes in the Listen action, schedules at most 250 ms/16 chunks,
+  drops stale queued sound on bursts/clock drift and closes with native Stop.
+  Hidden/pagehide and playback suspension stop sensors without automatic resume.
+  Browser fixtures verify real graph output, audio bursts, cancellation, independent
+  permission readiness, input isolation, aspect/cropping and responsive fullscreen.
+  Visibility handlers are simulated because automated Chromium keeps tabs visible;
+  the phone runner separately pauses the entire real JavaScript engine/renewal loop
+  after a confirmed debugger event. A freeze-request probe kept firing 233 clock
+  ticks and five renewal ticks; it is not counted as a stalled-page test.
+  Existing viewport/unlock regressions and 211 TS tests passed. Native API 35 smooth
+  view passed browser/source handoff, cancellation, rapid-toggle and permission
+  regressions. The real viewer has rendered camera and microphone output over both
+  encrypted paths on Moto. The corrected real-viewer run passed both transports,
+  front JPEG/live H.264, actual graph output, feature/local Stop, playback suspension,
+  connection loss and explicit reconnect without capture. Native sensors released
+  within the 22.5-second confirmed-pause observation and stayed off after resume;
+  fixture pairing/package/tunnel cleanup passed. Multi-phone preview/live geometry,
+  compact cancellation, pairing/refresh and cross-tab authority regressions passed.
+  The stronger audio observer measures signal on the production destination path.
+  Final typecheck/Biome/format and diff checks passed. Independent Sol 6.1 High
+  re-review approved the final 27-file candidate with no remaining actionable
+  findings or required Phase 4 validation.
+
 ## Product behavior
 
 The Android app has two optional settings, initially off: **Allow remote camera**

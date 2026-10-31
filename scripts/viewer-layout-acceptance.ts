@@ -17,7 +17,7 @@ const server = await createServer({
   configFile: false,
   root: path.join(root, "web"),
   logLevel: "error",
-  server: { host: "127.0.0.1", port: 0, fs: { allow: [root] } },
+  server: { host: "127.0.0.1", port: 0, fs: { allow: [root] }, hmr: false },
   plugins: [
     {
       name: "layout-proof",

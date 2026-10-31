@@ -6,9 +6,11 @@ import {
 } from "@remote/protocol/control";
 import { useEffect, useRef, useState } from "react";
 import type { RemoteSession } from "./control-session.js";
+import { MediaToolbar } from "./media-toolbar.js";
 import { RemoteControls } from "./remote-controls.js";
 import { SmoothView, type SmoothViewState } from "./smooth-view.js";
 import { TouchInput } from "./touch-input.js";
+import { usePhoneMedia } from "./use-phone-media.js";
 import { usePhoneUnlock } from "./use-phone-unlock.js";
 import { useViewerFullscreen } from "./use-viewer-fullscreen.js";
 import { VideoDecodeError, VideoRenderer } from "./video-renderer.js";
@@ -43,6 +45,15 @@ export function RemoteScreen({
     unlockMessage: (): string => "",
   });
   const canvas = useRef<HTMLCanvasElement>(null);
+  const cameraCanvas = useRef<HTMLCanvasElement>(null);
+  const source = useRef<"screen" | "camera">("screen");
+  const [view, setView] = useState<"screen" | "camera">("screen");
+  const [switching, setSwitching] = useState(false);
+  const changing = useRef(false);
+  const mounted = useRef(false);
+  const [facing, setFacing] = useState<"front" | "rear">("rear");
+  const [cameraSmooth, setCameraSmooth] = useState(VideoRenderer.supported);
+  const media = usePhoneMedia(session);
   const typingDialog = useRef<HTMLDialogElement>(null);
   const frame = useRef<
     { scene: number; width: number; height: number } | undefined
@@ -65,6 +76,20 @@ export function RemoteScreen({
   const [apps, setApps] = useState<AppEntry[]>([]);
   const unlocking = usePhoneUnlock(phoneId, session, initial, state, setState);
   useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (
+      media.camera.phase === "off" &&
+      state.media?.camera.front &&
+      !state.media.camera.rear
+    )
+      setFacing("front");
+  }, [state.media, media.camera.phase]);
+  useEffect(() => {
     if (state.localSettings) {
       touch.current?.release();
       frame.current = undefined;
@@ -79,7 +104,15 @@ export function RemoteScreen({
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
     const input = canvas.current
-      ? new TouchInput(canvas.current, session, () => frame.current, setMessage)
+      ? new TouchInput(
+          canvas.current,
+          session,
+          () =>
+            source.current === "screen" && !changing.current
+              ? frame.current
+              : undefined,
+          setMessage,
+        )
       : undefined;
     touch.current = input;
     let lastStatus = 0;
@@ -113,12 +146,16 @@ export function RemoteScreen({
           }
           lastStatus = Date.now();
         }
+        if (source.current !== "screen") {
+          timer = setTimeout(() => void capture(), 500);
+          return;
+        }
         const version = viewing.version;
         const reply = await session.command({
           op: viewing.readingVideo ? "videoFrame" : "capture",
         });
         if (stopped) return;
-        if (version !== viewing.version) {
+        if (version !== viewing.version || source.current !== "screen") {
           timer = setTimeout(() => void capture(), 0);
           return;
         }
@@ -134,7 +171,12 @@ export function RemoteScreen({
           const image = await createImageBitmap(
             new Blob([reply.jpeg], { type: "image/jpeg" }),
           );
-          if (!stopped && version === viewing.version && canvas.current) {
+          if (
+            !stopped &&
+            source.current === "screen" &&
+            version === viewing.version &&
+            canvas.current
+          ) {
             const target = canvas.current;
             target.width = reply.width;
             target.height = reply.height;
@@ -194,6 +236,34 @@ export function RemoteScreen({
       touch.current = undefined;
     };
   }, [session]);
+  async function selectSource(next: "screen" | "camera") {
+    if (changing.current || source.current === next) return;
+    changing.current = true;
+    setSwitching(true);
+    touch.current?.release();
+    frame.current = undefined;
+    try {
+      if (next === "camera") {
+        // Suspend the screen receive loop before requesting native screen-video Stop.
+        source.current = next;
+        await smooth.current?.stop();
+      } else {
+        await media.stopCamera();
+        source.current = next;
+      }
+      if (mounted.current) setView(next);
+    } catch (error) {
+      source.current = "screen";
+      session.close();
+      if (mounted.current) {
+        setMessage(error instanceof Error ? error.message : "Connection ended");
+        callbacks.current.onEnded?.();
+      }
+    } finally {
+      changing.current = false;
+      if (mounted.current) setSwitching(false);
+    }
+  }
   async function act(command: Command) {
     setActionMessage("");
     try {
@@ -217,6 +287,7 @@ export function RemoteScreen({
       data-fullscreen={fullscreen.active || undefined}
       aria-label="Remote screen"
       data-transport={connectionPath}
+      data-source={view}
     >
       <ViewerHeading
         inline={fullscreen.active}
@@ -233,10 +304,35 @@ export function RemoteScreen({
           (state.locked ? "Phone is locked" : "Connected securely")
         }
       />
+      <MediaToolbar
+        source={view}
+        select={(next) => void selectSource(next)}
+        switching={switching}
+        state={state}
+        camera={media.camera}
+        microphone={media.microphone}
+        facing={facing}
+        setFacing={setFacing}
+        smooth={cameraSmooth}
+        setSmooth={setCameraSmooth}
+        smoothSupported={VideoRenderer.supported()}
+        startCamera={() =>
+          cameraCanvas.current &&
+          media.startCamera(cameraCanvas.current, facing, cameraSmooth)
+        }
+        stopCamera={() => void media.stopCamera()}
+        listen={media.listen}
+        stopListening={() => void media.stopMicrophone()}
+      />
       <ViewerWorkspace
-        aspect={aspect ?? (initial.width || 1080) / (initial.height || 2400)}
+        aspect={
+          view === "camera"
+            ? media.aspect
+            : (aspect ?? (initial.width || 1080) / (initial.height || 2400))
+        }
         controls={
           <RemoteControls
+            screenInput={view === "screen"}
             navigate={(action) => void act({ op: "navigation", action })}
             wake={() => void act({ op: "wake" })}
             lock={() => void act({ op: "sleep" })}
@@ -282,90 +378,103 @@ export function RemoteScreen({
           height={initial.height || 2400}
           aria-label="Phone screen"
           className="phone-screen"
+          hidden={view !== "screen"}
         />
-        {!state.accessibility ? (
-          <div className="screen-overlay">
-            <div className="screen-panel">
-              <h2>Enable screen access</h2>
-              <p>
-                On the phone, open YepControl › Settings and turn on Screen and
-                control to enable viewing and touch. Pairing stays saved.
-              </p>
-            </div>
-          </div>
-        ) : state.localSettings ? (
-          <div className="screen-overlay">
-            <div className="screen-panel">
-              <h2>Change these settings on the phone</h2>
-              <p>
-                Remote input is paused on pairing and unlock pages. Make changes
-                on the phone, or return to ordinary controls. Back and Home
-                still work remotely.
-              </p>
-            </div>
-          </div>
-        ) : (
-          state.locked && (
+        {view === "camera" && (
+          <canvas
+            ref={cameraCanvas}
+            width={480}
+            height={640}
+            aria-label="Phone camera preview"
+            className="phone-camera"
+          />
+        )}
+        {view === "screen" &&
+          (!state.accessibility ? (
             <div className="screen-overlay">
               <div className="screen-panel">
-                <h2>Unlock phone</h2>
-                {unlocking.message && <p>{unlocking.message}</p>}
-                {!state.unlockAllowed && (
-                  <p>
-                    Allow unlocking for this browser in the phone app’s browser
-                    settings.
-                  </p>
-                )}
-                {state.unlockBlocked && (
-                  <p>
-                    Unlock was already attempted. Unlock the phone locally
-                    before another attempt.
-                  </p>
-                )}
-                {state.savedPin && !unlocking.busy && (
-                  <button
-                    className="saved-pin-button"
-                    type="button"
-                    disabled={!state.unlockAllowed || state.unlockBlocked}
-                    onClick={() => void unlocking.unlock({ op: "unlockSaved" })}
-                  >
-                    Use saved PIN
-                  </button>
-                )}
-                {!unlocking.busy && (
-                  <form
-                    className="unlock-form"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      const value = pin;
-                      setPin("");
-                      void unlocking.unlock({ op: "unlock", pin: value });
-                    }}
-                  >
-                    <label htmlFor="phone-pin">Phone PIN</label>
-                    <div className="inline-field">
-                      <input
-                        id="phone-pin"
-                        type="password"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        maxLength={16}
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value)}
-                      />
-                      <button
-                        type="submit"
-                        disabled={!state.unlockAllowed || state.unlockBlocked}
-                      >
-                        Unlock phone
-                      </button>
-                    </div>
-                  </form>
-                )}
+                <h2>Enable screen access</h2>
+                <p>
+                  On the phone, open YepControl › Settings and turn on Screen
+                  and control to enable viewing and touch. Pairing stays saved.
+                </p>
               </div>
             </div>
-          )
-        )}
+          ) : state.localSettings ? (
+            <div className="screen-overlay">
+              <div className="screen-panel">
+                <h2>Change these settings on the phone</h2>
+                <p>
+                  Remote input is paused on pairing and unlock pages. Make
+                  changes on the phone, or return to ordinary controls. Back and
+                  Home still work remotely.
+                </p>
+              </div>
+            </div>
+          ) : (
+            state.locked && (
+              <div className="screen-overlay">
+                <div className="screen-panel">
+                  <h2>Unlock phone</h2>
+                  {unlocking.message && <p>{unlocking.message}</p>}
+                  {!state.unlockAllowed && (
+                    <p>
+                      Allow unlocking for this browser in the phone app’s
+                      browser settings.
+                    </p>
+                  )}
+                  {state.unlockBlocked && (
+                    <p>
+                      Unlock was already attempted. Unlock the phone locally
+                      before another attempt.
+                    </p>
+                  )}
+                  {state.savedPin && !unlocking.busy && (
+                    <button
+                      className="saved-pin-button"
+                      type="button"
+                      disabled={!state.unlockAllowed || state.unlockBlocked}
+                      onClick={() =>
+                        void unlocking.unlock({ op: "unlockSaved" })
+                      }
+                    >
+                      Use saved PIN
+                    </button>
+                  )}
+                  {!unlocking.busy && (
+                    <form
+                      className="unlock-form"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const value = pin;
+                        setPin("");
+                        void unlocking.unlock({ op: "unlock", pin: value });
+                      }}
+                    >
+                      <label htmlFor="phone-pin">Phone PIN</label>
+                      <div className="inline-field">
+                        <input
+                          id="phone-pin"
+                          type="password"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          maxLength={16}
+                          value={pin}
+                          onChange={(e) => setPin(e.target.value)}
+                        />
+                        <button
+                          type="submit"
+                          disabled={!state.unlockAllowed || state.unlockBlocked}
+                        >
+                          Unlock phone
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+            )
+          ))}
       </ViewerWorkspace>
       <dialog ref={typingDialog} aria-labelledby="typing-title">
         <div className="dialog-heading">

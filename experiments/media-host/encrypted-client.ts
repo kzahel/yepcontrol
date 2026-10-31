@@ -6,7 +6,7 @@ import {
 import { acceptOffer, createPairing } from "../../client/src/pairing.js";
 import { pairingApi } from "../../client/src/pairing-request.js";
 import { openEncryptedSession } from "../../client/src/relay.js";
-import type { Command } from "../../protocol/src/control.js";
+import type { Command, ControlState } from "../../protocol/src/control.js";
 import {
   encodeInvitation,
   type Grant,
@@ -15,11 +15,14 @@ import {
 import { createIdentity } from "../../protocol/src/index.js";
 import { openDirectLane } from "../../web/src/direct-lane.js";
 import { VideoRenderer } from "../../web/src/video-renderer.js";
+import { mountMediaViewer } from "../../web/test/real-media-viewer.js";
 
 // Only aggregate evidence crosses Playwright. Keys and plaintext media stay in this isolated context.
 const origin = location.origin;
 const identity = await createIdentity();
 let invitation: Invitation, grant: Grant, session: RemoteSession | undefined;
+let initial: ControlState | undefined,
+  mountedRoot: ReturnType<typeof mountMediaViewer> | undefined;
 let relayLane: Awaited<ReturnType<typeof openEncryptedSession>> | undefined;
 let directLane: Awaited<ReturnType<typeof openDirectLane>> | undefined;
 const subscriptions = new Map<number, RemoteMedia>();
@@ -146,6 +149,8 @@ Object.assign(window, {
       throw Error("Native pairing timeout");
     },
     async connect(direct: boolean) {
+      mountedRoot?.unmount();
+      mountedRoot = undefined;
       session?.close();
       await Promise.all(
         [...subscriptions.values()].map((stream) => stream.closed),
@@ -184,7 +189,14 @@ Object.assign(window, {
         },
       );
       session = result.session;
+      initial = result.state;
       return { media: result.state.media, path: session.path };
+    },
+    mountViewer() {
+      if (!session || !initial) throw Error("Connect first");
+      const target = document.createElement("div");
+      document.body.append(target);
+      mountedRoot = mountMediaViewer(target, session, initial, grant.id);
     },
     async start(sensor: "camera" | "microphone", options: CameraOptions = {}) {
       if (!session) throw Error("Connect first");
@@ -243,6 +255,8 @@ Object.assign(window, {
       relayLane?.close();
     },
     close() {
+      mountedRoot?.unmount();
+      mountedRoot = undefined;
       session?.close();
     },
     async revoked() {

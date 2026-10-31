@@ -288,11 +288,92 @@ input[type="checkbox"] {
   margin: 0;
   height: 100%;
   overflow-anchor: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.media-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto 8px;
+}
+.media-toolbar button {
+  margin: 0;
+  padding: 7px 10px;
+  min-height: 36px;
+  font-size: 0.8125rem;
+}
+.media-source {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.media-source button[aria-pressed="false"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.microphone-state,
+.camera-state {
+  grid-column: 1 / -1;
+  height: 36px;
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 18px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.microphone-state[data-phase="live"],
+.camera-state[data-phase="live"] {
+  color: var(--accent);
+  font-weight: 650;
+}
+.camera-options {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+.camera-options label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+}
+.camera-options select {
+  width: 100%;
+  padding: 6px;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+.camera-options button {
+  flex-shrink: 0;
+}
+.phone-screen[hidden] {
+  display: none;
+}
+.phone-camera {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background: #111;
 }
 .viewer-workspace {
   --dock-width: 54px;
   --workspace-gap: 12px;
-  --stage-height: calc(100dvh - 112px);
+  --stage-height: calc(100dvh - 192px);
   width: min(
     100%,
     calc(
@@ -305,7 +386,8 @@ input[type="checkbox"] {
   display: flex;
   align-items: flex-start;
   gap: var(--workspace-gap);
-  height: 100%;
+  height: auto;
+  flex: 1;
   min-height: 0;
 }
 .screen-stage {
@@ -764,7 +846,7 @@ a {
   }
   .viewer-workspace {
     --workspace-gap: 8px;
-    --stage-height: calc(100dvh - 96px);
+    --stage-height: calc(100dvh - 176px);
   }
   .screen-overlay {
     padding: 8px;
@@ -798,6 +880,12 @@ a {
   margin: 0;
   width: 100%;
   padding: 0 8px;
+}
+@media (max-height: 480px) {
+  .connect-panel {
+    padding: 8px;
+    gap: 4px;
+  }
 }
 .connect-panel .contact-detail {
   display: grid;
@@ -867,6 +955,10 @@ a {
 .remote-viewer[data-fullscreen] > .viewer-heading {
   flex: 0 0 36px;
   padding-inline: 8px;
+}
+.remote-viewer[data-fullscreen] > .media-toolbar {
+  padding-inline: 8px;
+  margin-bottom: 4px;
 }
 .remote-viewer[data-fullscreen] > .viewer-heading h1 {
   display: none;

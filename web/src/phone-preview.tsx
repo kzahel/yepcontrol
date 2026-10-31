@@ -1,5 +1,6 @@
 import type { PhoneFeatures } from "@remote/protocol/features";
 import { ControlIcon, type ControlIconName } from "./control-icon.js";
+import { MediaPreviewToolbar } from "./media-toolbar.js";
 import { LastContact } from "./phone-list.js";
 import { RemoteControls } from "./remote-controls.js";
 import { ViewerWorkspace } from "./viewer-workspace.js";
@@ -19,6 +20,7 @@ export function PhonePreview({
 }) {
   return (
     <section className="remote-viewer phone-preview" aria-label="Phone preview">
+      <MediaPreviewToolbar />
       <ViewerWorkspace controls={<RemoteControls />}>
         <div className="screen-overlay preview-overlay">
           <div className="screen-panel connect-panel">

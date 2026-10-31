@@ -26,6 +26,7 @@
     "test:mobile": "tsx scripts/hosted-acceptance.ts --multi",
     "test:public-site": "pnpm --filter @remote/web build && tsx scripts/public-site-acceptance.ts",
     "test:viewer-layout": "tsx scripts/viewer-layout-acceptance.ts",
+    "test:viewer-media": "tsx scripts/viewer-media-acceptance.ts",
     "test:viewer-phones": "tsx scripts/viewer-phones-acceptance.ts",
     "test:mobile-smoke": "tsx scripts/mobile-ui-acceptance.ts --storage",
     "yepcontrol": "node cli/dist/main.js"

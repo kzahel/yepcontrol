@@ -29,6 +29,7 @@ export class SmoothView {
   };
   version = 0;
   private driving = false;
+  private driveTask: Promise<void> | undefined;
   private stopNeeded = false;
   private closed = false;
   private host: VideoState | undefined;
@@ -67,7 +68,14 @@ export class SmoothView {
       phase: enabled ? "consent" : "off",
       message: enabled ? "Requesting smooth view…" : "Stopping screen sharing…",
     });
-    if (!this.driving) void this.drive();
+    if (!this.driving) this.driveTask = this.drive();
+  }
+
+  async stop() {
+    if (!this.state.wanted && !this.driving) return;
+    this.setEnabled(false);
+    await this.driveTask;
+    if (this.state.message) throw new Error(this.state.message);
   }
 
   private async drive() {

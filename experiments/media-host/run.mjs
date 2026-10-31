@@ -7,7 +7,11 @@ import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
+import {
+  mediaBrowserEvidence,
+  observeMediaBrowser,
+} from "../../scripts/media-browser-evidence.ts";
 import { decodeMedia } from "../../protocol/dist/media.js";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -24,7 +28,8 @@ assert(
 );
 assert(["camera", "microphone"].includes(firstSensor));
 const sleepTest = process.env.MEDIA_SCREEN_OFF === "1";
-const encrypted = process.env.MEDIA_ENCRYPTED === "1";
+const webUi = process.env.MEDIA_WEB_UI === "1";
+const encrypted = process.env.MEDIA_ENCRYPTED === "1" || webUi;
 const focus = process.env.MEDIA_FOCUS ?? "full";
 assert(["full", "permission-loss"].includes(focus));
 const adapter =
@@ -34,7 +39,7 @@ const device = (...args) => {
   try {
     return execFileSync(adapter, ["--serial", serial, ...args], {
       encoding: "utf8",
-      timeout: 25000,
+      timeout: args[0] === "install" ? 180000 : 25000,
       stdio: ["ignore", "pipe", "pipe"],
     }).trim();
   } catch (error) {
@@ -77,7 +82,7 @@ const component = `${pkg}/dev.remoteaccess.app.media.MediaFixtureActivity`;
 const token = randomBytes(32).toString("hex");
 const stateDir = path.join(
   root,
-  `.local/media-access/implementation/${encrypted ? "phase-3" : "phase-2"}`,
+  `.local/media-access/implementation/${webUi ? "phase-4" : encrypted ? "phase-3" : "phase-2"}`,
   model.replace(/[^a-zA-Z0-9_-]/g, "_"),
 );
 await mkdir(stateDir, { recursive: true, mode: 0o700 });
@@ -88,6 +93,7 @@ const results = {
   sleepTest,
   focus,
   encrypted,
+  webUi,
   samples: [],
   checks: [],
   events: [],
@@ -98,6 +104,7 @@ let phone,
   browser,
   page,
   installed = false,
+  installationAttempted = false,
   reversed = false,
   slept = false,
   previousAccessibility,
@@ -420,6 +427,7 @@ try {
     ),
     "Fixture class must actually be compiled into the APK",
   );
+  installationAttempted = true;
   device("install", apk);
   installed = true;
   assert(
@@ -428,6 +436,7 @@ try {
   );
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage();
+  if (webUi) await observeMediaBrowser(page);
   if (encrypted) {
     const webRequire = createRequire(
       new URL("../../web/package.json", import.meta.url),
@@ -439,6 +448,7 @@ try {
     await build({
       configFile: false,
       logLevel: "error",
+      define: { "process.env.NODE_ENV": JSON.stringify("production") },
       build: {
         target: "esnext",
         emptyOutDir: false,
@@ -447,18 +457,24 @@ try {
           entry: path.join(root, "experiments/media-host/encrypted-client.ts"),
           formats: ["es"],
           fileName: () => "media-proof.js",
+          cssFileName: "media-proof",
         },
       },
     });
     const script = await readFile(path.join(outDir, "media-proof.js"));
+    const styles = await readFile(path.join(outDir, "media-proof.css"));
     await page.route("https://yepcontrol.com/media-proof/**", (route) =>
       route.fulfill({
         contentType: route.request().url().endsWith(".js")
           ? "application/javascript"
-          : "text/html",
+          : route.request().url().endsWith(".css")
+            ? "text/css"
+            : "text/html",
         body: route.request().url().endsWith(".js")
           ? script
-          : '<!doctype html><title>Encrypted media acceptance</title><script type="module" src="/media-proof/client.js"></script>',
+          : route.request().url().endsWith(".css")
+            ? styles
+            : '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Encrypted media acceptance</title><link rel="stylesheet" href="/media-proof/style.css"><script type="module" src="/media-proof/client.js"></script>',
       }),
     );
     await page.goto("https://yepcontrol.com/media-proof/");
@@ -596,6 +612,255 @@ try {
         );
         assert.equal(connected.media?.v, 1);
         shell("input", "keyevent", "KEYCODE_HOME");
+        if (webUi) {
+          await page.evaluate(() => window.mediaProof.mountViewer());
+          const phase = async (sensor, value) =>
+            expect(page.locator(`.${sensor}-state`)).toHaveAttribute(
+              "data-phase",
+              value,
+              { timeout: 15000 },
+            );
+          await expect(
+            page.getByRole("button", { name: "Screen", exact: true }),
+          ).toHaveAttribute("aria-pressed", "true");
+          await page
+            .getByRole("button", { name: "Camera", exact: true })
+            .click();
+          await phase("camera", "off");
+          await page
+            .getByRole("button", { name: "Start camera", exact: true })
+            .click();
+          await phase("camera", "live");
+          assert.equal(
+            (await page.evaluate(() => window.mediaProof.status())).path,
+            direct ? "direct" : "relay",
+          );
+          await page
+            .getByRole("button", { name: "Listen", exact: true })
+            .click();
+          await phase("microphone", "live");
+          await expect
+            .poll(async () => (await mediaBrowserEvidence(page)).peak, {
+              timeout: 10000,
+            })
+            .toBeGreaterThan(0);
+          const played = await mediaBrowserEvidence(page);
+          assert(
+            played.played > 0 &&
+              played.drawn > 0 &&
+              played.contexts.includes("running"),
+          );
+          assert.equal(played.localRequests, 0);
+          results.checks.push({
+            check: `real-ui-${direct ? "direct" : "relay"}-h264-and-playback`,
+            ...played,
+          });
+          await setting(true, false);
+          await phase("camera", "off");
+          await expect(page.locator(".camera-state")).toContainText(
+            "turned off",
+          );
+          await phase("microphone", "live");
+          assert(
+            !shell(
+              "cmd",
+              "appops",
+              "get",
+              "--user",
+              "0",
+              pkg,
+              "CAMERA",
+            ).includes("(running)"),
+          );
+          assert(
+            shell(
+              "cmd",
+              "appops",
+              "get",
+              "--user",
+              "0",
+              pkg,
+              "RECORD_AUDIO",
+            ).includes("(running)"),
+          );
+          await setting(true, true);
+          await page
+            .getByRole("button", { name: "Screen", exact: true })
+            .click();
+          await expect(
+            page.getByLabel("Phone screen", { exact: true }),
+          ).toBeVisible();
+          await phase("microphone", "live");
+          await page
+            .getByRole("button", { name: "Camera", exact: true })
+            .click();
+          await phase("camera", "off");
+          await page.getByLabel("Camera quality").selectOption("still");
+          await page
+            .getByLabel("Phone camera", { exact: true })
+            .selectOption("front");
+          await page
+            .getByRole("button", { name: "Start camera", exact: true })
+            .click();
+          await phase("camera", "live");
+          await command("notificationStop");
+          await phase("camera", "off");
+          await phase("microphone", "off");
+          assertReleased();
+          await page
+            .getByRole("button", { name: "Listen", exact: true })
+            .click();
+          await phase("microphone", "live");
+          await page.evaluate(() =>
+            window.mediaBrowserEvidence.contexts.at(-1).suspend(),
+          );
+          await phase("microphone", "off");
+          await expect(page.locator(".microphone-state")).toContainText(
+            "playback paused",
+          );
+          assertReleased();
+          results.checks.push(
+            `real-ui-${direct ? "direct" : "relay"}-front-jpeg-feature-local-stop-and-playback-suspension`,
+          );
+          await page
+            .getByRole("button", { name: "Start camera", exact: true })
+            .click();
+          await phase("camera", "live");
+          await page
+            .getByRole("button", { name: "Listen", exact: true })
+            .click();
+          await phase("microphone", "live");
+          await page.evaluate(
+            (direct) =>
+              direct
+                ? window.mediaProof.dropDirect()
+                : window.mediaProof.dropRelay(),
+            direct,
+          );
+          await phase("camera", "off");
+          await phase("microphone", "off");
+          await delay(1200);
+          assertReleased();
+          if (direct)
+            assert.equal(
+              (await page.evaluate(() => window.mediaProof.status())).path,
+              "relay",
+            );
+          results.checks.push(
+            `real-ui-${direct ? "direct" : "relay"}-loss-without-sensor-restart`,
+          );
+          await page.evaluate(() => window.mediaProof.close());
+          if (direct) {
+            await command("connectPaired");
+            await page.evaluate(() => window.mediaProof.connect(true));
+            await page.evaluate(() => window.mediaProof.mountViewer());
+            await expect(
+              page.getByRole("button", { name: "Screen", exact: true }),
+            ).toHaveAttribute("aria-pressed", "true");
+            assertReleased();
+            await page
+              .getByRole("button", { name: "Camera", exact: true })
+              .click();
+            await page
+              .getByRole("button", { name: "Start camera", exact: true })
+              .click();
+            await phase("camera", "live");
+            await page
+              .getByRole("button", { name: "Listen", exact: true })
+              .click();
+            await phase("microphone", "live");
+            const freeze = await page.context().newCDPSession(page);
+            const beforeFreeze = await mediaBrowserEvidence(page);
+            let releasedWhileFrozen = false;
+            try {
+              await freeze.send("Page.setWebLifecycleState", {
+                state: "frozen",
+              });
+              await delay(22500);
+              try {
+                assertReleased();
+                releasedWhileFrozen = true;
+              } catch (error) {
+                if (error.code !== "ERR_ASSERTION") throw error;
+              }
+            } finally {
+              await freeze.send("Page.setWebLifecycleState", {
+                state: "active",
+              });
+              await freeze.detach();
+            }
+            const afterFreeze = await mediaBrowserEvidence(page);
+            const freezeClock =
+              afterFreeze.clockTicks - beforeFreeze.clockTicks;
+            const freezeRenewals =
+              afterFreeze.renewTicks - beforeFreeze.renewTicks;
+            results.checks.push({
+              check: "real-ui-freeze-request-timer-witness",
+              clockTicks: freezeClock,
+              renewTicks: freezeRenewals,
+              releasedWhileFrozen,
+            });
+            if (freezeClock <= 1 && freezeRenewals <= 1)
+              assert(
+                releasedWhileFrozen,
+                "Confirmed timer freeze did not release native sensors",
+              );
+            await page.evaluate(() => window.mediaProof.close());
+            await delay(1200);
+            assertReleased();
+            await command("connectPaired");
+            await page.evaluate(() => window.mediaProof.connect(true));
+            await page.evaluate(() => window.mediaProof.mountViewer());
+            await expect(
+              page.getByRole("button", { name: "Screen", exact: true }),
+            ).toHaveAttribute("aria-pressed", "true");
+            assertReleased();
+            await page
+              .getByRole("button", { name: "Camera", exact: true })
+              .click();
+            await page
+              .getByRole("button", { name: "Start camera", exact: true })
+              .click();
+            await phase("camera", "live");
+            await page
+              .getByRole("button", { name: "Listen", exact: true })
+              .click();
+            await phase("microphone", "live");
+            const cdp = await page.context().newCDPSession(page);
+            try {
+              await cdp.send("Debugger.enable");
+              const paused = new Promise((resolve) =>
+                cdp.once("Debugger.paused", resolve),
+              );
+              await cdp.send("Debugger.pause");
+              await Promise.race([
+                paused,
+                delay(5000).then(() => {
+                  throw Error("JavaScript pause was not confirmed");
+                }),
+              ]);
+              results.checks.push(
+                "real-ui-javascript-pause-confirmed-before-release-observation",
+              );
+              await delay(22500);
+              assertReleased();
+            } finally {
+              await cdp.send("Debugger.resume").catch(() => {});
+              await cdp.send("Debugger.disable");
+              await cdp.detach();
+            }
+            await phase("camera", "off");
+            await phase("microphone", "off");
+            await delay(1000);
+            assertReleased();
+            results.checks.push(
+              "real-ui-confirmed-javascript-pause-releases-native-owner-within-lease-or-transport-bound-and-does-not-restart",
+            );
+            await page.evaluate(() => window.mediaProof.close());
+          }
+          await delay(800);
+          continue;
+        }
         const camera = await page.evaluate(() =>
           window.mediaProof.start("camera", { format: "h264", fps: 15 }),
         );
@@ -1000,6 +1265,20 @@ try {
           server.close((error) => (error ? reject(error) : resolve())),
         ),
     );
+  if (installationAttempted && !installed) {
+    // A timed-out installer can have committed the APK before losing its reply.
+    const present = await clean("reconcile fixture installation", () =>
+      shell("pm", "list", "packages", "--user", "0", pkg),
+    );
+    installed = present?.includes(pkg) === true;
+    results.installationReconciled = installed;
+    if (!installed) {
+      results.installationOutcomeUncertain = true;
+      errors.push(
+        "fixture installation may still complete; reconcile the exact package before another run",
+      );
+    }
+  }
   if (installed) {
     await clean("stop fixture", () => device("stop", pkg));
     if (canRemoveFixture)

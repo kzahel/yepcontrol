@@ -128,3 +128,28 @@ accepted-start cancellation, and real connection loss/recovery without automatic
 sensor restart. Fixture pairings are revoked through the existing phone-owned
 synchronization path before removal, with an independent relay 410 witness.
 No native or relay recording is enabled. Browser audio playback remains Phase 4.
+
+Real viewer qualification (Phase 4):
+
+```sh
+pnpm test:viewer-media
+MEDIA_DEVICE=EXPLICIT_SERIAL MEDIA_DEVICE_MODEL='EXACT_MODEL' \
+MEDIA_WEB_UI=1 MEDIA_HOST_APK=PATH_TO_FIXTURE_APK node experiments/media-host/run.mjs
+```
+
+The browser suite uses synthetic media to exercise permissions/readiness, camera
+pixel/input isolation, cancellation, portrait/landscape/fullscreen layouts and
+audio bursts. It observes the actual AudioContext graph, not only incoming PCM.
+Automated Chromium keeps tabs visible; that suite explicitly simulates the
+visibility event. The phone runner mounts the real viewer on a real encrypted
+session and additionally pauses its JavaScript engine after a confirmed debugger
+pause event. Native app-ops/services must release within the lease/transport bound,
+remain off after resume and require explicit restart. A separate freeze-request
+probe records actual clock/renewal ticks: the automated browser can keep running
+after that request, so an unconfirmed freeze is not counted as a stalled engine. Neither suite requests local capture.
+Playback keeps at most 250 ms scheduled sound; stale chunks are discarded on
+delivery bursts or clock drift. Permission changes, actual local Stop sharing,
+separate sensors, front JPEG/live H.264, playback suspension, transport loss and
+ordinary screen recovery are checked against the selected physical host.
+The native app and relay retain no recording. Receipts stay under ignored
+`.local/media-access/implementation/phase-4/`.

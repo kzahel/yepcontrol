@@ -11,6 +11,7 @@ import { AppShell } from "../src/app-shell.js";
 import type { RemoteSession } from "../src/control-session.js";
 import { RemoteScreen } from "../src/remote-screen.js";
 import type { SavedPhone } from "../src/store.js";
+import { sensorFixture } from "./sensor-fixture.js";
 import "../src/viewer.css";
 
 const state: ControlState = {
@@ -82,11 +83,25 @@ let failNext = false;
 const trace: string[] = [];
 const unlocks: string[] = [];
 const videos: number[] = [];
+const cameraSource = document.createElement("canvas");
+cameraSource.width = 320;
+cameraSource.height = 240;
+const cameraPaint = cameraSource.getContext("2d");
+if (!cameraPaint) throw Error("No camera fixture context");
+cameraPaint.fillStyle = "#c45c2c";
+cameraPaint.fillRect(0, 0, 320, 240);
+const cameraJpeg = new Uint8Array(
+  await (await fetch(cameraSource.toDataURL("image/jpeg"))).arrayBuffer(),
+);
+const sensors = params.has("media")
+  ? sensorFixture(state, cameraJpeg)
+  : undefined;
 window.layoutFixture = {
   unmount: () => rendered.unmount(),
   trace,
   unlocks,
   videos,
+  sensors: sensors?.evidence,
   ended: "",
   legacyVideo: () => {
     delete state.video;
@@ -103,13 +118,21 @@ const session = {
   get connected() {
     return connected;
   },
+  startCamera: sensors?.startCamera,
+  startMicrophone: sensors?.startMicrophone,
+  close: () => {
+    connected = false;
+    sensors?.close();
+  },
   async command(command: Command): Promise<Reply> {
     if (params.has("native")) return nativeCommand(command);
     if (!connected) throw Error("Session ended");
     trace.push(`${command.op}: locked=${state.locked}`);
     if (trace.length > 30) trace.shift();
-    if (command.op === "status")
+    if (command.op === "status") {
+      sensors?.status();
       return { id: 1, kind: "state", state: { ...state } };
+    }
     if (failNext && command.op === "navigation") {
       failNext = false;
       throw Error(
@@ -213,6 +236,7 @@ declare global {
       videos: number[];
       ended: string;
       legacyVideo: () => void;
+      sensors: ReturnType<typeof sensorFixture>["evidence"] | undefined;
     };
   }
 }

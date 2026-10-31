@@ -47,6 +47,35 @@ const settled = () =>
     expect(controller.state.message).toContain("Approve screen sharing"),
   );
 
+it("waits for an in-flight screen start to be stopped before a source handoff", async () => {
+  let release = () => {};
+  start = () =>
+    new Promise<void>((resolve) => {
+      release = resolve;
+    });
+  controller.setEnabled(true);
+  const stopped = controller.stop();
+  expect(video()).toEqual([{ op: "video", quality: 2 }]);
+  release();
+  await stopped;
+  expect(video()).toEqual([
+    { op: "video", quality: 2 },
+    { op: "video", quality: 0 },
+  ]);
+  expect(controller.state).toMatchObject({
+    wanted: false,
+    phase: "off",
+    message: "",
+  });
+});
+
+it("rejects an unconfirmed screen stop so the source owner can close its connection", async () => {
+  controller.setEnabled(true);
+  await settled();
+  stopError = true;
+  await expect(controller.stop()).rejects.toThrow("confirm");
+});
+
 it("coalesces clicks while preserving Off before a new On", async () => {
   let release = () => {};
   start = () =>
