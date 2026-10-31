@@ -262,9 +262,10 @@ signing identity and CI's internal-only publication scope are unchanged.
 
 Console confirms **1 change sent for review**, **Changes in review**, and
 **Production / 0.10.0 / Start full rollout**. Managed publishing remains **off**.
-Quick checks are running at submission; Google approval and actual public
-availability of 0.10.0 are not yet established. The rollout can publish
-automatically after approval without another managed-publishing hold.
+Quick checks have finished and Console adds **Your changes are now in review**.
+Google approval and actual public availability of 0.10.0 are not yet established.
+The rollout can publish automatically after approval without another
+managed-publishing hold.
 
 The [website/relay 0.4.0 release](../relay-releases.md) is already live with public
 admission. Existing public 0.9.0 hosts remain compatible. Private submission and
