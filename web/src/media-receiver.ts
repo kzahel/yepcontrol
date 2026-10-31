@@ -13,7 +13,7 @@ const reasons: Record<MediaReason, string> = {
   none: "",
   stopped: "",
   permission:
-    "Access was blocked. Check permissions and privacy controls on the phone.",
+    "Access was blocked. Open YepControl on the phone and check screen access, permissions and privacy controls.",
   disabled: "Remote sharing was turned off in the phone settings.",
   busy: "This sensor is in use. Stop other sharing or try again when it is free.",
   unavailable: "This sensor is unavailable on the phone.",

@@ -713,7 +713,8 @@ class MainActivity : ComponentActivity() {
                 "Enabled paired controllers can start " +
                     (if (camera) "this phone’s camera" else "listening through this phone’s microphone") +
                     ", including while the screen is off. " +
-                    "Sharing is encrypted between your devices. Android shows sensor indicators; when notifications are allowed, " +
+                    "Sharing is encrypted between your devices. Controllers can save what you share on their own devices. " +
+                    "Android shows sensor indicators; when notifications are allowed, " +
                     "an active sharing notification provides Stop sharing. " +
                     "You can turn this off here or remove the Android permission at any time. This does not start sharing now.",
             ).setNegativeButton("Cancel") { _, _ -> render() }

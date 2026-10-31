@@ -24,11 +24,14 @@ Open yepcontrol.com in a browser, scan its pairing code in the Android app, then
 VIEW AND CONTROL
 See the screen, tap, swipe, type and use Android navigation from your paired browser. Smooth video is available after Android screen-sharing consent. Connections try a direct route and use the encrypted relay when needed.
 
+OPTIONAL CAMERA AND MICROPHONE
+Enable remote camera and microphone separately in the phone settings and grant their Android permissions. Use Camera and Listen in your paired browser, with explicit Start and Stop. Android shows active sensor indicators and, when notifications are allowed, a Stop sharing notification. Connecting or reconnecting never starts capture. Paired CLI controllers can save bounded JPEG and WAV files locally.
+
 YOU CHOOSE WHO CONNECTS
 Name paired browsers, pause an individual browser or all remote access, and remove devices from the phone. Optional background requests use Firebase Cloud Messaging to contact the app when Android permits.
 
 ENCRYPTED BETWEEN YOUR DEVICES
-Screen content, controls and typed text are encrypted between the phone and your paired browser. No ads or analytics SDK. The service retains connection metadata needed for pairing, access and optional background requests; details are in the privacy policy.
+Screen content, camera video, microphone audio, controls and typed text are encrypted between the phone and your paired browser. No ads or analytics SDK. The service retains connection metadata needed for pairing, access and optional background requests; details are in the privacy policy.
 
 OPTIONAL REMOTE UNLOCK
 Allow unlocking separately for each paired browser. You can enter a PIN remotely or explicitly save one encrypted on the phone. A failed attempt requires local recovery. After restarting the phone, its first unlock must be performed locally.

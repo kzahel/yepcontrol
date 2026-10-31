@@ -11,6 +11,11 @@ import { nativeFailure } from "./acceptance-diagnostics.js";
 import { candidateViewer } from "./candidate-viewer.js";
 import { cliAcceptance } from "./cli-acceptance.js";
 import { prepareIdleWake } from "./control-recovery.js";
+import { observeMediaBrowser } from "./media-browser-evidence.js";
+import {
+  hostedMediaAcceptance,
+  hostedMediaAfterRecovery,
+} from "./media-hosted-acceptance.js";
 import { admitProofBrowser } from "./proof-relay.js";
 import { remoteAdoption } from "./remote-adoption.js";
 
@@ -96,6 +101,7 @@ export async function controlAcceptance(f: Fixture) {
     );
   });
   const page = await context.newPage();
+  if (process.env.HOSTED_MEDIA === "1") await observeMediaBrowser(page);
   let sockets = 0;
   page.on("websocket", () => {
     sockets++;
@@ -295,6 +301,18 @@ export async function controlAcceptance(f: Fixture) {
       });
     }
     await command("enable-screen-access");
+    if (process.env.HOSTED_MEDIA === "1") {
+      if (f.physical)
+        throw Error("Hosted media qualification owns its emulator");
+      await hostedMediaAcceptance({
+        ...f,
+        page,
+        id,
+        command,
+        stopNative,
+        startNative,
+      });
+    }
     if (process.env.HOSTED_UNLOCK === "1") {
       await command("save-fixture-pin");
       await command("allow-unlock", { id, enabled: true });
@@ -373,6 +391,15 @@ export async function controlAcceptance(f: Fixture) {
       console.log(
         "Real FCM woke idle control; the saved PIN unlocked the synthetic keyguard",
       );
+      if (process.env.HOSTED_MEDIA === "1")
+        await hostedMediaAfterRecovery({
+          ...f,
+          page,
+          id,
+          command,
+          stopNative,
+          startNative,
+        });
     }
     const canvas = page.getByLabel("Phone screen");
     await until(() =>
@@ -390,9 +417,12 @@ export async function controlAcceptance(f: Fixture) {
         "Fresh pinned-identity session established over native WebRTC",
       );
     }
-    const adoption = upgradeDirectory
-      ? await remoteAdoption({ page, origin: f.origin, state: f.state })
-      : undefined;
+    // The designated v11 authority-adoption fixture is separate from a media upgrade,
+    // which must preserve existing authority rather than enable unrestricted control.
+    const adoption =
+      upgradeDirectory && process.env.HOSTED_MEDIA !== "1"
+        ? await remoteAdoption({ page, origin: f.origin, state: f.state })
+        : undefined;
     if (process.env.HOSTED_UNLOCK === "1") {
       await page
         .getByRole("button", { name: "Lock phone", exact: true })
@@ -826,7 +856,10 @@ export async function controlAcceptance(f: Fixture) {
           .count(),
         0,
       );
-      await command("assert-unlock-blocked", { wake: !!idleWake });
+      await command("assert-unlock-blocked", {
+        wake: !!idleWake,
+        mediaRecovery: !!idleWake && process.env.HOSTED_MEDIA === "1",
+      });
       console.log(
         "Wrong synthetic PIN latched local recovery and forgot the saved PIN",
       );

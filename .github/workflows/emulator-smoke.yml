@@ -61,12 +61,13 @@ jobs:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
       # Each harness refuses occupied selectors and owns/reaps its emulator.
       - run: pnpm test:interop
-      - run: pnpm test:mobile-smoke
+      - run: pnpm test:mobile-smoke --media
       - name: Hosted pairing and process-absent FCM wake
         if: inputs.hosted_origin != ''
         run: pnpm test:hosted
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
+          HOSTED_VIEWER_DIRECTORY: web/dist
           # The runner-generated debug key is not a public domain-associated signer.
           HOSTED_VERIFY_APP_LINKS: '0'
           HOSTED_FCM: '1'
@@ -75,6 +76,7 @@ jobs:
         run: pnpm exec tsx scripts/hosted-acceptance.ts --pairing-only
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
+          HOSTED_VIEWER_DIRECTORY: web/dist
           HOSTED_VERIFY_APP_LINKS: '0'
       # Credential/reboot qualification remains a separate owned-emulator run.
       - name: Hosted encrypted control smoke acceptance
@@ -82,9 +84,11 @@ jobs:
         run: pnpm exec tsx scripts/hosted-acceptance.ts --control
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
+          HOSTED_VIEWER_DIRECTORY: web/dist
           # The runner-generated debug key is not a public domain-associated signer.
           HOSTED_VERIFY_APP_LINKS: '0'
           HOSTED_CLI: '1'
+          HOSTED_MEDIA: '1'
           HOSTED_TOUCH: '1'
           HOSTED_VIDEO: '1'
           # Software H.264 and held input are measured in sequence on shared runners.

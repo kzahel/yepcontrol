@@ -49,6 +49,7 @@ if (
   physical &&
   [
     "HOSTED_CLI",
+    "HOSTED_MEDIA",
     "HOSTED_UNLOCK",
     "HOSTED_CONTROL_WAKE",
     "HOSTED_BOOT",

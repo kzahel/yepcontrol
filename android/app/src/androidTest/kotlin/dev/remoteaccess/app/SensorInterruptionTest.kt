@@ -84,7 +84,7 @@ class SensorInterruptionTest {
             val raw = device.executeShellCommand("run-as $contender cat files/sensor-witness.json").trim()
             runCatching {
                 val report = JSONObject(raw)
-                report.getString("event") == (if (sensor == "camera") "camera-open" else "microphone-recording") &&
+                report.getString("event") == (if (sensor == "camera") "camera-streaming" else "microphone-recording") &&
                     !report.getBoolean("silenced")
             }.getOrDefault(false)
         }
@@ -141,21 +141,58 @@ class SensorInterruptionTest {
         }
     }
 
-    @Test fun busyCameraTerminatesWhileMicrophoneContinues() =
+    @Test fun cameraContentionKeepsOnlyTheWinningCaptureWhileMicrophoneContinues() =
         fixture {
             competitor("camera")
             start(false, 2)
             waitFor("Microphone did not begin") { (frames[2]?.get() ?: 0) > 2 }
             start(true, 1)
-            waitFor("Contended camera did not terminate") { ended.containsKey(1) }
-            assertTrue(ended[1] in listOf(3, 8), "Contention must report busy/interrupted: ${ended[1]}")
-            waitFor("Host camera remained running") { opsStopped(true) }
+
+            fun displaced() = device.executeShellCommand("run-as $contender cat files/sensor-witness.json").contains("camera-disconnected")
+            try {
+                // Camera arbitration can displace either UID depending on OS foreground priority.
+                waitFor("Camera contention did not produce one winning owner") {
+                    ended.containsKey(1) || ((frames[1]?.get() ?: 0) > 2 && displaced())
+                }
+            } catch (error: Exception) {
+                throw IllegalStateException(
+                    "Camera contention: hostFrames=${frames[1]?.get()}, hostEnded=${ended[1]}, contender=" +
+                        device.executeShellCommand("run-as $contender cat files/sensor-witness.json"),
+                    error,
+                )
+            }
+            val hostLost = ended.containsKey(1)
+            if (hostLost) {
+                assertTrue(ended[1] in listOf(3, 8), "Contention must report busy/interrupted: ${ended[1]}")
+                waitFor("Host camera remained running") { opsStopped(true) }
+                assertFalse(frames.containsKey(1))
+                waitFor("Winning contender must still own the camera") {
+                    val witness = JSONObject(device.executeShellCommand("run-as $contender cat files/sensor-witness.json"))
+                    witness.getString("event") == "camera-streaming" &&
+                        device.executeShellCommand("cmd appops get --user 0 $contender CAMERA").contains("(running)")
+                }
+            } else {
+                assertTrue(displaced(), "Separate UID must report its real disconnection")
+                waitFor("Displaced contender camera remained running") {
+                    !device.executeShellCommand("cmd appops get --user 0 $contender CAMERA").contains("(running)")
+                }
+                assertFalse(opsStopped(true), "The winning host must really own the camera")
+                instrumentation.runOnMainSync { MediaController.close(owner, 1) }
+                waitFor("Explicit Stop of winning camera did not release it") { ended[1] == 7 && opsStopped(true) }
+            }
+            instrumentation.sendStatus(
+                0,
+                android.os.Bundle().apply {
+                    putString("stream", "Camera contention winner: ${if (hostLost) "contender" else "host"}\n")
+                },
+            )
             val before = frames[2]!!.get()
             Thread.sleep(500)
-            assertTrue(frames[2]!!.get() > before)
+            assertTrue(frames[2]!!.get() > before, "Microphone must continue under camera contention")
+            val cameraCount = frames[1]?.get() ?: 0
             releaseContender()
             Thread.sleep(500)
-            assertFalse(frames.containsKey(1), "Camera must not restart automatically")
+            assertEquals(cameraCount, frames[1]?.get() ?: 0, "Camera must not restart automatically")
         }
 
     @Test fun microphoneMuteStopsOnlyAudioWithoutRestart() =

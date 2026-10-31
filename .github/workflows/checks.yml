@@ -141,6 +141,7 @@ jobs:
       - run: pnpm test:hosted
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
+          HOSTED_VIEWER_DIRECTORY: web/dist
           # The runner-generated debug key is not a public domain-associated signer.
           HOSTED_VERIFY_APP_LINKS: '0'
       - name: Encrypted hosted control acceptance
@@ -148,6 +149,7 @@ jobs:
         run: pnpm exec tsx scripts/hosted-acceptance.ts --control
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
+          HOSTED_VIEWER_DIRECTORY: web/dist
           # The runner-generated debug key is not a public domain-associated signer.
           HOSTED_VERIFY_APP_LINKS: '0'
           HOSTED_CLI: '1'

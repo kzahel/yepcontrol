@@ -133,6 +133,38 @@ lock/debugging-setting changes remain excluded.
   Independent Sol 6.1 High re-review approved the final 16-file candidate with no
   remaining actionable findings or required Phase 5 validation.
 
+- **Phase 6 local qualification complete, 2026-11-01; release pending:** normal
+  package API 35 tests detach instrumentation, assert its absence and wait
+  15 seconds beyond recent foreground use. Relay contacting events and fresh FCM
+  receipts establish socket-absent wake. With accessibility bound and the display
+  off, camera frames and a running, nonzero browser audio graph work (80 ms maximum
+  scheduled sound in the final upgrade run). A genuinely absent process without
+  its accessibility binding wakes through FCM, but Android blocks both sensors.
+  Restoring the binding leaves sensors off. Permission alone does not guarantee
+  cold capture. An actual code-11→12 install retains the browser grant and keeps
+  both new settings off. Normal separate disclosures/Android consent then enable
+  the explicit features. A sampled emulator UI review movie records setup,
+  controller Start, active notifications and separate Stop; it contains no physical
+  environment footage and is separate from Play-installed acceptance.
+  Owned kernel reboot/local first unlock, encrypted PIN/settings persistence,
+  forced-idle FCM, fresh secure-locked capture, independent Stop and existing
+  saved/manual/failed-attempt safety checks pass. The extra successful unlock is
+  included in exact native event counts. Full control passes screen/input, held
+  touch, H.264/WebRTC, rotation, direct loss/relay recovery, pause and removal.
+  Three native UI, five media and 24 storage checks pass. The contention fixture
+  now actually streams/discards YUV and verifies the real winning UID and losing
+  UID app-ops, with microphone continuity; the final run exercises host victory.
+  The new viewer reconnects to the preserved Play-installed 0.10.0 Pixel pairing,
+  disables media with update guidance and retains Home control. The TS suite
+  passes 225 tests; build/typecheck/lint/format checks pass. Release CI now uses
+  the candidate viewer and includes native media/background gates. The candidate
+  disclosure warns that controllers can save shared media; notification visibility
+  is described accurately when notification permission is denied. Independent
+  Sol 6.1 High review approves the final 16-file code/local-qualification candidate
+  with no actionable findings. Exact-source CI, signed internal delivery,
+  Play-installed acceptance and the final release-evidence re-review remain
+  pending. No camera/microphone release is live yet.
+
 ## Product behavior
 
 The Android app has two optional settings, initially off: **Allow remote camera**
@@ -150,7 +182,8 @@ phone microphone in either view, with a persistent active indicator. Listen Off
 stops native microphone capture, rather than merely muting browser playback.
 Receiving remote media does not request the browser's own camera/microphone.
 
-The phone shows an active-media notification with the connected controller and
+Android shows active sensor indicators. When notifications are allowed, the
+phone shows an active-media notification with the connected controller and
 Stop sharing. Stop, access revocation, permission loss, disconnect and expired
 media leases release native resources. Local Stop cancels the active media
 session; a controller must deliberately start again. The phone's feature/access
@@ -455,3 +488,40 @@ concrete deployment/publication changes and acceptance instructions ready for
 the final release decision. A real missing credential, unavailable reviewer or
 external Play gate is reported with the specific remaining action; routine
 development does not acquire additional approval steps.
+
+
+## Release and rollback
+
+The candidate is Android **0.11.0/code 12**. The prior public release is
+0.10.0/code 11; camera and microphone remain off for both fresh installs and
+migrated pairings. Existing screen control and grants retain their formats.
+The viewer can be deployed before Android: old hosts show update guidance and
+refuse sensor starts locally. Native optional hardware declarations preserve
+ordinary control on phones without a camera or microphone.
+
+Build and sign through the existing exact-source GitHub release gate, deliver
+the exact AAB internally, and verify an in-place Play update on the preserved
+physical pairing before public promotion. Reconcile consumed version codes and
+actual installed signer/installer rather than treating an upload receipt as an
+installed build. Keep Console foreground-service declarations and demonstration
+links consistent with separate camera and microphone types. Camera streaming
+and background audio each require an explicit initiating controller action.
+Google review and actual public availability are separate release states.
+
+Rollback of the matched website/Worker uses the prior verified release through
+the existing CI path; disconnect active test controllers and independently check
+native sensor release. Old viewers do not start media and new hosts continue
+ordinary controls. Do not downgrade an installed Android database or re-enable
+the retired Pi authority. If a native regression appears after Play delivery,
+disable sharing through its feature/access switches and issue a forward fix with
+a fresh version code. No relay recording or new authority schema is introduced.
+
+Platform and policy recheck, 2026-10-31 (documented requirements, not Google
+approval): [Android background-start and while-in-use restrictions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)
+separate process wake from sensor eligibility; an OS permission grant alone does
+not prove background access. [Play foreground-service declarations](https://support.google.com/googleplay/android-developer/answer/13392821?hl=en)
+require the actual types, purpose/impact and a feature demonstration. The
+[Data safety definition](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en)
+excludes end-to-end content unreadable by intermediaries from collection;
+connection/Firebase metadata remains separately disclosed. Client-owned saved
+JPEG/WAV files are described explicitly in the candidate privacy policy.

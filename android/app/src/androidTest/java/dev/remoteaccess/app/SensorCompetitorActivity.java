@@ -3,6 +3,11 @@ package dev.remoteaccess.app;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CaptureRequest;
+import android.media.ImageReader;
+import android.graphics.ImageFormat;
+import java.util.Collections;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.media.AudioFormat;
@@ -20,6 +25,9 @@ import org.json.JSONObject;
 /** Separate UID, foreground sensor contender. Only in the owned-emulator test APK. */
 public final class SensorCompetitorActivity extends Activity {
     private CameraDevice camera;
+    private CameraCaptureSession cameraSession;
+    private ImageReader cameraReader;
+    private boolean cameraActive;
     private AudioRecord microphone;
     private final Handler main = new Handler(Looper.getMainLooper());
 
@@ -39,9 +47,31 @@ public final class SensorCompetitorActivity extends Activity {
                 }
                 if (selected == null) throw new IllegalStateException("No rear camera");
                 manager.openCamera(selected, new CameraDevice.StateCallback() {
-                    @Override public void onOpened(CameraDevice value) { camera = value; witness("camera-open", false); }
-                    @Override public void onDisconnected(CameraDevice value) { value.close(); witness("camera-disconnected", false); }
-                    @Override public void onError(CameraDevice value, int error) { value.close(); witness("camera-error", false); }
+                    @Override public void onOpened(CameraDevice value) {
+                        camera = value; cameraActive = true;
+                        cameraReader = ImageReader.newInstance(640, 480, ImageFormat.YUV_420_888, 2);
+                        cameraReader.setOnImageAvailableListener(reader -> {
+                            try (android.media.Image image = reader.acquireLatestImage()) {
+                                if (image != null && cameraActive) witness("camera-streaming", false);
+                            } catch (IllegalStateException ignored) { /* Late callback after close. */ }
+                        }, main);
+                        try {
+                            value.createCaptureSession(Collections.singletonList(cameraReader.getSurface()), new CameraCaptureSession.StateCallback() {
+                                @Override public void onConfigured(CameraCaptureSession session) {
+                                    if (!cameraActive || camera != value) { session.close(); return; }
+                                    cameraSession = session;
+                                    try {
+                                        CaptureRequest.Builder request = value.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                                        request.addTarget(cameraReader.getSurface());
+                                        session.setRepeatingRequest(request.build(), null, main);
+                                    } catch (Exception error) { closeCamera(); witness("camera-stream-error", true); }
+                                }
+                                @Override public void onConfigureFailed(CameraCaptureSession session) { session.close(); closeCamera(); witness("camera-config-error", true); }
+                            }, main);
+                        } catch (Exception error) { closeCamera(); witness("camera-session-error", true); }
+                    }
+                    @Override public void onDisconnected(CameraDevice value) { closeCamera(); value.close(); witness("camera-disconnected", false); }
+                    @Override public void onError(CameraDevice value, int error) { closeCamera(); value.close(); witness("camera-error", false); }
                 }, main);
             } else {
                 AudioFormat format = new AudioFormat.Builder().setSampleRate(16000)
@@ -72,9 +102,16 @@ public final class SensorCompetitorActivity extends Activity {
         } catch (Exception error) { throw new IllegalStateException("Sensor witness failed", error); }
     }
 
+    private void closeCamera() {
+        cameraActive = false;
+        if (cameraSession != null) { cameraSession.close(); cameraSession = null; }
+        if (camera != null) { camera.close(); camera = null; }
+        if (cameraReader != null) { cameraReader.close(); cameraReader = null; }
+    }
+
     @Override public void onDestroy() {
         main.removeCallbacksAndMessages(null);
-        if (camera != null) { camera.close(); camera = null; }
+        closeCamera();
         if (microphone != null) { microphone.stop(); microphone.release(); microphone = null; }
         super.onDestroy();
     }

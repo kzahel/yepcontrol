@@ -347,6 +347,43 @@ class HostedPairingTest {
                 }
                 "home" -> start()
                 "idle" -> waitFor { HostSessions.current.get() == null }
+                "media-defaults" -> {
+                    assertFalse(store.snapshot.settings.cameraAllowed)
+                    assertFalse(store.snapshot.settings.microphoneAllowed)
+                }
+                "media-settings" -> {
+                    check(device.executeShellCommand("getprop ro.kernel.qemu").trim() == "1")
+                    // Exercise normal disclosures and Android consent; capture starts only after detach.
+                    for (camera in listOf(true, false)) {
+                        settings()
+                        val control = if (camera) "allow_camera" else "allow_microphone"
+                        val body = UiScrollable(UiSelector().scrollable(true))
+                        assertTrue(body.scrollIntoView(UiSelector().resourceId("${context.packageName}:id/$control")))
+                        click(control)
+                        assertNotNull(
+                            device.wait(
+                                Until.findObject(By.text(if (camera) "Allow remote camera?" else "Allow remote microphone?")),
+                                10000,
+                            ),
+                        )
+                        Thread.sleep(500) // Keep the actual disclosure legible in optional review recordings.
+                        tap(By.res("android:id/button1"))
+                        if (!dev.remoteaccess.app.media.MediaController
+                                .permission(context, camera)
+                        ) {
+                            tap(By.res("com.android.permissioncontroller:id/permission_allow_foreground_only_button"))
+                        }
+                        waitFor {
+                            dev.remoteaccess.app.media.MediaController
+                                .allowed(context, camera)
+                        }
+                        assertTrue(
+                            dev.remoteaccess.app.media.MediaController
+                                .permission(context, camera),
+                        )
+                    }
+                    start()
+                }
                 "control-ready" -> {
                     start()
                     waitFor { dev.remoteaccess.app.control.ScreenAccessService.current != null }
@@ -410,7 +447,7 @@ class HostedPairingTest {
                             .PinVault(context)
                             .saved(),
                     )
-                    val extra = if (task.optBoolean("wake")) 1 else 0
+                    val extra = (if (task.optBoolean("wake")) 1 else 0) + (if (task.optBoolean("mediaRecovery")) 1 else 0)
                     kotlin.test.assertEquals(3 + extra, store.events().count { it.kind == "Unlock requested" })
                     kotlin.test.assertEquals(2 + extra, store.events().count { it.kind == "Phone unlocked" })
                     // A new vault instance cannot admit a repeat after transport/session replacement.
