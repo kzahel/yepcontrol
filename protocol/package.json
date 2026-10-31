@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./media": {
+      "types": "./dist/media.d.ts",
+      "import": "./dist/media.js"
+    },
     "./phone-invitation": {
       "types": "./dist/phone-invitation.d.ts",
       "import": "./dist/phone-invitation.js"

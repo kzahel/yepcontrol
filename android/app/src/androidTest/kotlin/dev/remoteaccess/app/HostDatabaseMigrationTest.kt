@@ -52,13 +52,15 @@ class HostDatabaseMigrationTest {
         val database =
             Room
                 .databaseBuilder(instrumentation.targetContext, HostDatabase::class.java, "chain-migration-fixture")
-                .addMigrations(HostStore.MIGRATION_1_2, HostStore.MIGRATION_2_3, HostStore.MIGRATION_3_4)
+                .addMigrations(HostStore.MIGRATION_1_2, HostStore.MIGRATION_2_3, HostStore.MIGRATION_3_4, HostStore.MIGRATION_4_5)
                 .build()
         try {
             val stored = database.dao().devices().single()
             assertEquals("Work laptop", stored.nickname)
             assertEquals(false, stored.unlockAllowed)
             assertEquals(true, database.dao().settings()?.automatic)
+            assertEquals(false, database.dao().settings()?.cameraAllowed)
+            assertEquals(false, database.dao().settings()?.microphoneAllowed)
         } finally {
             database.close()
             instrumentation.targetContext.deleteDatabase("chain-migration-fixture")
@@ -79,6 +81,25 @@ class HostDatabaseMigrationTest {
                     assertTrue(row.moveToFirst())
                     assertEquals(listOf(0, 1, 0, 0, 0), (0..4).map { row.getInt(it) })
                 }
+        }
+    }
+
+    @Test fun publicReleaseMigrationKeepsAuthorityAndDisablesNewSensors() {
+        migration.createDatabase("media-migration-fixture", 4).use { db ->
+            db.execSQL("INSERT INTO devices VALUES ('a','saved-grant','Saved device',123,456,1,0,'generation',1,1,1)")
+            db.execSQL("INSERT INTO settings VALUES (1,1,1,1,1,0)")
+        }
+        migration.runMigrationsAndValidate("media-migration-fixture", 5, true, HostStore.MIGRATION_4_5).use { db ->
+            db.query("SELECT armed, automatic, unrestrictedRemoteControl, cameraAllowed, microphoneAllowed FROM settings").use { row ->
+                assertTrue(row.moveToFirst())
+                assertEquals(listOf(1, 1, 1, 0, 0), (0..4).map { row.getInt(it) })
+            }
+            db.query("SELECT grant, generation, unlockAllowed FROM devices").use { row ->
+                assertTrue(row.moveToFirst())
+                assertEquals("saved-grant", row.getString(0))
+                assertEquals("generation", row.getString(1))
+                assertEquals(1, row.getInt(2))
+            }
         }
     }
 }

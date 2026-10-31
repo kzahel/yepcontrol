@@ -26,6 +26,16 @@ data class ControlCommand(
             var touch: TouchBatch? = null
             var observation = ""
             when (op) {
+                24 -> {
+                    require(input.remaining() == 7)
+                    values.add(input.int.also { require(it > 0) })
+                    repeat(2) { values.add(input.get().toInt().also { require(it in 1..2) }) }
+                    values.add(input.get().toInt().also { require(it in 1..if (values[2] == 1) 5 else 30) })
+                }
+                25, 26, 27 -> {
+                    require(input.remaining() == 4)
+                    values.add(input.int.also { require(it >= if (op == 26) 0 else 1) })
+                }
                 1, 2, 3, 9, 10, 12, 14, 15, 17, 18, 20 -> require(!input.hasRemaining())
                 4, 5 -> {
                     val count = if (op == 4) 3 else 6

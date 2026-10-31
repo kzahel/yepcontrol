@@ -20,6 +20,20 @@ process with internal installed acceptance before public promotion. Guarded
 stored-PIN unlock for the authorized Pixel is in scope; physical reboot and
 lock/debugging-setting changes remain excluded.
 
+## Implementation record
+
+- **Phase 1 complete, 2026-10-31:** additive [wire contract](media-protocol-v1.md),
+  TS/Kotlin vectors and strict framing, and Room 4→5 migration for two independent
+  default-off sensor settings. Existing identity/grant generations and opcodes
+  are preserved; hosts do not advertise media until capture/transport integration.
+  Pinned Node 24.22.1: 192 tests, workspace typecheck and Biome passed. Android
+  protocol tests, ktlint, app lint/build passed; an owned API 35 emulator passed
+  3 native UI and 24 storage/crypto/enrollment tests, including released-state
+  migration. Independent Sol 6.1 High review through Yep Anywhere returned no
+  remaining actionable Phase 1 findings after corrections to rejection semantics,
+  boundary coverage, native command assertions and new result-code decoding.
+  Detailed reviews and receipts remain private. Later phases are pending.
+
 ## Product behavior
 
 The Android app has two optional settings, initially off: **Allow remote camera**
@@ -233,6 +247,9 @@ been launched merely to write this plan.
    through `GET /api/version` and `GET /api/providers`.
 3. Create a fresh reviewer with
    `POST /api/projects/{projectId}/sessions` and this request shape:
+
+   Send `Content-Type: application/json` and `X-Yep-Anywhere: true` on mutating
+   API requests; the latter is the existing request-protection header.
 
    ```json
    {

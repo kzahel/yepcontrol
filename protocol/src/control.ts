@@ -4,6 +4,7 @@ import {
   validObservation,
 } from "./accessibility.js";
 import { type DeviceInfo, parseDevice } from "./device.js";
+import { type MediaState, parseMediaState } from "./media.js";
 
 /** Commands travel only inside an authenticated application record. Integers are big-endian. */
 export type TouchBatch = {
@@ -14,6 +15,14 @@ export type TouchBatch = {
   contacts: { id: number; held: boolean; path: { x: number; y: number }[] }[];
 };
 export type Command =
+  | {
+      op: "cameraStart";
+      stream: number;
+      facing: "rear" | "front";
+      format: "jpeg" | "h264";
+      fps: number;
+    }
+  | { op: "microphoneStart" | "mediaStop" | "mediaRenew"; stream: number }
   | {
       op:
         | "start"
@@ -75,6 +84,10 @@ const operations = [
   "nodeClick",
   "nodeScroll",
   "nodeText",
+  "cameraStart",
+  "microphoneStart",
+  "mediaStop",
+  "mediaRenew",
 ] as const;
 export const MAX_COMMAND = 32784;
 export function encodeCommand(
@@ -87,6 +100,43 @@ export function encodeCommand(
   let tail = new Uint8Array();
   if (command.op === "touch") tail = encodeTouch(command.batch);
   switch (command.op) {
+    case "cameraStart": {
+      if (
+        !Number.isInteger(command.stream) ||
+        command.stream < 1 ||
+        command.stream > 0x7fffffff ||
+        !["rear", "front"].includes(command.facing) ||
+        !["jpeg", "h264"].includes(command.format) ||
+        !Number.isInteger(command.fps) ||
+        command.fps < 1 ||
+        command.fps > (command.format === "jpeg" ? 5 : 30)
+      )
+        throw Error("Invalid camera request");
+      tail = new Uint8Array(7);
+      new DataView(tail.buffer).setUint32(0, command.stream);
+      tail.set(
+        [
+          command.facing === "rear" ? 1 : 2,
+          command.format === "jpeg" ? 1 : 2,
+          command.fps,
+        ],
+        4,
+      );
+      break;
+    }
+    case "microphoneStart":
+    case "mediaStop":
+    case "mediaRenew": {
+      if (
+        !Number.isInteger(command.stream) ||
+        command.stream < (command.op === "mediaStop" ? 0 : 1) ||
+        command.stream > 0x7fffffff
+      )
+        throw Error("Invalid media stream");
+      tail = new Uint8Array(4);
+      new DataView(tail.buffer).setUint32(0, command.stream);
+      break;
+    }
     case "nodeClick":
     case "nodeScroll":
     case "nodeText": {
@@ -220,6 +270,8 @@ export type ControlState = {
   localSettings?: boolean;
   /** Snapshot and observation-bound node actions. Absent on existing public hosts. */
   a11y?: 1;
+  /** Absent on released hosts until the media implementation is available. */
+  media?: MediaState;
 };
 export type AppEntry = { name: string; packageName: string };
 export type Reply = { id: number } & (
@@ -282,6 +334,7 @@ export function decodeReply(data: Uint8Array<ArrayBuffer>): Reply {
       if (state.a11y !== undefined && state.a11y !== 1)
         throw new Error("Invalid UI capability");
       state.device = parseDevice(state.device);
+      if (state.media !== undefined) state.media = parseMediaState(state.media);
       if (state.video !== undefined) {
         const video = state.video;
         if (
@@ -332,7 +385,7 @@ export function decodeReply(data: Uint8Array<ArrayBuffer>): Reply {
       };
     }
     case 2:
-      if (data.length !== 13 || data[12] === undefined || data[12] > 9)
+      if (data.length !== 13 || data[12] === undefined || data[12] > 11)
         throw new Error("Invalid result");
       return { id, kind: "result", code: data[12] };
     case 3: {
@@ -437,6 +490,8 @@ export function resultMessage(code: number): string {
       "Action was interrupted; it was not retried",
       "Session ended",
       "Unlock needs local recovery. No retry was made. Unlock the phone locally before trying again.",
+      "Allow sensor permission on the phone",
+      "Enable this sensor in the phone settings",
     ][code] ?? "Action failed"
   );
 }

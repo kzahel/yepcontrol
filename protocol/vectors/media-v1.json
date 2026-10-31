@@ -1,0 +1,173 @@
+{
+  "packets": [
+    {
+      "kind": "jpeg",
+      "stream": 7,
+      "sequence": 1,
+      "timestamp": 123456,
+      "width": 320,
+      "height": 240,
+      "key": false,
+      "dataHex": "ffd8ffd9",
+      "hex": "41524d31010000000000000700000001000000000001e24000000140000000f0ffd8ffd9"
+    },
+    {
+      "kind": "h264",
+      "stream": 8,
+      "sequence": 2,
+      "timestamp": 222222,
+      "width": 640,
+      "height": 480,
+      "key": true,
+      "dataHex": "0000000165abcdef",
+      "hex": "41524d31020100000000000800000002000000000003640e00000280000001e00000000165abcdef"
+    },
+    {
+      "kind": "pcm",
+      "stream": 9,
+      "sequence": 3,
+      "timestamp": 333333,
+      "width": 16000,
+      "height": 1,
+      "key": false,
+      "dataHex": "0100feff0000",
+      "hex": "41524d31030000000000000900000003000000000005161500003e80000000010100feff0000"
+    },
+    {
+      "kind": "event",
+      "stream": 7,
+      "sequence": 4,
+      "timestamp": 444444,
+      "width": 0,
+      "height": 0,
+      "key": false,
+      "dataHex": "0207",
+      "hex": "41524d31040000000000000700000004000000000006c81c00000000000000000207"
+    }
+  ],
+  "commands": [
+    {
+      "id": 24,
+      "command": {
+        "op": "cameraStart",
+        "stream": 7,
+        "facing": "rear",
+        "format": "h264",
+        "fps": 15
+      },
+      "hex": "4152433118000000000000180000000701020f"
+    },
+    {
+      "id": 25,
+      "command": {
+        "op": "microphoneStart",
+        "stream": 9
+      },
+      "hex": "41524331190000000000001900000009"
+    },
+    {
+      "id": 26,
+      "command": {
+        "op": "mediaStop",
+        "stream": 0
+      },
+      "hex": "415243311a0000000000001a00000000"
+    },
+    {
+      "id": 27,
+      "command": {
+        "op": "mediaRenew",
+        "stream": 7
+      },
+      "hex": "415243311b0000000000001b00000007"
+    },
+    {
+      "id": 28,
+      "command": {
+        "op": "cameraStart",
+        "stream": 28,
+        "facing": "front",
+        "format": "jpeg",
+        "fps": 1
+      },
+      "hex": "41524331180000000000001c0000001c020101"
+    },
+    {
+      "id": 29,
+      "command": {
+        "op": "cameraStart",
+        "stream": 29,
+        "facing": "front",
+        "format": "jpeg",
+        "fps": 5
+      },
+      "hex": "41524331180000000000001d0000001d020105"
+    },
+    {
+      "id": 30,
+      "command": {
+        "op": "cameraStart",
+        "stream": 30,
+        "facing": "rear",
+        "format": "jpeg",
+        "fps": 1
+      },
+      "hex": "41524331180000000000001e0000001e010101"
+    },
+    {
+      "id": 31,
+      "command": {
+        "op": "cameraStart",
+        "stream": 31,
+        "facing": "rear",
+        "format": "jpeg",
+        "fps": 5
+      },
+      "hex": "41524331180000000000001f0000001f010105"
+    },
+    {
+      "id": 32,
+      "command": {
+        "op": "cameraStart",
+        "stream": 32,
+        "facing": "front",
+        "format": "h264",
+        "fps": 1
+      },
+      "hex": "41524331180000000000002000000020020201"
+    },
+    {
+      "id": 33,
+      "command": {
+        "op": "cameraStart",
+        "stream": 33,
+        "facing": "front",
+        "format": "h264",
+        "fps": 30
+      },
+      "hex": "4152433118000000000000210000002102021e"
+    },
+    {
+      "id": 34,
+      "command": {
+        "op": "cameraStart",
+        "stream": 34,
+        "facing": "rear",
+        "format": "h264",
+        "fps": 1
+      },
+      "hex": "41524331180000000000002200000022010201"
+    },
+    {
+      "id": 35,
+      "command": {
+        "op": "cameraStart",
+        "stream": 35,
+        "facing": "rear",
+        "format": "h264",
+        "fps": 30
+      },
+      "hex": "4152433118000000000000230000002301021e"
+    }
+  ]
+}

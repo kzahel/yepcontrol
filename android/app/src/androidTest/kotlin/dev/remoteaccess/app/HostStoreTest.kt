@@ -41,6 +41,22 @@ class HostStoreTest {
             ).put("origin", BuildConfig.SHARING_WEBSITE)
             .put("viewer", "public-identity-$id")
 
+    @Test fun sensorPreferencesAreIndependentAndDoNotReplacePairingAuthority() {
+        val device = store.load().pair(grant("media"))
+        assertFalse(store.snapshot.settings.cameraAllowed)
+        assertFalse(store.snapshot.settings.microphoneAllowed)
+        store.media(cameraAllowed = true)
+        val reopened = HostStore.fixture(context, db).load()
+        reopened.media(microphoneAllowed = true)
+        assertTrue(reopened.snapshot.settings.cameraAllowed)
+        assertTrue(reopened.snapshot.settings.microphoneAllowed)
+        reopened.media(cameraAllowed = false)
+        assertTrue(reopened.snapshot.settings.microphoneAllowed)
+        assertEquals(device.grant, reopened.device(device.id)?.grant)
+        assertEquals(device.generation, reopened.device(device.id)?.generation)
+        assertTrue(reopened.allowed(device.id, device.generation))
+    }
+
     @Test
     fun migratesOnceAndPreservesRevocationAndWakeChoice() {
         val raw = grant("a").toString()

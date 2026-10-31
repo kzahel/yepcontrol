@@ -46,6 +46,8 @@ internal data class HostSettings(
     @ColumnInfo(defaultValue = "0") val unrestrictedRemoteControl: Boolean = false,
     @ColumnInfo(defaultValue = "0") val unrestrictedInitialized: Boolean = false,
     @ColumnInfo(defaultValue = "0") val unrestrictedUpgradeNotice: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val cameraAllowed: Boolean = false,
+    @ColumnInfo(defaultValue = "0") val microphoneAllowed: Boolean = false,
 )
 
 @Entity(tableName = "activity")
@@ -84,7 +86,7 @@ internal interface HostDao {
     fun deleteDevice(id: String)
 }
 
-@Database(entities = [Device::class, HostSettings::class, ActivityEvent::class], version = 4, exportSchema = true)
+@Database(entities = [Device::class, HostSettings::class, ActivityEvent::class], version = 5, exportSchema = true)
 internal abstract class HostDatabase : RoomDatabase() {
     abstract fun dao(): HostDao
 }
@@ -225,6 +227,28 @@ internal class HostStore private constructor(
             snapshot.devices.forEach { dao.put(it.copy(generation = generation(), synced = false, wakeReady = false)) }
             if (before.armed != armed) append(if (armed) "Remote access enabled" else "Remote access disabled")
             if (before.automatic != automatic) append(if (automatic) "Automatic requests enabled" else "Automatic requests disabled")
+        }
+        publish()
+    }
+
+    @Synchronized
+    fun media(
+        cameraAllowed: Boolean? = null,
+        microphoneAllowed: Boolean? = null,
+    ) {
+        load()
+        val before = snapshot.settings
+        val camera = cameraAllowed ?: before.cameraAllowed
+        val microphone = microphoneAllowed ?: before.microphoneAllowed
+        if (before.cameraAllowed == camera && before.microphoneAllowed == microphone) return
+        database.runInTransaction {
+            dao.put(before.copy(cameraAllowed = camera, microphoneAllowed = microphone))
+            if (before.cameraAllowed != camera) append(if (camera) "Remote camera enabled" else "Remote camera disabled")
+            if (before.microphoneAllowed !=
+                microphone
+            ) {
+                append(if (microphone) "Remote microphone enabled" else "Remote microphone disabled")
+            }
         }
         publish()
     }
@@ -397,6 +421,14 @@ internal class HostStore private constructor(
                 }
             }
 
+        val MIGRATION_4_5 =
+            object : Migration(4, 5) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE settings ADD COLUMN cameraAllowed INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("ALTER TABLE settings ADD COLUMN microphoneAllowed INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+
         @Volatile private var instance: HostStore? = null
 
         fun get(context: Context): HostStore =
@@ -405,7 +437,7 @@ internal class HostStore private constructor(
                     WakeSupport.preferences(context.applicationContext),
                     Room
                         .databaseBuilder(context.applicationContext, HostDatabase::class.java, "remote-access.db")
-                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                         .build(),
                 ).also {
                     instance = it
