@@ -243,3 +243,29 @@ the rollout can publish automatically after Google approval. Submission is
 confirmed; Google approval and public availability of 0.9.0 remain pending.
 The website/relay is already live. The private Console screenshot is
 `.local/phone-first-release/production-submitted-20261027.jpg`.
+
+## Android 0.10.0 / code 11 — full rollout submitted, 2026-10-31
+
+The owner's explicit autonomous release request authorizes 100% Android and
+website publication after validation. Android **0.10.0/code 11** passes
+[signed CI qualification and an in-place internal Play update on the paired
+physical phone](android-beta.md#android-0100--code-11--2026-10-31), including retained
+browser authority, real CLI adoption/control/configuration capture, independent
+removal, live configuration video and restored protected-mode behavior.
+
+That exact accepted internal bundle is promoted in Console to production,
+with **100% rollout / all existing targeted countries**. No supported devices
+are lost; only the existing deobfuscation/native-symbol warnings remain.
+Release notes explain terminal control, the unrestricted-control setting and
+its one-time enablement for existing paired installations. Listing, declarations,
+signing identity and CI's internal-only publication scope are unchanged.
+
+Console confirms **1 change sent for review**, **Changes in review**, and
+**Production / 0.10.0 / Start full rollout**. Managed publishing remains **off**.
+Quick checks are running at submission; Google approval and actual public
+availability of 0.10.0 are not yet established. The rollout can publish
+automatically after approval without another managed-publishing hold.
+
+The [website/relay 0.4.0 release](../relay-releases.md) is already live with public
+admission. Existing public 0.9.0 hosts remain compatible. Private submission and
+installed-build receipts remain in ignored `.local/unrestricted-proof/`.
