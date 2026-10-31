@@ -12,8 +12,9 @@ through an end-to-end encrypted session. The browser-first QR flow also works.
 - Android 11+; application ID `com.yepcontrol.app`.
 
 **Play release:** version 0.9.0/code 10 is publicly released, confirmed in Console
-2026-10-30. The 0.10.0/code-11 candidate adds CLI accessibility control and the
-**Allow unrestricted remote control** setting. Its implementation and release
+2026-10-30. Version 0.10.0/code 11 is active on internal testing and adds CLI
+accessibility control and the **Allow unrestricted remote control** setting.
+Play-installed paired-upgrade acceptance precedes public promotion. Implementation and release
 acceptance are recorded in [the CLI plan](docs/cli-control.md); publication is
 recorded separately in the [production release record](docs/distribution/android-production.md).
 

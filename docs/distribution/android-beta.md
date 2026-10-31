@@ -457,3 +457,44 @@ browser process exited. Media projection is null. The Play update and normal
 permissions remain installed; no physical PIN, lock, debugging or network setting
 was changed. The private receipt is
 `.local/phone-first-release/physical-code10.json`.
+
+## Android 0.10.0 / code 11 — 2026-10-31
+
+The owner authorized implementing the three-phase
+[CLI and unrestricted-configuration plan](../cli-control.md), independent Sol
+6.1 High reviews between phases, incremental commits, live internal Play update
+acceptance and subsequent 100% production promotion. Existing public hosts and
+pairings remain compatible. Physical credential entry and lock/debugging changes
+remain outside this acceptance.
+
+Native source `ee2bef9412fdf6ca9c7a5b5df8922b8c9c399437` passes
+[exact-source Checks](https://github.com/kzahel/yepcontrol/actions/runs/41145953403)
+and [release artifacts](https://github.com/kzahel/yepcontrol/actions/runs/41146371739)
+on attempt 2. The first attempt ended its phone-first browser connection before
+the encrypted screen opened; the unchanged-source retry passes. The complete
+Linux gate covers cryptographic interoperability, three native UI/security tests,
+22 storage tests, process-absent FCM wake, both QR directions, real CLI
+effects/refusals and independent revocation, browser input, held gestures,
+lost-packet recovery, H.264 and rotation. Release lint/build/signing then pass.
+The receipt and checksum match the exact source, run and version. Signed AAB
+SHA-256:
+`3d95890a4bb15459b2c480457093d29b0ad22d82f5df29097d286e298ce551e8`.
+
+The guarded [internal publisher](https://github.com/kzahel/yepcontrol/actions/runs/41150204530)
+again receives HTTP 400 at its final edit commit, as recorded for 0.9.0 above.
+Console reconciliation confirms internal 0.9.0 remains active and no pending
+review changes. The same verified signed bundle is then uploaded through
+Console and published specifically to internal testing. Console confirms
+**0.10.0 / Available to internal testers / code 11**. Supported-device counts are
+unchanged; only the existing deobfuscation/native-symbol warnings remain.
+Release notes disclose the one-time enablement for existing paired installations.
+
+Publisher attempt 2 reconciles that active release successfully, returning
+`unchanged` after verifying the existing bundle's version and SHA-256. This is
+API confirmation of the Console delivery, not a fix or successful retry of the
+guarded edit commit. CI remains internal-only; no app-wide review submission or
+permission expansion was introduced.
+
+The paired physical phone's Play update and acceptance remain pending store
+propagation. Internal publication does not establish physical acceptance or
+public production delivery.
