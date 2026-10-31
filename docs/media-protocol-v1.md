@@ -92,6 +92,40 @@ indefinitely. Dropped encoded video requires a fresh keyframe before decoding
 resumes. Shared cryptographic writers allocate record numbers across all logical
 streams; stream IDs do not allocate or reset cryptographic nonces.
 
+## Transport ownership and backpressure
+
+The shared session owns one continuous reader/decryptor and one serialized
+send/seal chain per lane. It dispatches ARP1 replies by command ID and ARM1
+records by immutable lane plus stream ID. Ordinary actions stay serial. Stop
+and Renew have a separate bounded priority budget; hosts accept those two while
+an ordinary action awaits completion. Their replies can therefore arrive before
+an earlier ordinary reply. Command IDs still increase in actual send order.
+Released clients use neither concurrent operation, preserving their behavior.
+
+Each native command owner has a bounded outbox: up to 12 media records/1 MiB,
+with separate reserved control capacity (16 records/2 MiB). Control and lifecycle
+records take priority; terminal events purge unsent data for that stream. All
+sealing runs on a single drain; relay sealing/transmission shares the existing
+connection lock and direct sealing uses its RTC worker. Closing an owner clears
+its plaintext queues. Media rejection schedules a single native termination,
+rather than posting a failure task for every subsequent frame.
+
+Each shared-client subscription admits one consumer and up to four queued
+packets, within 1 MiB for camera or 6400 PCM bytes (200 ms). Overflow clears
+queued data, discards further data and sends native Stop independently of pending
+ordinary replies. The subscription stays registered until native release is
+confirmed. A Stop ACK without its terminal event closes the uncertain session
+after five seconds. A rejected renewal likewise waits for the authoritative
+terminal reason rather than replacing it before asynchronous native cleanup. No unbounded encoded-video
+mailbox or alternate per-stream nonce allocator is introduced.
+
+Initial direct selection completes before any sensor reservation. Later path
+loss ends all affected subscriptions without replaying starts. A fresh direct
+lane has fresh handshake keys. Fallback reuses the already-authenticated relay
+lane's existing keys and monotonic record counters, creating a new command
+owner without resetting that cryptographic lane. The client never reuses a
+stream ID across that recovery, and ignores old-owner stream records.
+
 ## Readiness and compatibility
 
 The optional state has required inner fields: `v: 1`, `camera`, `microphone`.

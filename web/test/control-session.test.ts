@@ -1,6 +1,7 @@
 import type { Identity } from "@remote/protocol";
 import type { Grant } from "@remote/protocol/enrollment";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { phoneLane } from "../../client/test/phone.js";
 
 const mocks = vi.hoisted(() => ({ relay: vi.fn(), direct: vi.fn() }));
 vi.mock("../src/relay.js", () => ({ openEncryptedSession: mocks.relay }));
@@ -8,72 +9,7 @@ vi.mock("../src/direct-lane.js", () => ({ openDirectLane: mocks.direct }));
 
 import { RemoteSession } from "../src/control-session.js";
 
-function lane() {
-  let id = 0,
-    op = 0;
-  const sent: number[] = [];
-  let lostReplyOp: number | undefined;
-  return {
-    sent,
-    loseReply(op: number) {
-      lostReplyOp = op;
-    },
-    close: vi.fn(),
-    send: vi.fn(async (bytes: Uint8Array<ArrayBuffer>) => {
-      const view = new DataView(
-        bytes.buffer,
-        bytes.byteOffset,
-        bytes.byteLength,
-      );
-      id = view.getUint32(8);
-      op = bytes[4] ?? 0;
-      sent.push(op);
-    }),
-    read: vi.fn(async () => {
-      if (op === lostReplyOp)
-        throw new Error("Reply lost after possible native delivery");
-      const payload =
-        op === 19
-          ? new TextEncoder().encode("v=0\r\nanswer")
-          : [1, 2].includes(op)
-            ? new TextEncoder().encode(
-                JSON.stringify({
-                  type: "state",
-                  v: 1,
-                  accessibility: true,
-                  locked: false,
-                  width: 1080,
-                  height: 2400,
-                  scene: 1,
-                  device: {
-                    manufacturer: "Google",
-                    model: "Pixel 9",
-                    name: "Pixel 9",
-                    android: "17",
-                    sdk: 37,
-                    app: "0.6.0",
-                  },
-                }),
-              )
-            : new Uint8Array([0]);
-      const result = new Uint8Array(12 + payload.length),
-        view = new DataView(result.buffer);
-      result.set([
-        65,
-        82,
-        80,
-        49,
-        op === 19 ? 6 : [1, 2].includes(op) ? 1 : 2,
-        0,
-        0,
-        0,
-      ]);
-      view.setUint32(8, id);
-      result.set(payload, 12);
-      return result;
-    }),
-  };
-}
+const lane = () => phoneLane(false);
 const identity = {} as Identity,
   grant = {} as Grant;
 async function connect() {

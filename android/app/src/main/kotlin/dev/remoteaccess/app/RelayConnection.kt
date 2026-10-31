@@ -167,6 +167,7 @@ internal class RelayConnection(
                                 { active.get() && this.current() },
                                 ::sendControl,
                                 ::offerDirect,
+                                onOutputFailure = { close() },
                             )
                         report("Remote control connected")
                         control!!.receive(plaintext)

@@ -43,6 +43,7 @@ internal object MediaController {
 
         @Volatile private var delivered = false
         private var activated = false
+        private val ending = AtomicBoolean(false)
         private val check =
             object : Runnable {
                 override fun run() {
@@ -87,15 +88,16 @@ internal object MediaController {
             width: Int,
             height: Int,
             key: Boolean = false,
+            timestamp: Long = SystemClock.elapsedRealtimeNanos() / 1000,
         ): Boolean {
-            if (!active.get()) return false
+            if (!active.get() || ending.get()) return false
             val why = invalid()
             if (why != 0) {
-                main.post { end(this, why) }
+                if (ending.compareAndSet(false, true)) main.post { end(this, why) }
                 return false
             }
-            if (!emit(kind, data, width, height, key)) {
-                main.post { end(this, 8) }
+            if (!emit(kind, data, width, height, key, timestamp)) {
+                if (ending.compareAndSet(false, true)) main.post { end(this, 8) }
                 return false
             }
             delivered = true
@@ -109,10 +111,11 @@ internal object MediaController {
             width: Int = 0,
             height: Int = 0,
             key: Boolean = false,
+            timestamp: Long = SystemClock.elapsedRealtimeNanos() / 1000,
         ): Boolean {
             if (sequence >= 0xffffffffL) return false
             return runCatching {
-                output(MediaRecord(kind, id, ++sequence, SystemClock.elapsedRealtimeNanos() / 1000, width, height, key, data))
+                output(MediaRecord(kind, id, ++sequence, timestamp, width, height, key, data))
             }.getOrDefault(false)
         }
 
@@ -179,7 +182,7 @@ internal object MediaController {
                 !allowed(context, camera) -> 11
                 !permission(context, camera) -> 10
                 requests.any { it.owner === owner && it.id == id } -> 4
-                requests.any { it.camera == camera } -> 6
+                requests.any { it.owner !== owner || it.camera == camera } -> 6
                 camera && !cameras(context).containsKey(facing) -> 4
                 !camera && !context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE) -> 4
                 else -> 0

@@ -139,6 +139,29 @@ private object Bridge {
                                             return@post
                                         }
                                     }
+                                    "connectPaired" -> {
+                                        val device =
+                                            HostStore
+                                                .get(context)
+                                                .snapshot.devices
+                                                .single { !it.revoked }
+                                        HostRuntime.connect(context, device.id)
+                                    }
+                                    "clientAccess" -> {
+                                        val device =
+                                            HostStore
+                                                .get(context)
+                                                .snapshot.devices
+                                                .single { !it.revoked }
+                                        HostRuntime.change(context, { it.enable(device.id, command.getBoolean("value")) })
+                                    }
+                                    "revokePairings" -> {
+                                        HostRuntime.change(context, { store ->
+                                            store.snapshot.devices
+                                                .filter { !it.revoked }
+                                                .forEach { store.revoke(it.id) }
+                                        })
+                                    }
                                     "notificationStop" -> {
                                         val notices =
                                             context
@@ -241,7 +264,16 @@ private object Bridge {
                 .put("op", "state")
                 .put("media", MediaController.state(context, owner))
                 .put("bound", ScreenAccessService.current != null)
-                .toString(),
+                .put(
+                    "pairings",
+                    org.json.JSONArray().apply {
+                        HostStore
+                            .get(
+                                context,
+                            ).snapshot.devices
+                            .forEach { put(JSONObject().put("id", it.id).put("synced", it.synced).put("revoked", it.revoked)) }
+                    },
+                ).toString(),
         )
     }
 }

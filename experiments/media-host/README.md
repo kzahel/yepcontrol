@@ -105,3 +105,26 @@ and missing camera permission, and explicitly tests microphone-only recovery.
 Its receipt is `result-permission-loss.json`; it does not replace the full run.
 The mobile runner snapshots and validates its APK inputs before emulator boot,
 so building the separate fixture cannot change the installed test binary.
+
+Encrypted integration qualification (Phase 3):
+
+```sh
+MEDIA_DEVICE=EXPLICIT_SERIAL MEDIA_DEVICE_MODEL='EXACT_MODEL' \
+MEDIA_ENCRYPTED=1 node experiments/media-host/run.mjs
+```
+
+This bundles an isolated candidate client, serving only its test HTML/JS through
+Playwright route overrides at the real HTTPS origin. Pairing, access control,
+WebSockets and encryption use the production relay and real product code. Native
+pairing approval and sensor/accessibility permissions still use ordinary phone UI.
+The fixture can request the existing manual connection function and change owned
+phone settings, but sensor commands in this mode travel only through the shared
+encrypted client. Both forced relay and real WebRTC direct lanes must pass;
+silently falling back cannot qualify the direct case.
+
+Evidence covers independent decoding, concurrent PCM, ordinary screen capture,
+Stop latency, blocked-consumer cleanup, feature and client access revocation,
+accepted-start cancellation, and real connection loss/recovery without automatic
+sensor restart. Fixture pairings are revoked through the existing phone-owned
+synchronization path before removal, with an independent relay 410 witness.
+No native or relay recording is enabled. Browser audio playback remains Phase 4.

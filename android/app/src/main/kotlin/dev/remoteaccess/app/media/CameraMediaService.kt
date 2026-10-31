@@ -265,7 +265,7 @@ internal class CameraMediaService : SensorMediaService(true) {
                         configuration = bytes
                     } else if (bytes.isNotEmpty()) {
                         val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
-                        request.offer(2, if (key) configuration + bytes else bytes, width, height, key)
+                        request.offer(2, if (key) configuration + bytes else bytes, width, height, key, info.presentationTimeUs)
                     }
                 } finally {
                     encoder.releaseOutputBuffer(index, false)

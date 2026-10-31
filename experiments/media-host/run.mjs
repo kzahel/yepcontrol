@@ -2,11 +2,11 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "@playwright/test";
 import { decodeMedia } from "../../protocol/dist/media.js";
 
@@ -24,6 +24,7 @@ assert(
 );
 assert(["camera", "microphone"].includes(firstSensor));
 const sleepTest = process.env.MEDIA_SCREEN_OFF === "1";
+const encrypted = process.env.MEDIA_ENCRYPTED === "1";
 const focus = process.env.MEDIA_FOCUS ?? "full";
 assert(["full", "permission-loss"].includes(focus));
 const adapter =
@@ -76,7 +77,7 @@ const component = `${pkg}/dev.remoteaccess.app.media.MediaFixtureActivity`;
 const token = randomBytes(32).toString("hex");
 const stateDir = path.join(
   root,
-  ".local/media-access/implementation/phase-2",
+  `.local/media-access/implementation/${encrypted ? "phase-3" : "phase-2"}`,
   model.replace(/[^a-zA-Z0-9_-]/g, "_"),
 );
 await mkdir(stateDir, { recursive: true, mode: 0o700 });
@@ -86,6 +87,7 @@ const results = {
   firstSensor,
   sleepTest,
   focus,
+  encrypted,
   samples: [],
   checks: [],
   events: [],
@@ -101,6 +103,9 @@ let phone,
   previousAccessibility,
   previousActivity;
 let nextId = 1;
+let pairedId;
+let invitationId;
+let canRemoveFixture = true;
 const sequences = new Map();
 const counts = new Map();
 const replies = [];
@@ -295,10 +300,15 @@ async function stop(id = 0) {
 }
 async function sample(name, ids, ms = 3000) {
   await until(() =>
-    ids.every((id) => {
-      const value = counts.get(id);
-      return value && value.jpeg + value.h264 + value.pcm > 0;
-    }),
+    page.evaluate(
+      (ids) =>
+        ids.every(
+          (id) =>
+            (window.stats.frames[id] ?? 0) > 0 ||
+            (window.stats.audio[id]?.samples ?? 0) > 0,
+        ),
+      ids,
+    ),
   );
   const before = await page.evaluate(() => structuredClone(window.stats));
   await delay(ms);
@@ -341,9 +351,15 @@ const assertMedia = (value, camera, mic) => {
     );
 };
 function assertReleased() {
+  const records = shell("dumpsys", "activity", "services", pkg).split(
+    /\n(?=\s*\* ServiceRecord\{)/,
+  );
   assert(
-    !shell("dumpsys", "activity", "services", pkg).match(
-      /(?:CameraMediaService|MicrophoneMediaService)[\s\S]*isForeground=true/,
+    !records.some(
+      (record) =>
+        /(?:CameraMediaService|MicrophoneMediaService)/.test(
+          record.split("\n")[0] ?? "",
+        ) && record.includes("isForeground=true"),
     ),
     "Sensor foreground service remained",
   );
@@ -412,8 +428,45 @@ try {
   );
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage();
-  await page.goto(`http://127.0.0.1:${port}/?token=${token}`);
-  await until(() => viewer);
+  if (encrypted) {
+    const webRequire = createRequire(
+      new URL("../../web/package.json", import.meta.url),
+    );
+    const { build } = await import(
+      pathToFileURL(webRequire.resolve("vite")).href
+    );
+    const outDir = path.join(stateDir, "browser");
+    await build({
+      configFile: false,
+      logLevel: "error",
+      build: {
+        target: "esnext",
+        emptyOutDir: false,
+        outDir,
+        lib: {
+          entry: path.join(root, "experiments/media-host/encrypted-client.ts"),
+          formats: ["es"],
+          fileName: () => "media-proof.js",
+        },
+      },
+    });
+    const script = await readFile(path.join(outDir, "media-proof.js"));
+    await page.route("https://yepcontrol.com/media-proof/**", (route) =>
+      route.fulfill({
+        contentType: route.request().url().endsWith(".js")
+          ? "application/javascript"
+          : "text/html",
+        body: route.request().url().endsWith(".js")
+          ? script
+          : '<!doctype html><title>Encrypted media acceptance</title><script type="module" src="/media-proof/client.js"></script>',
+      }),
+    );
+    await page.goto("https://yepcontrol.com/media-proof/");
+    await page.waitForFunction(() => window.mediaProof);
+  } else {
+    await page.goto(`http://127.0.0.1:${port}/?token=${token}`);
+    await until(() => viewer);
+  }
   console.log("setup", "fixture connection");
   launch();
   await until(() => phone);
@@ -450,26 +503,28 @@ try {
         ),
       );
     }
-    const id = await start(sensor, sensor === "camera" ? { fps: 2 } : {});
-    const value = await sample(`${sensor}-only`, [id]);
-    assertMedia(
-      value,
-      sensor === "camera" ? id : 0,
-      sensor === "microphone" ? id : 0,
-    );
-    const services = shell("dumpsys", "activity", "services", pkg);
-    assert(
-      services.includes(
-        sensor === "camera" ? "CameraMediaService" : "MicrophoneMediaService",
-      ),
-    );
-    assert(
-      !services.includes(
-        sensor === "camera" ? "MicrophoneMediaService" : "CameraMediaService",
-      ),
-    );
-    await stop(id);
-    assertReleased();
+    if (!encrypted) {
+      const id = await start(sensor, sensor === "camera" ? { fps: 2 } : {});
+      const value = await sample(`${sensor}-only`, [id]);
+      assertMedia(
+        value,
+        sensor === "camera" ? id : 0,
+        sensor === "microphone" ? id : 0,
+      );
+      const services = shell("dumpsys", "activity", "services", pkg);
+      assert(
+        services.includes(
+          sensor === "camera" ? "CameraMediaService" : "MicrophoneMediaService",
+        ),
+      );
+      assert(
+        !services.includes(
+          sensor === "camera" ? "MicrophoneMediaService" : "CameraMediaService",
+        ),
+      );
+      await stop(id);
+      assertReleased();
+    }
   }
   // Enable the actual production accessibility service by ordinary Android UI.
   shell(
@@ -495,6 +550,226 @@ try {
   await until(async () => (await state()).bound);
   results.checks.push("actual-accessibility-binding");
   await (async () => {
+    if (encrypted) {
+      const invitation = await page.evaluate(() => window.mediaProof.invite());
+      invitationId = invitation.id;
+      canRemoveFixture = false;
+      shell(
+        "am",
+        "start",
+        "--user",
+        "0",
+        "-a",
+        "android.intent.action.VIEW",
+        "-n",
+        `${pkg}/dev.remoteaccess.app.MainActivity`,
+        "-d",
+        invitation.uri,
+      );
+      const accepting = page.evaluate(() => window.mediaProof.pair());
+      // Attach a rejection handler while native UI consent is in progress.
+      void accepting.catch(() => {});
+      let consented = false;
+      for (let i = 0; i < 6 && !consented; i++) {
+        consented = await click(
+          new RegExp(`resource-id="${pkg}:id/grant_device"`),
+        );
+        if (!consented)
+          shell("input", "swipe", "350", "1300", "350", "500", "400");
+      }
+      assert(consented, "Native pairing approval must use the actual UI");
+      await accepting;
+      pairedId = invitation.id;
+      await until(
+        async () =>
+          (await state()).pairings.some(
+            (pair) => pair.id === pairedId && pair.synced,
+          ),
+        30000,
+      );
+      results.checks.push("normal-signed-pairing-and-encrypted-native-host");
+      for (const direct of [false, true]) {
+        await command("connectPaired");
+        const connected = await page.evaluate(
+          (direct) => window.mediaProof.connect(direct),
+          direct,
+        );
+        assert.equal(connected.media?.v, 1);
+        shell("input", "keyevent", "KEYCODE_HOME");
+        const camera = await page.evaluate(() =>
+          window.mediaProof.start("camera", { format: "h264", fps: 15 }),
+        );
+        assert.equal(
+          camera.path,
+          direct ? "direct" : "relay",
+          "Must qualify the requested real lane",
+        );
+        const mic = await page.evaluate(() =>
+          window.mediaProof.start("microphone"),
+        );
+        assertMedia(
+          await sample(`encrypted-${camera.path}-h264-and-pcm`, [
+            camera.stream,
+            mic.stream,
+          ]),
+          camera.stream,
+          mic.stream,
+        );
+        const status = await page.evaluate(() =>
+          window.mediaProof.command({ op: "status" }),
+        );
+        assert.equal(status.state.media.camera.stream, camera.stream);
+        assert.equal(status.state.media.microphone.stream, mic.stream);
+        const captured = await page.evaluate(() =>
+          window.mediaProof.command({ op: "capture" }),
+        );
+        assert.equal(
+          captured.kind,
+          "image",
+          "Existing screen capture must work while sensors stream",
+        );
+        const stopAt = Date.now();
+        await page.evaluate((id) => window.mediaProof.stop(id), camera.stream);
+        results.checks.push({
+          check: `encrypted-${camera.path}-camera-stop`,
+          milliseconds: Date.now() - stopAt,
+        });
+        const audioOnly = await sample(
+          `encrypted-${camera.path}-camera-off-audio-continues`,
+          [camera.stream, mic.stream],
+          1500,
+        );
+        assert.equal(audioOnly.frames[camera.stream], 0);
+        assertMedia(audioOnly, 0, mic.stream);
+        for (let cycle = 0; cycle < 4; cycle++) {
+          const optionalCamera = await page.evaluate(() =>
+            window.mediaProof.start("camera", { format: "jpeg", fps: 2 }),
+          );
+          assertMedia(
+            await sample(
+              `encrypted-${camera.path}-before-feature-revocation`,
+              [optionalCamera.stream, mic.stream],
+              1500,
+            ),
+            optionalCamera.stream,
+            mic.stream,
+          );
+          await setting(true, false);
+          await until(async () =>
+            (await page.evaluate(() => window.mediaProof.status())).ends.some(
+              (end) =>
+                end.stream === optionalCamera.stream &&
+                end.reason === "disabled",
+            ),
+          );
+          const unaffected = await sample(
+            `encrypted-${camera.path}-feature-revocation-audio-continues`,
+            [optionalCamera.stream, mic.stream],
+            1500,
+          );
+          assert.equal(unaffected.frames[optionalCamera.stream], 0);
+          assertMedia(unaffected, 0, mic.stream);
+          await setting(true, true);
+          results.checks.push(
+            `encrypted-${camera.path}-feature-revocation-with-independent-audio-${cycle + 1}`,
+          );
+        }
+        await page.evaluate((id) => window.mediaProof.pause(id), mic.stream);
+        await until(async () =>
+          (await page.evaluate(() => window.mediaProof.status())).ends.some(
+            (end) => end.stream === mic.stream && end.reason === "interrupted",
+          ),
+        );
+        await delay(500);
+        assertReleased();
+        results.checks.push(
+          `encrypted-${camera.path}-blocked-consumer-stops-native-microphone`,
+        );
+        const canceled = await page.evaluate(() =>
+          window.mediaProof.cancelCamera(),
+        );
+        assert.equal(canceled.reason, "stopped");
+        assert(canceled.connected);
+        await delay(300);
+        assertReleased();
+        results.checks.push(
+          `encrypted-${camera.path}-accepted-start-cancellation`,
+        );
+
+        const restarted = await page.evaluate(() =>
+          window.mediaProof.start("camera", { format: "jpeg", fps: 2 }),
+        );
+        assertMedia(
+          await sample(`encrypted-${camera.path}-jpeg`, [restarted.stream]),
+          restarted.stream,
+          0,
+        );
+        if (direct) {
+          await page.evaluate(() => window.mediaProof.dropDirect());
+          await until(async () => {
+            const status = await page.evaluate(() =>
+              window.mediaProof.status(),
+            );
+            return (
+              status.path === "relay" &&
+              status.ends.some(
+                (end) =>
+                  end.stream === restarted.stream &&
+                  end.reason === "disconnected",
+              )
+            );
+          });
+          const recovered = await page.evaluate(() =>
+            window.mediaProof.command({ op: "status" }),
+          );
+          assert.equal(recovered.state.media.camera.phase, "off");
+          await delay(500);
+          assertReleased();
+          results.checks.push(
+            "real-direct-loss-relay-recovery-without-media-restart",
+          );
+          const revokeMic = await page.evaluate(() =>
+            window.mediaProof.start("microphone"),
+          );
+          assertMedia(
+            await sample(
+              "encrypted-before-client-access-pause",
+              [revokeMic.stream],
+              1500,
+            ),
+            0,
+            revokeMic.stream,
+          );
+          await command("clientAccess", { value: false });
+          await until(
+            async () =>
+              !(await page.evaluate(() => window.mediaProof.status()))
+                .connected,
+          );
+          await delay(700);
+          assertReleased();
+          await command("clientAccess", { value: true });
+          await delay(700);
+          assertReleased();
+          results.checks.push(
+            "real-client-access-pause-ends-media-and-does-not-restart-on-enable",
+          );
+        } else {
+          await page.evaluate(() => window.mediaProof.dropRelay());
+          await until(
+            async () =>
+              !(await page.evaluate(() => window.mediaProof.status()))
+                .connected,
+          );
+          await delay(1200);
+          assertReleased();
+          results.checks.push("real-relay-loss-releases-native-camera");
+        }
+        await page.evaluate(() => window.mediaProof.close());
+        await delay(800);
+      }
+      return;
+    }
     if (focus === "permission-loss") {
       const camera = await start("camera", { fps: 2 });
       const mic = await start("microphone");
@@ -649,6 +924,13 @@ try {
   results.completed = true;
 } catch (error) {
   results.failure = `${error.name}: ${error.message}`;
+  if (encrypted) {
+    results.failureClient = await page
+      ?.evaluate(() => window.mediaProof.status())
+      .catch(() => undefined);
+    results.failureNative = await state().catch(() => undefined);
+    results.failureServices = shell("dumpsys", "activity", "services", pkg);
+  }
   throw error;
 } finally {
   const errors = [];
@@ -659,6 +941,53 @@ try {
       errors.push(name);
     }
   };
+  if (encrypted && invitationId) {
+    await clean("reconcile owned pairing", async () => {
+      const response = await fetch(
+        `https://yepcontrol.com/api/pair/${invitationId}`,
+        { signal: AbortSignal.timeout(5000) },
+      );
+      if (response.status === 410 || response.status === 404) {
+        results.pairingRevoked = response.status === 410;
+        pairedId = undefined;
+        canRemoveFixture = true;
+        return;
+      }
+      assert(response.ok);
+      const remote = await response.json();
+      if (remote.state === "paired") pairedId = invitationId;
+      else {
+        assert(
+          ["created", "offered"].includes(remote.state),
+          "Unknown pairing outcome",
+        );
+        results.unpairedInvitationExpires = true;
+        canRemoveFixture = true; // No durable grant exists; the bounded invitation expires.
+      }
+    });
+  }
+  if (encrypted && pairedId && !results.pairingRevoked) {
+    await clean("close encrypted session", () =>
+      page?.evaluate(() => window.mediaProof.close()),
+    );
+    await clean("revoke owned pairing", async () => {
+      await until(
+        async () =>
+          (await state()).pairings.some((pair) => pair.id === pairedId),
+        15000,
+      );
+      await command("revokePairings");
+      await until(async () => {
+        const response = await fetch(
+          `https://yepcontrol.com/api/pair/${pairedId}`,
+          { signal: AbortSignal.timeout(5000) },
+        );
+        return response.status === 410;
+      }, 30000);
+      results.pairingRevoked = true;
+      canRemoveFixture = true;
+    });
+  }
   await clean("phone socket", () => phone?.close());
   await clean("test browser", () => browser?.close());
   for (const link of wss.clients) link.terminate();
@@ -673,7 +1002,12 @@ try {
     );
   if (installed) {
     await clean("stop fixture", () => device("stop", pkg));
-    await clean("remove fixture", () => adb("uninstall", pkg));
+    if (canRemoveFixture)
+      await clean("remove fixture", () => adb("uninstall", pkg));
+    else {
+      results.fixtureRetainedForRevocation = true;
+      results.pairingReconciliationId = invitationId;
+    }
   }
   if (reversed)
     await clean("remove tunnel", () =>
@@ -698,7 +1032,11 @@ try {
   await writeFile(
     path.join(
       stateDir,
-      focus === "full" ? "result.json" : `result-${focus}.json`,
+      encrypted
+        ? "result-encrypted.json"
+        : focus === "full"
+          ? "result.json"
+          : `result-${focus}.json`,
     ),
     `${JSON.stringify(results, null, 2)}\n`,
     { mode: 0o600 },

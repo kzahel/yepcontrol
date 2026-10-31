@@ -50,6 +50,10 @@ internal class DirectLink(
     private fun valid() = active.get() && current()
 
     private fun post(work: () -> Unit) {
+        enqueue(work)
+    }
+
+    private fun enqueue(work: () -> Unit): Boolean =
         runCatching {
             worker.execute {
                 if (active.get()) {
@@ -62,8 +66,7 @@ internal class DirectLink(
                     }
                 }
             }
-        }
-    }
+        }.isSuccess
 
     fun offer(
         sdp: String,
@@ -221,7 +224,15 @@ internal class DirectLink(
             try {
                 if (control == null) {
                     check(ControlCommand.decode(plaintext).op == 1)
-                    control = ControlSession(context, grant.getString("id"), ::valid, { bytes -> post { send(secure.seal(bytes)) } })
+                    control =
+                        ControlSession(
+                            context,
+                            grant.getString("id"),
+                            ::valid,
+                            { bytes -> send(secure.seal(bytes)) },
+                            scheduler = ::enqueue,
+                            onOutputFailure = ::close,
+                        )
                 }
                 checkNotNull(control).receive(plaintext)
             } finally {

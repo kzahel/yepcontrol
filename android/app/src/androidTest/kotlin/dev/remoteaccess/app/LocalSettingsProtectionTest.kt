@@ -182,7 +182,7 @@ class LocalSettingsProtectionTest {
         val vault = PinVault(context)
         assertFalse(vault.saved(), "The runner must start with cleared disposable app data")
         store.pair(JSONObject().put("id", id).put("origin", BuildConfig.SHARING_WEBSITE), "Security fixture")
-        owner = ControlSession(context, id, { true }, { replies.offer(it) })
+        owner = ControlSession(context, id, { true }, { replies.offer(it.copyOf()) })
         device.executeShellCommand(
             "settings put secure enabled_accessibility_services com.yepcontrol.app/dev.remoteaccess.app.control.ScreenAccessService",
         )
@@ -397,7 +397,7 @@ class LocalSettingsProtectionTest {
         store.unrestrictedRemoteControl(false)
         val vault = PinVault(context)
         store.pair(JSONObject().put("id", id).put("origin", BuildConfig.SHARING_WEBSITE), "Configuration fixture")
-        owner = ControlSession(context, id, { true }, { replies.offer(it) })
+        owner = ControlSession(context, id, { true }, { replies.offer(it.copyOf()) })
         device.executeShellCommand(
             "settings put secure enabled_accessibility_services com.yepcontrol.app/dev.remoteaccess.app.control.ScreenAccessService",
         )

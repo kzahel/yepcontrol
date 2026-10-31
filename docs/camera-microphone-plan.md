@@ -60,6 +60,35 @@ lock/debugging-setting changes remain excluded.
   the identical normal-host APK. Camera contention now maps synchronous platform
   busy errors to the existing busy reason. Independent Sol 6.1 High re-review approved Phase 2 with no remaining actionable findings.
 
+- **Phase 3 complete, 2026-10-31:** native bounded/prioritized
+  outbox and media command routing; the shared client has one reader/decryptor
+  and serialized writer per lane, explicit bounded subscriptions, capability
+  checks, cancellation and renewable leases. Stop/Renew can complete independently
+  of an ordinary screen reply. Direct setup settles before sensor start; later
+  route loss stops media and preserves ordinary relay recovery without replay.
+  Unit coverage includes interleaving/out-of-order replies, blocked consumers,
+  old hosts, cancellation, sequence rejection and nonce-writer serialization.
+  The noninstrumented Moto test paired through the real native approval UI and
+  production relay, then delivered real H.264/JPEG/PCM over forced relay and
+  negotiated direct transport. Both lanes decoded media alongside normal screen
+  capture; camera Stop confirmation measured 236/195 ms in the initial run.
+  Paused consumers stopped native audio, connection loss released resources,
+  and direct loss recovered screen control without restarting sensors. The test
+  pairing was revoked and package/tunnel removed with other accessibility services
+  preserved. Expanded checks cover camera feature revocation with continued audio,
+  accepted-start cancellation and per-client pause. A reproduced renewal/release
+  race now preserves the authoritative terminal reason; review also strengthened
+  overflow and saturated-priority cleanup to close uncertain owners. Regression
+  cases cover each ordering. Current checks: 205 TypeScript tests, workspace
+  typecheck/Biome, 41 JVM tests/lint/build, and 3 native UI + 5 media + 24 storage
+  checks passed. The final encrypted Moto run passed four feature-revocation/
+  restart cycles per transport (eight total), zero decode errors, independent audio,
+  and complete native/pairing/package/tunnel cleanup; camera Stop was 240 ms relay
+  and 197 ms direct. Independent Sol 6.1 High review approved the final 21-file
+  candidate after the three lifecycle corrections; no required Phase 3 validation
+  or actionable finding remains. Browser playback, CLI and release acceptance
+  remain in their later phases.
+
 ## Product behavior
 
 The Android app has two optional settings, initially off: **Allow remote camera**
@@ -181,7 +210,8 @@ opaque framing/flow limits require it; the relay never decodes media.
 Complete bounded direct-path selection before starting media, or cancel the
 pending upgrade, so the routine delayed upgrade cannot immediately terminate a
 new camera session. On later transport loss, release the old owner, establish
-fresh cryptographic scope and show media stopped. Do not replay an uncertain
+a fresh command owner and show media stopped. Fresh lanes use fresh handshake
+keys; a retained authenticated relay keeps its existing monotonic nonce counters. Do not replay an uncertain
 start or automatically resume capture.
 
 **Exit evidence:** actual host-to-client media over forced relay and direct
