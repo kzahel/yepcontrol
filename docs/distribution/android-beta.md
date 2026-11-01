@@ -700,5 +700,8 @@ The independent Sol 6.1 High final release-evidence review approves exactly this
 code-13 artifact for the authorized 100% production rollout across the existing
 178 regions, with no blocking findings or remaining required pre-promotion
 validation. All six phase reviews are complete. Code 12 must not be promoted.
-Public production remains 0.10.0/code 11; code-13 production submission, Google
-approval and public availability are separate pending gates.
+The accepted code-13 artifact is subsequently promoted to the full production
+rollout and its review request is accepted in Console. Quick checks finish and
+Console confirms that the changes are now in review. See the
+[production record](android-production.md). Google approval and public availability
+remain pending; 0.10.0/code 11 is the last confirmed public release.

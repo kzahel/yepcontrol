@@ -190,8 +190,12 @@ lock/debugging-setting changes remain excluded.
   restored off, sensors/projection are idle and the browser is closed. Public
   promotion is approved by the independent Sol 6.1 High final evidence review,
   completing all six required phase reviews with no remaining required
-  pre-promotion validation. Production submission, Google approval and actual
-  public availability are still separate, pending states.
+  pre-promotion validation. The accepted code-13 artifact is subsequently
+  submitted for the authorized full production rollout with the listing and
+  declaration updates. Quick checks finish and Console confirms that the
+  changes are now in review. Google approval and actual public availability
+  remain pending. See the
+  [production record](distribution/android-production.md).
 
 ## Product behavior
 
@@ -529,6 +533,8 @@ drains accepted work during service destruction. Its regression checks, full
 signed CI, internal delivery and in-place Play-installed physical acceptance now
 pass on code 13. The independent final promotion review approves this exact
 artifact for the authorized 100% production rollout across the existing regions.
+Console has accepted that production review request and completed quick checks;
+Google review is in progress. Approval and public availability remain separate.
 The prior public release is
 0.10.0/code 11. Fresh installs and upgrades from hosts without sensor settings
 default both features off. Later updates preserve explicit choices: code 12→13

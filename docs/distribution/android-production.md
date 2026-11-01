@@ -286,3 +286,48 @@ release notes. The production update is publicly available; delivery to each
 individual device can still take longer. No rollout changes were needed.
 Private Console snapshots and the public response remain in ignored
 `.local/unrestricted-proof/`.
+
+## Android 0.11.1 / code 13 — full rollout review requested, 2026-11-01
+
+The owner's autonomous camera/microphone release request authorizes production
+promotion after all six independent Sol 6.1 High phase reviews and internal
+Play-installed physical acceptance. The final reviewer approves exactly
+**0.11.1/code 13** from source `81b85fe7b20bc6d2c04c9dbf735e4482791ac391`, signed
+by [release run 41267812486](https://github.com/kzahel/yepcontrol/actions/runs/41267812486),
+with no blocking findings or remaining required pre-promotion validation. Its
+[signed/internal and physical acceptance record](android-beta.md) includes
+preserved pairing/settings, screenshot-service regression recovery, actual
+direct/relay camera/audio, securely locked capture, one guarded restoration,
+real CLI operations and cleanup. Internal code 12 failed physical acceptance
+and is excluded from production.
+
+The exact accepted internal artifact is promoted through Console, without a
+rebuild or another upload. Signed AAB SHA-256:
+`f16a3c11165d87ee0b11a0e11c5a48a33023283d217e1e3183c9d888c116921c`.
+The production preview contains only **13 (0.11.1)**, replaces public code 11,
+and specifies **100.0% / all existing targeted countries** (178 regions).
+No supported devices are lost. Only the same deobfuscation/native-symbol
+warnings remain. CI's publisher stays internal-only; no account permissions,
+review guard, signing identity or country selection are expanded.
+
+Console accepts the final **Send 2 changes for review** confirmation and shows
+**Changes in review**, **Production / 0.11.1 / Start full rollout**, and the
+English full-description update. Reviewer access instructions and the separate
+camera/microphone foreground-service declarations are included under **What
+you've told us**. Their demonstration remains the explicitly identified
+synthetic emulator/debug movie, separate from installed physical acceptance.
+
+Initially Console displays **Running quick checks for commonly found issues**,
+with forwarding to review conditional on their successful completion. A later
+fresh check confirms **Your changes are now in review** and no remaining quick
+check meter. Initial checks have completed; Google approval and public
+availability remain pending. Managed publishing remains **off**, allowing
+publication automatically after approval. Public 0.10.0/code 11 remains the last
+confirmed public release.
+
+The [website/relay 0.5.0 release](../relay-releases.md) is already live and remains
+compatible with released hosts. Optional sensors require their separate phone
+settings and Android permissions; both settings default off on first setup and
+upgrades from hosts without them, while later updates preserve explicit choices.
+Private Console submission and installed-build receipts remain ignored under
+`.local/media-access/implementation/phase-6/`.
