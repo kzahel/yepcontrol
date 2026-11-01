@@ -15,3 +15,11 @@ paths = ['''^android/app/google-services\.json$''']
 description = "Deterministic public crypto test vectors, with scalars 1–4; never application keys."
 targetRules = ["generic-api-key"]
 paths = ['''^protocol/vectors/session-v1\.json$''']
+
+[[allowlists]]
+description = "Java TLS adapter method parameter declaration contains no key bytes or credential."
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+regexes = ['''^\s*static void bind\(PrivateKey key, X509Certificate certificate\) throws Exception \{\s*$''']
+paths = ['''^android/app/src/main/java/dev/remoteaccess/app/advanced/AdbTls\.java$''']
