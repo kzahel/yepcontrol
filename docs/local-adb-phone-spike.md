@@ -7,7 +7,8 @@ to the [isolated emulator experiment](../experiments/local-adb/README.md).
 **Status: bounded physical investigation complete, with an unattended-recovery
 limitation.** Phone-local setup/self-grant, attested input, repaired reboot,
 outage recovery, helper expiry and the off-state reboot checks passed. The
-first reboot needed native network approval on this firmware. A later USB
+first reboot needed native network approval on this firmware, and the owner
+also reports approving wireless debugging during the second recovery. A USB
 transport interruption was resolved by the owner's cable replug; the remaining
 checks and cleanup then completed. Both temporary APKs and their pairing were
 removed. No production release or installed YepControl upgrade was performed.
@@ -65,7 +66,7 @@ including three automatic reboots (**27.93, 27.96, 27.74 seconds**), outage
 recovery, orphan expiry and the off-state check. Android build/lint and relative
 documentation-link checks passed.
 
-## Why the first reboot was not unattended
+## Why reboot recovery was not unattended
 
 Android left Wireless debugging off and displayed **Allow wireless debugging
 on this network?** despite the earlier remembered approval. The system log
@@ -104,11 +105,18 @@ isolated witness servers were stopped afterward.
 
 The owner unplugged and reconnected USB, restoring the original controller
 transport. The phone was already at Ready in the new boot generation, with
-its saved identity and grant intact. No approval action was issued by this
-harness during that boot, and the older adapter's same-boot receipt still
-reported disabled/no approval. The monitoring gap means this second boot
-cannot be counted as independently observed unattended recovery; whether a
-native prompt was also approved during the gap was not established.
+its saved identity and grant intact. The owner subsequently clarified that
+they had approved wireless debugging on the phone **before** replugging USB.
+This second recovery is therefore classified as **owner-assisted**, not
+unattended or attributable to the cable replug alone. No approval action was
+issued by this harness during that boot, and the older adapter's same-boot
+receipt still reported disabled/no approval.
+
+Both observed reboot recoveries involved on-phone approval: the first used
+the operator-equivalent UI harness, and the second used the owner's action.
+The second approval's timing and exact prompt were not independently captured
+during the monitoring gap. Neither recovery required a new pairing or settings
+grant, but unattended reboot recovery was not demonstrated on this Moto.
 
 The resumed physical checks passed:
 

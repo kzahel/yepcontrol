@@ -15,6 +15,8 @@ resolution race, and finds a firmware network-approval defect after reboot.
 After a USB transport interruption, the owner reconnected the phone and the
 remaining outage/off-state checks and cleanup passed. The bounded hardware
 investigation is complete; it must not be reported as unattended reboot acceptance.
+Both observed Moto reboot recoveries involved on-phone debugging approval,
+including an owner-reported approval before the USB reconnection.
 
 ## Measured result — 2026-11-01
 

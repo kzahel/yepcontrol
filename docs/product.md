@@ -190,6 +190,8 @@ on phone** state is therefore a concrete repair case, distinct from missing
 pairing or first secure unlock. After recovery from USB transport loss, the
 physical outage/off-state checks and cleanup passed. This completed bounded
 investigation does not establish unattended OEM availability.
+Both observed Moto reboot recoveries involved local debugging approval; the
+second was confirmed by the owner after the controller's observation gap.
 
 Source review on 2026-11-01 found a concrete client-only candidate:
 [`libadb-android` at `c849886ebc6d48e7b46d967e78a6bb65c90c3b74`](https://github.com/MuntashirAkon/libadb-android/tree/c849886ebc6d48e7b46d967e78a6bb65c90c3b74).
