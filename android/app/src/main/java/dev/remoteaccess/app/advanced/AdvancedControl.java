@@ -22,7 +22,7 @@ public final class AdvancedControl {
   }
 
   public static boolean ready() {
-    return Store.running && Store.ready;
+    return Store.enabled(null) && Store.ready;
   }
 
   public static boolean running() {
@@ -38,14 +38,16 @@ public final class AdvancedControl {
   }
 
   public static void stop(Context c) {
-    Store.ready = false;
+    Store.cancel();
     c.stopService(new Intent(c, AdvancedService.class));
   }
 
   public static void forget(Context c) throws Exception {
-    if (Store.running) throw new IllegalStateException("Stop advanced control first");
-    Vault.forget(c);
-    Store.prefs(c).edit().clear().apply();
+    synchronized (Store.class) {
+      if (Store.running) throw new IllegalStateException("Stop advanced control first");
+      Vault.forget(c);
+      Store.prefs(c).edit().clear().apply();
+    }
   }
 
   /** Called only after normal controller, scene, keyguard and settings policy checks. */

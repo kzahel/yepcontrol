@@ -16,23 +16,26 @@ public final class BootstrapProvider extends ContentProvider {
 
   @Override
   public Bundle call(String method, String argument, Bundle data) {
-    if (Binder.getCallingUid() != 2000
-        || !"attest".equals(method)
-        || data == null
-        || !Store.enabled(getContext())) throw new SecurityException("Shell bootstrap required");
-    Store.Capability capability = Store.capability;
-    if (capability == null) throw new SecurityException("No pending bootstrap");
-    String actual = data.getString("token", ""), expected = capability.token;
-    if (expected.isEmpty()
-        || !MessageDigest.isEqual(
-            actual.getBytes(StandardCharsets.UTF_8), expected.getBytes(StandardCharsets.UTF_8))
-        || data.getInt("port") != capability.port)
-      throw new SecurityException("Bootstrap mismatch");
-    capability.pid = Binder.getCallingPid();
-    capability.uid = Binder.getCallingUid();
-    Bundle reply = new Bundle();
-    reply.putBoolean("accepted", true);
-    return reply;
+    synchronized (Store.class) {
+      if (Binder.getCallingUid() != 2000
+          || !"attest".equals(method)
+          || data == null
+          || !Store.enabled(getContext())) throw new SecurityException("Shell bootstrap required");
+      Store.Capability capability = Store.capability;
+      if (capability == null || !Store.current(capability.epoch))
+        throw new SecurityException("No pending bootstrap");
+      String actual = data.getString("token", ""), expected = capability.token;
+      if (expected.isEmpty()
+          || !MessageDigest.isEqual(
+              actual.getBytes(StandardCharsets.UTF_8), expected.getBytes(StandardCharsets.UTF_8))
+          || data.getInt("port") != capability.port)
+        throw new SecurityException("Bootstrap mismatch");
+      capability.pid = Binder.getCallingPid();
+      capability.uid = Binder.getCallingUid();
+      Bundle reply = new Bundle();
+      reply.putBoolean("accepted", true);
+      return reply;
+    }
   }
 
   @Override

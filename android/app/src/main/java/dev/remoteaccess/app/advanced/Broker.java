@@ -9,7 +9,7 @@ import org.json.JSONObject;
 
 final class Broker {
   static JSONObject call(Context c, JSONObject request) throws Exception {
-    if (!Store.running) throw new IOException("Advanced control is off");
+    if (!Store.enabled(c)) throw new IOException("Advanced control is off");
     Store.Capability capability = Store.capability;
     if (capability == null) throw new IOException("No helper");
     return call(capability, request);
@@ -101,8 +101,7 @@ final class Broker {
     byte[] bytes = bootstrap.toString().getBytes(StandardCharsets.UTF_8);
     try {
       exchange(adb, "umask 077; head -c " + bytes.length + " > " + quote(path), bytes);
-      if (!Store.running || !Store.epoch.equals(epoch)) throw new IOException("Start cancelled");
-      Store.capability = new Store.Capability(port, key);
+      Store.install(port, key, epoch);
       String cmd =
           "CLASSPATH="
               + quote(c.getApplicationInfo().sourceDir)

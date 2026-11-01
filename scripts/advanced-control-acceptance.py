@@ -20,8 +20,6 @@ SERIAL = f"emulator-{PORT}"
 APP = "com.yepcontrol.app"
 os.umask(0o077)
 STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
-for stale in ["result.json", "setupOnPhone.txt", "pairingPrimitive.txt", "failure-ui.xml"]:
-    (STATE / stale).unlink(missing_ok=True)
 ENV = os.environ | {"ANDROID_AVD_HOME": str(STATE / "avd"), "ANDROID_EMULATOR_HOME": str(STATE / "emulator")}
 for key in ["ANDROID_AVD_HOME", "ANDROID_EMULATOR_HOME"]:
     Path(ENV[key]).mkdir(parents=True, exist_ok=True)
@@ -48,6 +46,11 @@ def test(method):
     value = adb("shell", "am", "instrument", "-w", "-r", "-e", "class", "dev.remoteaccess.app.advanced.AdvancedAcceptance#" + method, APP + ".test/androidx.test.runner.AndroidJUnitRunner", timeout=210)
     (STATE / (method + ".txt")).write_text(value)
     if "OK (1 test)" not in value:
+        # Only static failure metadata leaves the private evidence directory.
+        failure = re.search(r"^INSTRUMENTATION_(?:STATUS: stack|RESULT: shortMsg)=(.*)$", value, re.M)
+        if failure:
+            safe = re.sub(r"[A-Za-z0-9+/_=-]{32,}|\b[0-9]{6}\b", "<redacted>", failure.group(1)[:240])
+            print("Native failure: " + safe, flush=True)
         try: (STATE / "failure-ui.xml").write_text(adb("exec-out", "run-as", APP, "cat", "no_backup/advanced-test-ui.xml"))
         except Exception: pass
         raise RuntimeError("Native acceptance failed; inspect private " + method + " log")
@@ -56,6 +59,8 @@ assert f"{SERIAL}\t" not in subprocess.check_output([ADB, "devices"], text=True)
 for port in [PORT, PORT + 1]:
     with socket.socket() as port_probe:
         port_probe.bind(("127.0.0.1", port))
+for stale in ["result.json", "setupOnPhone.txt", "pairingPrimitive.txt", "failure-ui.xml", "staleStartCannotPublishReadiness.txt"]:
+    (STATE / stale).unlink(missing_ok=True)
 abi = "arm64-v8a" if platform.machine() == "arm64" else "x86_64"
 avd = "yep-advanced-acceptance"
 if not (Path(ENV["ANDROID_AVD_HOME"]) / f"{avd}.ini").exists():
@@ -79,10 +84,13 @@ with (STATE / "emulator.log").open("w") as log:
         adb("shell", "input", "keyevent", "KEYCODE_WAKEUP")
         adb("shell", "wm", "dismiss-keyguard")
         adb("shell", "settings", "put", "system", "screen_off_timeout", "1800000")
+        adb("shell", "svc", "wifi", "enable")
+        wait("Owned Wi-Fi fixture did not associate", lambda: "connected" in (v := adb("shell", "cmd", "wifi", "status").lower()) and "disconnected" not in v)
         for file in ["host.apk", "tests.apk"]: adb("install", "-t", str(STATE / file))
         test("pairingPrimitive")
+        test("staleStartCannotPublishReadiness")
         test("setupOnPhone")
-        result.update(pairingPrimitive=True, phoneOnlySetup=True, shellAttestation=True, protectedCounterInput=True, identityWrapped=True, stopPreservesPairing=True, helperEndpointClosed=True, multiContactExpiryCancelled=True, staleContinuationRejected=True)
+        result.update(staleStartRejected=True, pairingPrimitive=True, phoneOnlySetup=True, shellAttestation=True, protectedCounterInput=True, identityWrapped=True, stopPreservesPairing=True, helperEndpointClosed=True, multiContactExpiryCancelled=True, staleContinuationRejected=True)
         # Instrumentation stops its target. Clear that state before boot so this
         # check would catch an accidentally added boot receiver.
         adb("shell", "am", "start", "-W", "-n", APP + "/dev.remoteaccess.app.MainActivity")

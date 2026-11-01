@@ -21,7 +21,7 @@ final class Identity extends AbsAdbConnectionManager {
   private final PrivateKey key;
   private final Certificate cert;
 
-  Identity(Context context) throws Exception {
+  Identity(Context context, String epoch) throws Exception {
     setApi(android.os.Build.VERSION.SDK_INT);
     File file = new File(context.getNoBackupFilesDir(), "advanced-identity");
     JSONObject saved;
@@ -53,7 +53,10 @@ final class Identity extends AbsAdbConnectionManager {
           new JSONObject()
               .put("key", Base64.encodeToString(pair.getPrivate().getEncoded(), Base64.NO_WRAP))
               .put("certificate", Base64.encodeToString(der, Base64.NO_WRAP));
-      Vault.write(context, file, saved.toString().getBytes(StandardCharsets.UTF_8));
+      synchronized (Store.class) {
+        if (!Store.current(epoch)) throw new IOException("Start cancelled");
+        Vault.write(context, file, saved.toString().getBytes(StandardCharsets.UTF_8));
+      }
     }
     key =
         KeyFactory.getInstance("RSA")
@@ -68,7 +71,10 @@ final class Identity extends AbsAdbConnectionManager {
     for (byte b : MessageDigest.getInstance("SHA-256").digest(cert.getPublicKey().getEncoded()))
       hex.append(String.format(java.util.Locale.ROOT, "%02x", b & 255));
     String fingerprint = hex.toString();
-    Store.prefs(context).edit().putString("identity", fingerprint).apply();
+    synchronized (Store.class) {
+      if (!Store.current(epoch)) throw new IOException("Start cancelled");
+      Store.prefs(context).edit().putString("identity", fingerprint).apply();
+    }
   }
 
   private volatile io.github.muntashirakon.adb.BoundedPairingConnection pairing;

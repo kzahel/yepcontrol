@@ -50,7 +50,9 @@ public class AdvancedAcceptance {
       // Reliable for both a newly created and an already existing launcher activity.
       // Harness privilege is used only for UI launch, never pairing or permission grants.
       device.executeShellCommand(
-          "am start -W -f 0x14000000 -n " + context.getPackageName() + "/dev.remoteaccess.app.MainActivity");
+          "am start -W -f 0x14000000 -n "
+              + context.getPackageName()
+              + "/dev.remoteaccess.app.MainActivity");
     } else
       context.startActivity(new Intent(context, activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     device.waitForIdle();
@@ -270,17 +272,32 @@ public class AdvancedAcceptance {
         "Private identity must be wrapped",
         new String(identity, java.nio.charset.StandardCharsets.UTF_8).contains("certificate"));
     advancedPage();
-    assertFalse("Paired Start/Stop remains remotely accessible", dev.remoteaccess.app.control.LocalSettingsProtection.INSTANCE.getBlocked());
+    assertFalse(
+        "Paired Start/Stop remains remotely accessible",
+        dev.remoteaccess.app.control.LocalSettingsProtection.INSTANCE.getBlocked());
     for (int i = 0; i < 18; i++) {
       UiObject2 setup = device.findObject(By.res(context.getPackageName(), "advanced_setup"));
-      if (setup != null) { setup.click(); break; }
-      device.swipe(device.getDisplayWidth()/2, device.getDisplayHeight()*4/5, device.getDisplayWidth()/2, device.getDisplayHeight()/3, 20);
+      if (setup != null) {
+        setup.click();
+        break;
+      }
+      device.swipe(
+          device.getDisplayWidth() / 2,
+          device.getDisplayHeight() * 4 / 5,
+          device.getDisplayWidth() / 2,
+          device.getDisplayHeight() / 3,
+          20);
     }
-    await("Pairing configuration must remain protected", () -> dev.remoteaccess.app.control.LocalSettingsProtection.INSTANCE.getBlocked());
+    await(
+        "Pairing configuration must remain protected",
+        () -> dev.remoteaccess.app.control.LocalSettingsProtection.INSTANCE.getBlocked());
     device.pressBack();
-    await("Runtime controls remained protected", () -> !dev.remoteaccess.app.control.LocalSettingsProtection.INSTANCE.getBlocked());
+    await(
+        "Runtime controls remained protected",
+        () -> !dev.remoteaccess.app.control.LocalSettingsProtection.INSTANCE.getBlocked());
     Store.Capability stopped = Store.capability;
-    scrollTo("Stop advanced control"); click("Stop advanced control");
+    scrollTo("Stop advanced control");
+    click("Stop advanced control");
     await(
         "Stop did not revoke readiness",
         () -> !AdvancedControl.ready() && !AdvancedControl.running());
@@ -295,6 +312,45 @@ public class AdvancedAcceptance {
             return true;
           }
         });
+  }
+
+  @Test
+  public void staleStartCannotPublishReadiness() throws Exception {
+    Store.begin("first");
+    Store.Capability first = Store.install(32123, "test-only", "first");
+    first.uid = 2000;
+    first.pid = 1;
+    Store.markReady("first");
+    assertTrue(AdvancedControl.ready());
+    Store.cancel();
+    assertFalse(AdvancedControl.ready());
+    try {
+      Store.markReady("first");
+      fail("Cancelled start revived readiness");
+    } catch (java.io.IOException expected) {
+    }
+    Store.end("first");
+    Store.begin("replacement");
+    try {
+      Store.install(32124, "test-only", "first");
+      fail("Stale bootstrap replaced current capability");
+    } catch (java.io.IOException expected) {
+    }
+    Store.Capability replacement = Store.install(32125, "test-only", "replacement");
+    replacement.uid = 2000;
+    replacement.pid = 2;
+    try {
+      Store.markReady("first");
+      fail("Stale completion revived readiness");
+    } catch (java.io.IOException expected) {
+    }
+    assertFalse(AdvancedControl.ready());
+    assertNull(Store.end("first"));
+    assertTrue(Store.running);
+    Store.markReady("replacement");
+    assertTrue(AdvancedControl.ready());
+    assertSame(replacement, Store.end("replacement"));
+    assertFalse(AdvancedControl.ready());
   }
 
   @Test

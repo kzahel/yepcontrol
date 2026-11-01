@@ -87,3 +87,24 @@ debugging off. Its private baseline is retained before the in-place update.
 Real ordinary-channel Start/Allow, protected input through the product session,
 installed Play acceptance and production promotion are still release gates;
 the native fixture above does not establish those outcomes.
+
+
+### Start/Stop generation hardening
+
+Review found a late-start race: work completing after Stop or replacement could
+publish readiness into a new service lifetime. Bootstrap, readiness, pairing
+completion and identity writes are now guarded by the exact Start generation.
+Stop cancels that generation immediately; stale completion cannot install a
+capability, mark a replacement Ready or recreate a forgotten identity. Native
+status updates run on main with the same generation check. Unchanged status
+polls preserve the existing controls rather than rebuilding the page repeatedly.
+A deterministic native regression covers cancellation and replacement ordering;
+local Android 16 acceptance passes with this hardening.
+
+The first release CI attempt stops at the phone-only setup test before signing
+or Play upload. Its private UI evidence was deliberately not uploaded; the
+harness now emits a redacted failure reason so the CI-specific failure can be
+resolved. This run is not an accepted store candidate. The companion website
+release `relay-v0.5.2` deployed successfully from the initially checked source;
+its only runtime change is optional advanced readiness decoding and it remains
+compatible with older hosts. Android signing/installed acceptance remain pending.

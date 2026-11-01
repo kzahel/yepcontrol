@@ -112,7 +112,24 @@ class MainActivity : ComponentActivity() {
     private var listening = false
     private var activityLimit = 200
     private val handler = Handler(Looper.getMainLooper())
-    private val refresh = Runnable { if (listening && loaded) render() }
+    private var advancedRevision = ""
+
+    private fun advancedState() =
+        "${AdvancedControl.state()}|${AdvancedControl.paired(
+            this,
+        )}|${AdvancedControl.running()}|${AdvancedControl.ready()}|${WakeSupport.notificationsAllowed(this)}"
+
+    private val refresh =
+        object : Runnable {
+            override fun run() {
+                if (!listening || !loaded) return
+                if (page in setOf("advanced", "advanced-setup") && advancedRevision == advancedState()) {
+                    handler.postDelayed(this, 1500)
+                } else {
+                    render()
+                }
+            }
+        }
     private val protectionListener: () -> Unit = { if (listening && loaded) render() }
     private val listener: () -> Unit = {
         handler.removeCallbacks(refresh)
@@ -859,7 +876,7 @@ class MainActivity : ComponentActivity() {
                         .Builder(this)
                         .setTitle("Set up advanced control?")
                         .setMessage(
-                            "Developer options and Wireless debugging give this app additional control over this phone. Only set this up on a phone you own. YepControl stores its pairing key on this phone. After pairing, it grants itself permission to request Wireless debugging when you press Start. It never starts advanced control automatically after a restart. Android’s debugging and pairing settings remain under your control.",
+                            "Developer options and Wireless debugging give this app additional control over this phone. Enabled paired controllers can start and use advanced input. Only set this up on a phone you own. YepControl stores its pairing key on this phone. After pairing, it grants itself permission to request Wireless debugging when you press Start. It never starts advanced control automatically after a restart. Android’s debugging and pairing settings remain under your control.",
                         ).setNegativeButton("Cancel", null)
                         .setPositiveButton("Continue") { _, _ ->
                             AdvancedControl.start(this)
@@ -902,6 +919,7 @@ class MainActivity : ComponentActivity() {
             button(layout, "Setup and pairing", R.id.advanced_setup) { navigate("advanced-setup") }
         }
         handler.removeCallbacks(refresh)
+        advancedRevision = advancedState()
         handler.postDelayed(refresh, 1500)
     }
 

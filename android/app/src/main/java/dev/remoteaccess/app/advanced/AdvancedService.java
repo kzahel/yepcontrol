@@ -25,9 +25,7 @@ public final class AdvancedService extends Service {
   @Override
   public void onCreate() {
     super.onCreate();
-    Store.epoch = epoch;
-    Store.running = true;
-    Store.ready = false;
+    Store.begin(epoch);
     started = SystemClock.elapsedRealtime();
     getSystemService(NotificationManager.class)
         .createNotificationChannel(
@@ -76,9 +74,14 @@ public final class AdvancedService extends Service {
   }
 
   private void state(String value) {
-    if (closed) return;
-    Store.phase = value;
-    getSystemService(NotificationManager.class).notify(NOTICE, notification(value));
+    new Handler(Looper.getMainLooper())
+        .post(
+            () -> {
+              if (closed || !Store.current(epoch)) return;
+              if (value.equals(Store.phase)) return;
+          Store.phase = value;
+              getSystemService(NotificationManager.class).notify(NOTICE, notification(value));
+            });
   }
 
   private void tick() {
@@ -95,7 +98,7 @@ public final class AdvancedService extends Service {
           Broker.call(this, new JSONObject().put("op", "ping"));
           return;
         } catch (Exception e) {
-          Store.ready = false;
+          Store.unready(epoch);
           state("Connection ended · press Stop, then Start");
           stopSelf();
           return;
@@ -128,7 +131,7 @@ public final class AdvancedService extends Service {
         state("Approve Android’s Wireless debugging dialog if shown");
       }
       try (LocalDiscovery discovery = new LocalDiscovery(this, "_adb-tls-connect._tcp.");
-          Identity adb = new Identity(this)) {
+          Identity adb = new Identity(this, epoch)) {
         activeAdb = adb;
         state("Connecting · approve Android’s dialog if shown");
         adb.setTimeout(8, TimeUnit.SECONDS);
@@ -144,7 +147,7 @@ public final class AdvancedService extends Service {
         }
         Broker.start(this, adb, epoch);
         if (closed) return;
-        Store.ready = true;
+        Store.markReady(epoch);
         hadReady = true;
         state("Ready · advanced taps and swipes");
       }
@@ -165,14 +168,14 @@ public final class AdvancedService extends Service {
         worker.execute(
             () -> {
               try (LocalDiscovery discovery = new LocalDiscovery(this, "_adb-tls-pairing._tcp.");
-                  Identity adb = new Identity(this)) {
+                  Identity adb = new Identity(this, epoch)) {
                 activeAdb = adb;
                 state("Pairing on this phone");
                 adb.setTimeout(8, TimeUnit.SECONDS);
                 if (!adb.pair("127.0.0.1", discovery.await(20), code))
                   throw new SecurityException();
                 if (!closed) {
-                  Store.prefs(this).edit().putBoolean("paired", true).apply();
+                  Store.paired(this, epoch);
                   state("Paired · connecting");
                 }
               } catch (Exception e) {
@@ -198,8 +201,7 @@ public final class AdvancedService extends Service {
               },
               "advanced-cancel")
           .start();
-    Store.Capability capability = Store.capability;
-    Store.clear();
+    Store.Capability capability = Store.end(epoch);
     new Thread(
             () -> {
               if (capability != null)
@@ -210,7 +212,6 @@ public final class AdvancedService extends Service {
             },
             "advanced-stop")
         .start();
-    Store.phase = "Off";
     stopForeground(STOP_FOREGROUND_REMOVE);
     super.onDestroy();
   }
