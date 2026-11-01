@@ -1,6 +1,6 @@
 # Relevant sibling repositories
 
-Read-only review, 2026-10-18. Paths are relative to this checkout's expected
+Initial read-only review, 2026-10-18; dated additions appear below. Paths are relative to this checkout's expected
 parent (`~/code`); use them as navigation, not installed-product requirements.
 No sibling was modified for this research. Working trees may contain newer,
 uncommitted work; revision pins identify the committed baseline only.
@@ -12,6 +12,56 @@ uncommitted work; revision pins identify the committed baseline only.
 | [jstorrent](../../jstorrent/) | `fe4be51c` | Standalone native Android product, foreground/background lifecycle, remote access/pairing and hosted controller UX | Study concrete product/setup lessons, permissions and lifecycle; do not import the torrent engine |
 | [agent-auth-router](../../agent-auth-router/) | `263bbf2` | Inference authentication infrastructure and the failure mode that motivates manual repair | Context only; no inference service should be a runtime prerequisite |
 | [web-server-chrome](../../web-server-chrome/) | Unpinned orientation reference | Android bootstrap, simple user-facing server setup and private native bridging | Candidate for a focused later source review; no implementation acceptance claimed here |
+| [android-device-access-spike](../../android-device-access-spike/) | `e7c42ad` (2026-11-01 review) | Native outbound bridge to system `adbd`, listener discovery, optional bootstrap grant and documented Moto reboot recovery | Laboratory transport/controller, not a production YepControl integration; see the review below |
+
+## Android device access spike: ADB availability and recovery
+
+Cloned at the owner's request and source-reviewed **2026-11-01** at
+[`e7c42adb888b037ee6b64589e6a100f2e89d0ff3`](https://github.com/kzahel/android-device-access-spike/tree/e7c42adb888b037ee6b64589e6a100f2e89d0ff3).
+Its 30 transport/control/fixture-boundary tests passed locally with
+`uv run --script spike.py test`. The cloned working tree remains unchanged.
+No phone operation or new physical acceptance was performed for this review.
+
+The most relevant pieces for YepControl's
+[protected-screen input investigation](sensitive-screen-input.md) are:
+
+- [`WirelessAdb`](../../android-device-access-spike/android/app/src/main/java/fit/tom/deviceaccess/spike/WirelessAdb.java)
+  discovers the current `_adb-tls-connect._tcp` listener, verifies that its
+  advertised address belongs to the phone, and makes the bridge use loopback.
+  With explicit bootstrap opt-in and a provisioned `WRITE_SECURE_SETTINGS`
+  grant, it requests `adb_wifi_enabled` after Wi-Fi is available. This is a
+  shell-granted development permission, not an ordinary runtime consent.
+- [`TunnelService`](../../android-device-access-spike/android/app/src/main/java/fit/tom/deviceaccess/spike/TunnelService.java)
+  carries an existing system `adbd` socket over an authenticated outbound WSS
+  connection. It needs no Shizuku, PRoot or phone-local ADB server.
+- The [qualification record](../../android-device-access-spike/docs/architecture.md)
+  reports three USB-free, untouched reboots on a Moto G Power (2022), Android 12,
+  with screen lock disabled by its owner and explicitly enrolled access points.
+  Usable ADB returned in 126/131/129 seconds, followed by transfer, capture,
+  native tap and drag/drop acceptance. A separate credentialed-device run needed
+  one manual unlock. These are that repository's recorded physical results,
+  not a new reproduction or qualification of the Pixel/Android 17.
+
+This is a concrete candidate for the ADB availability/bootstrap layer. Its
+accessibility gesture path still uses the ordinary completion callback and
+does not provide a sensitive-view rejection detector. The stronger input route
+comes from ADB, not a new accessibility capability.
+
+The spike runs the ADB client on the controller, exposed through a local TCP
+connector. A YepControl browser-only implementation still needs an explicit
+choice of ADB client placement and key custody. A native phone-local ADB client
+could keep execution and keys on the phone while retaining YepControl's existing
+encrypted commands; that is a proposal, not code implemented by this spike.
+Putting ADB on a hosted gateway introduces a different trust boundary. Do not
+replace YepControl's paired, end-to-end encrypted protocol with the laboratory's
+shared role secrets or its relay-terminated accessibility channel.
+
+Modern Android startup, network-approval screens, first unlock, distribution
+and long-term availability still need their own qualification. In particular,
+the Android-12-specific enrolled-network approval routine is not evidence that
+the same accessibility routine can operate protected prompts on Android 16+.
+The reviewed snapshot contains no top-level LICENSE file; establish the exact
+reuse terms before copying components. This review adopted no code or APK.
 
 ## YepControl relationship
 

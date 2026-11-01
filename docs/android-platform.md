@@ -51,6 +51,13 @@ Play rejection and Play Protect blocking. A consumer remote-access app must
 not claim disability-tool status just to reach a login screen. This affects the
 auth-repair use case directly, rather than being a theoretical edge case.
 
+**Physically reproduced 2026-11-01:** Maps' account menu remains visible but
+rejects YepControl's browser gestures on Android 17. A read-only native probe
+confirms sensitive UI nodes; Android Back works, and a diagnostic ADB tap opens
+Settings, where browser input works again. See the
+[sensitive-screen investigation](sensitive-screen-input.md) for versions,
+evidence and the distinction between gesture completion and application effect.
+
 [Play's accessibility policy](https://support.google.com/googleplay/android-developer/answer/10964491?hl=en)
 does not categorically prohibit non-disability apps using the API. It requires
 declaration/review and prominent disclosure/consent for applicable apps, and

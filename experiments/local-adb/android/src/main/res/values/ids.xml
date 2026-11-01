@@ -1,0 +1,5 @@
+<resources>
+    <item type="id" name="start"/><item type="id" name="automatic"/><item type="id" name="stop"/>
+    <item type="id" name="settings"/><item type="id" name="comparison"/><item type="id" name="fixture"/>
+    <item type="id" name="status"/><item type="id" name="protected_tap"/>
+</resources>

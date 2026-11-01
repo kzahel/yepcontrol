@@ -148,6 +148,80 @@ to assess, not a selected requirement.
 These levels could be capabilities within one app rather than separate paid
 tiers. A technical privilege level must not be confused with a subscription.
 
+## Optional advanced control — owner direction, 2026-11-01
+
+YepControl's ordinary consumer setup remains useful with Developer options off.
+ADB-based control is optional, defaults off, and belongs on a separate advanced
+screen rather than the main setup/readiness checklist. The owner considers
+phone-local reactivation after reboot acceptable and prefers a tap on the phone
+over requiring a computer. This is product direction and exploratory UX work,
+not authorization to implement, change phone debugging settings or publish it.
+
+**Clarification, 2026-11-01:** target computer-free **initial advanced setup as
+well as subsequent activation**. An external computer running ADB must not be
+a required part of the intended advanced setup. Prefer a native embedded ADB
+client over a Linux/PRoot runtime. Phone-only setup is established by existing
+implementations; achieving the desired one-button reactivation after reboot
+still requires device qualification. The owner accepts a bounded spike to
+establish this path; that does not authorize new physical-phone debugging or
+lock-setting changes.
+
+**Proposed UI:** Settings → Advanced control. Before configuration, offer
+**Set up on this phone** with a guided explanation of Developer options and
+Wireless debugging. After configuration, show an explicit enable switch,
+current availability, **Start advanced control** when needed, and a way to
+forget the setup. Describe the benefit as controlling additional screens;
+avoid promising universal control or calling the ordinary experience incomplete.
+Advanced access must retain existing browser, input and unlock authority checks.
+
+Phone-only setup is a credible implementation target on Android 11+:
+[Shizuku documents computer-free wireless-debugging startup](https://shizuku.rikka.app/guide/setup/),
+including one-time pairing and startup again after reboot. Its exact procedure
+is evidence of feasibility, not an implemented YepControl flow. The
+[reviewed ADB spike](sibling-repositories.md#android-device-access-spike-adb-availability-and-recovery)
+currently uses computer provisioning and a controller-side ADB client; adapting
+it to phone-local pairing/client execution remains work.
+
+Source review on 2026-11-01 found a concrete client-only candidate:
+[`libadb-android` at `c849886ebc6d48e7b46d967e78a6bb65c90c3b74`](https://github.com/MuntashirAkon/libadb-android/tree/c849886ebc6d48e7b46d967e78a6bb65c90c3b74).
+Its connection manager defaults to loopback and provides pairing-code exchange,
+TLS connection/discovery and ADB service streams without a desktop ADB process
+or ADB command-line executable. Its top-level code is dual Apache-2.0/GPL-3.0;
+the README flags an LGPL dependency, and its cryptographic dependencies need
+exact-component review before adoption. It is now used only in the separately
+installed [phone-local experiment](../experiments/local-adb/README.md), not the
+released YepControl app. The reviewed
+[Shizuku pairing/client implementation](https://github.com/RikkaApps/Shizuku/tree/b844bc491f1790c72328e1a8e5b2349f8978f0ea/manager/src/main/java/moe/shizuku/manager/adb)
+is another source reference for this technique, not a required app dependency.
+
+The proposed experiment is: guide pairing entirely on the phone, store its ADB
+identity locally, connect to the same phone's system `adbd`, and start a narrow
+input helper through that authorized connection. Keep browser commands on
+YepControl's existing encrypted session. Measure packaged size, activation,
+reconnection and helper lifetime rather than bundling a full Linux environment.
+Once a phone-local authorized ADB connection exists, an explicitly opted-in
+bootstrap grant could be delivered through it; the grant itself does not
+inherently require a separate computer. This does not eliminate the initial
+Android-controlled Developer options, wireless-debugging and pairing steps.
+
+Keep the first local unlock after reboot, wireless-debugging enablement,
+remembered ADB authorization and a live control connection distinct. A retained
+pairing does not mean advanced control is running. Where Android requires a
+Settings interaction, link to the required repair and observe readiness afterward;
+do not promise one-tap reactivation on every phone. The spike's optional settings
+grant demonstrates a candidate automatic-recovery mechanism on its Android-12
+Moto fixture, but does not establish the same behavior on Android 17.
+[Android's current ADB guide](https://developer.android.com/tools/adb#wireless)
+also documents Android-17/ADB-37 improvements to reconnecting on trusted networks;
+whether these provide the desired phone-local reboot UX needs qualification.
+Sources reviewed 2026-11-01.
+
+If advanced access becomes unavailable, continue ordinary control when its
+own permissions permit it. Show an advanced-repair notice only to owners who
+opted into this feature, with states such as **Ready**, **Needs starting**, or
+**Wi-Fi required**. Wireless debugging introduces a phone-side Wi-Fi dependency;
+it must not turn that into a requirement for ordinary cellular remote access.
+
 ## Open product decisions
 
 1. Is the initial audience people repurposing spare phones, owners of remote
@@ -155,8 +229,9 @@ tiers. A technical privilege level must not be confused with a subscription.
    currently provides the clearest unattended-access motivation.
 2. Is basic still-frame control sufficient, or does smooth video materially
    change usefulness? Start with task completion measurements, not a codec.
-3. Does a computer-assisted preparation step fit the consumer promise? Can a
-   helper make it understandable, and what happens after the next reboot?
+3. How consistently can phone-local advanced setup meet the owner's no-computer
+   requirement across supported Android versions/OEMs, including recovery after
+   first unlock following a reboot?
 4. Can actual secure unlock work on the chosen OS/OEMs without keeping the
    device insecure? This is a feasibility gate, not just a UI checkbox.
 5. What is the smallest trustworthy pairing/account system? Account sign-in,
