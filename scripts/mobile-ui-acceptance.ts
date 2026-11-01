@@ -158,7 +158,7 @@ try {
       "-w",
       "-e",
       "class",
-      "dev.remoteaccess.app.MobileNavigationTest,dev.remoteaccess.app.LocalSettingsProtectionTest",
+      "dev.remoteaccess.app.MobileNavigationTest,dev.remoteaccess.app.LocalSettingsProtectionTest,dev.remoteaccess.app.ScreenshotWorkQueueTest",
       `${app}.test/androidx.test.runner.AndroidJUnitRunner`,
     );
     await writeFile(path.join(state, "native.log"), result, { mode: 0o600 });
@@ -175,8 +175,8 @@ try {
     }
     assert.match(
       result,
-      /OK \(3 tests\)/,
-      "Native navigation acceptance failed; see private log/screenshots",
+      /OK \(6 tests\)/,
+      "Native navigation/capture lifecycle acceptance failed; see private log/screenshots",
     );
   }
   const media = process.argv.includes("--media");

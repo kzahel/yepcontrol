@@ -581,3 +581,26 @@ remain intact. The listing, reviewer-access instructions and new declarations
 are saved for review. The demonstration is a sampled owned-emulator/debug UI
 movie, separate from Play-installed physical acceptance. Internal delivery alone
 does not establish production approval or public availability.
+
+### Physical acceptance rejected; forward fix required
+
+The paired Pixel receives code 12 through Google Play in place. Its installer,
+original Play signing certificate, first-install timestamp, boot and accessibility
+settings are verified. The original browser reconnects securely, both new settings
+are off, Start/Listen show setup guidance, and an ordinary browser Home action
+independently reaches Android's launcher. Camera consent alone enables only that
+feature; Android camera permission is granted, with no sensor capture started.
+
+While opening the separate microphone disclosure with browser screen viewing
+active, standalone UIAutomator temporarily unbinds accessibility. A late Android
+screenshot callback reaches the service after its compression executor has been
+terminated and throws `RejectedExecutionException` on the main thread. This is
+a product lifecycle failure triggered by the test tool, not a passing physical
+qualification. No camera or microphone stream had started. The original browser
+is closed, existing pairing/data remain intact, and no physical credential,
+reboot or lock/debugging change is involved.
+
+**Code 12 is excluded from public promotion.** The forward candidate is
+**0.11.1/code 13**, with screenshot-buffer ownership and worker-shutdown regression
+coverage. It must pass review, full signed CI and another in-place internal Play
+update before physical media acceptance and the final promotion review.

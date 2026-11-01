@@ -20,13 +20,12 @@ import dev.remoteaccess.protocol.SemanticGuard
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Android primitives only; all authority, sequencing and sockets stay in ControlSession. */
 class ScreenAccessService : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
-    private val compression = Executors.newSingleThreadExecutor()
+    private val compression = ScreenshotWorkQueue()
     private val capturing = AtomicBoolean(false)
 
     @Volatile private var scene = 1
@@ -104,7 +103,7 @@ class ScreenAccessService : AccessibilityService() {
             .forEach { it() }
         invalidate()
         VideoStream.close(this, reason = dev.remoteaccess.protocol.CaptureLifecycle.Reason.PERMISSION)
-        compression.shutdownNow()
+        compression.close()
         super.onDestroy()
     }
 
@@ -343,11 +342,27 @@ class ScreenAccessService : AccessibilityService() {
             object : TakeScreenshotCallback {
                 override fun onSuccess(screenshot: ScreenshotResult) {
                     val buffer = screenshot.hardwareBuffer
-                    compression.execute {
+                    compression.submit(buffer, rejected = {
+                        capturing.set(false)
+                        reply(2, byteArrayOf(8))
+                    }) {
                         var bitmap: Bitmap? = null
                         var scaled: Bitmap? = null
                         try {
-                            bitmap = Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)?.copy(Bitmap.Config.ARGB_8888, false)
+                            if (current !== this@ScreenAccessService) {
+                                main.post {
+                                    capturing.set(false)
+                                    reply(2, byteArrayOf(8))
+                                }
+                                return@submit
+                            }
+                            val hardware = checkNotNull(Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace))
+                            bitmap =
+                                try {
+                                    hardware.copy(Bitmap.Config.ARGB_8888, false)
+                                } finally {
+                                    hardware.recycle()
+                                }
                             val image = checkNotNull(bitmap)
                             val width = image.width
                             val height = image.height
@@ -398,7 +413,6 @@ class ScreenAccessService : AccessibilityService() {
                         } finally {
                             scaled?.let { if (it !== bitmap) it.recycle() }
                             bitmap?.recycle()
-                            buffer.close()
                         }
                     }
                 }

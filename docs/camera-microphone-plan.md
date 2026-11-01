@@ -492,9 +492,18 @@ development does not acquire additional approval steps.
 
 ## Release and rollback
 
-The candidate is Android **0.11.0/code 12**. The prior public release is
-0.10.0/code 11; camera and microphone remain off for both fresh installs and
-migrated pairings. Existing screen control and grants retain their formats.
+The current candidate is Android **0.11.1/code 13**. Internal 0.11.0/code 12
+failed Play-installed physical acceptance: accessibility unbinding raced a late
+screen-screenshot callback, which submitted to a terminated compression worker
+and crashed the app. That build is excluded from public promotion. The forward
+fix owns each delivered screenshot buffer through processing or rejection and
+drains accepted work during service destruction. Its regression checks, signed
+CI delivery and another in-place physical update are required before promotion.
+The prior public release is
+0.10.0/code 11. Fresh installs and upgrades from hosts without sensor settings
+default both features off. Later updates preserve explicit choices: code 12→13
+must retain a previously enabled camera or microphone. Existing screen control
+and grants retain their formats.
 The viewer can be deployed before Android: old hosts show update guidance and
 refuse sensor starts locally. Native optional hardware declarations preserve
 ordinary control on phones without a camera or microphone.
