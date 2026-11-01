@@ -59,6 +59,8 @@ public final class AdvancedService extends Service {
                 if (now - wifiSince < 5000) { state("waiting-for-wifi-ready", null); return; }
                 if (restoreAttempts >= 3) { state("start-wireless-debugging-on-phone", null); return; }
                 restoreAttempts++;
+                Store.prefs(this).edit().putInt("restoreRequests", Store.prefs(this).getInt("restoreRequests", 0) + 1)
+                    .putInt("restoreBoot", Store.boot(this)).commit();
                 Settings.Global.putInt(getContentResolver(), "adb_wifi_enabled", 1);
                 state("restoring-wireless-debugging", null);
             }

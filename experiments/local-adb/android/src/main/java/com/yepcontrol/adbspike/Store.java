@@ -22,6 +22,7 @@ final class Store {
                 .put("wirelessEnabled", Settings.Global.getInt(c.getContentResolver(), "adb_wifi_enabled", 0) == 1)
                 .put("helperPid", prefs(c).getInt("helperPid", 0)).put("helperUid", prefs(c).getInt("helperUid", -1))
                 .put("attestedUid", prefs(c).getInt("attestedUid", -1))
+                .put("restoreRequests", prefs(c).getInt("restoreRequests", 0)).put("restoreBoot", prefs(c).getInt("restoreBoot", -1))
                 .put("identity", prefs(c).getString("identity", "")).put("elapsedMs", android.os.SystemClock.elapsedRealtime());
             AtomicFile file = new AtomicFile(new File(c.getNoBackupFilesDir(), "status.json"));
             FileOutputStream out = file.startWrite();

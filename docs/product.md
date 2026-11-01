@@ -179,8 +179,16 @@ Phone-only setup is a credible implementation target on Android 11+:
 including one-time pairing and startup again after reboot. Its exact procedure
 is evidence of feasibility, not an implemented YepControl flow. The
 [reviewed ADB spike](sibling-repositories.md#android-device-access-spike-adb-availability-and-recovery)
-currently uses computer provisioning and a controller-side ADB client; adapting
-it to phone-local pairing/client execution remains work.
+uses computer provisioning and a controller-side ADB client. Phone-local
+execution is now demonstrated separately below; product integration remains work.
+
+The subsequent [physical native-client experiment](local-adb-phone-spike.md)
+demonstrated phone-local pairing and the optional self-grant on the Moto's
+Android-12 build. Its reboot still needs the native network approval because
+that firmware fails to reload remembered network trust. An **Approval required
+on phone** state is therefore a concrete repair case, distinct from missing
+pairing or first secure unlock. The physical check remains partial after later
+USB transport loss; it does not establish unattended OEM availability.
 
 Source review on 2026-11-01 found a concrete client-only candidate:
 [`libadb-android` at `c849886ebc6d48e7b46d967e78a6bb65c90c3b74`](https://github.com/MuntashirAkon/libadb-android/tree/c849886ebc6d48e7b46d967e78a6bb65c90c3b74).

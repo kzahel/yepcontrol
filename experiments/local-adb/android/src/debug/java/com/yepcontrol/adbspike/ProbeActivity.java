@@ -23,8 +23,8 @@ public final class ProbeActivity extends Activity {
                         JSONObject before = new JSONObject(new String(Files.readAllBytes(new File(getNoBackupFilesDir(), "fixture.json").toPath()), java.nio.charset.StandardCharsets.UTF_8));
                         if ("sensitivity-and-tap".equals(op)) {
                             JSONObject tree = Broker.call(this, new JSONObject().put("op", "sensitivity")).getJSONObject("tree");
-                            if (tree.getInt("sensitive") == 0) throw new IllegalStateException("No sensitive target");
-                            result.put("sensitivity", tree);
+                            if (Build.VERSION.SDK_INT >= 34 && tree.getInt("sensitive") == 0) throw new IllegalStateException("No sensitive target");
+                            result.put("sensitivity", tree).put("sensitiveProtectionSupported", Build.VERSION.SDK_INT >= 34);
                         }
                         JSONObject pong = Broker.call(this, new JSONObject().put("op", "tap").put("x", before.getInt("x")).put("y", before.getInt("y")));
                         Thread.sleep(500);

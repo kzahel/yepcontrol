@@ -49,7 +49,8 @@ public class SpikeAcceptance {
     }
     @Test public void setupAndProtectedInput() throws Exception {
         setup();
-        protectedInput();
+        if (Build.VERSION.SDK_INT >= 34) protectedInput();
+        else Store.receipt(context, "ordinary-input", new JSONObject().put("sensitiveProtectionSupported", false).put("comparison", "not-applicable-on-this-platform"));
     }
     void setup() throws Exception {
         Configurator.getInstance().setUiAutomationFlags(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
@@ -101,6 +102,10 @@ public class SpikeAcceptance {
         assertEquals("Enabling restoration must reuse the existing helper", firstHelper, receipt("status").getInt("helperPid"));
         assertTrue("Grant must be delivered by the paired phone-local connection", Store.prefs(context).getBoolean("selfGranted", false));
         assertEquals(2000, receipt("status").getInt("helperUid"));
+        if (Build.VERSION.SDK_INT < 34) {
+            Store.receipt(context, "setup", new JSONObject().put("phoneLocalPairing", true).put("phoneLocalGrant", true).put("comparisonServiceNeeded", false).put("appUidCannotAttest", true));
+            return;
+        }
         // Ordinary comparison service gets normal native accessibility consent.
         context.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         device.waitForIdle();
@@ -130,7 +135,27 @@ public class SpikeAcceptance {
         CompletableFuture<String> completion = new CompletableFuture<>();
         inst.runOnMainSync(() -> ComparisonService.instance.tap(x, y, completion::complete));
         assertEquals("completed", completion.get(10, TimeUnit.SECONDS)); Thread.sleep(500);
-        assertEquals("Ordinary accessibility tap unexpectedly reached protected target", count, receipt("fixture").getInt("count"));
-        Store.receipt(context, "ordinary-input", new JSONObject().put("gestureCallback", "completed").put("ordinaryTapDelivered", false).put("count", count));
+        int delivered = receipt("fixture").getInt("count");
+        // The sensitive-node flag predates the Android-16 touch filter. Do not
+        // infer blocked gestures from flag availability on Android 14/15 builds.
+        if (Build.VERSION.SDK_INT >= 36) assertEquals("Ordinary tap reached the protected fixture", count, delivered);
+        else assertTrue("Unexpected fixture counter", delivered == count || delivered == count + 1);
+        Store.receipt(context, "ordinary-input", new JSONObject().put("gestureCallback", "completed").put("ordinaryTapDelivered", delivered == count + 1)
+            .put("sensitiveProtectionSupported", Build.VERSION.SDK_INT >= 34).put("gestureFilteringExpected", Build.VERSION.SDK_INT >= 36).put("count", count));
+    }
+
+    @Test public void forgetOwnPhonePairing() throws Exception {
+        Configurator.getInstance().setUiAutomationFlags(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        device = UiDevice.getInstance(inst); device.wakeUp();
+        device.executeShellCommand("am start -W -a android.settings.APPLICATION_DEVELOPMENT_SETTINGS");
+        device.waitForIdle(); scrollTo("Wireless debugging"); click("Wireless debugging"); Thread.sleep(800);
+        UiObject2 toggle = device.wait(Until.findObject(By.res("com.android.settings", "switch_widget")), 3000);
+        if (toggle == null) toggle = device.findObject(By.clazz("android.widget.Switch"));
+        assertNotNull("Wireless debugging switch", toggle);
+        if (!toggle.isChecked()) toggle.click();
+        UiObject2 trust = device.wait(Until.findObject(By.textContains("Always allow on this network")), 3000);
+        if (trust != null) { trust.click(); click("Allow"); }
+        scrollTo("YepControl-local-spike"); click("YepControl-local-spike"); click("Forget");
+        Store.receipt(context, "forgot-pairing", new JSONObject().put("ownKeyForgotten", true));
     }
 }

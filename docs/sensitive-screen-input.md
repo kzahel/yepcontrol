@@ -236,3 +236,10 @@ detection for ordinary accessibility. The measured helper ART memory, inactive
 ADB-key expiry, dependency licensing and production key storage require follow-up;
 see the experiment's results and limits. The released host, browser and relay
 have not gained this provider.
+
+The [subsequent physical Moto check](local-adb-phone-spike.md) confirms phone-local
+pairing/self-grant and fixes a real Android-12 mDNS resolve race. That firmware
+requires a native network-approval repair after reboot because its trusted-network
+loader fails; a settings grant alone did not provide unattended recovery. This
+older OS does not qualify the original sensitive-view filter, and later USB
+transport loss left the physical outage checks and cleanup unfinished.

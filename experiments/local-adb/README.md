@@ -9,6 +9,12 @@ entirely on the phone, without a computer, root, PRoot, an ADB executable/server
 or a separate Shizuku installation. Android's system `adbd` remains necessary.
 Developer options and Wireless debugging remain explicit user setup steps.
 
+The [physical Moto follow-up](../../docs/local-adb-phone-spike.md) confirms
+phone-local setup/self-grant and helper input on Android 12, fixes a real mDNS
+resolution race, and finds a firmware network-approval defect after reboot.
+That hardware run is partial: later USB transport loss interrupted the remaining
+checks and cleanup. It must not be reported as unattended physical acceptance.
+
 ## Measured result — 2026-11-01
 
 **The complete default-debug acceptance run passed** on an owned Android-16 /
@@ -67,9 +73,10 @@ ignored `.local/local-adb-acceptance/` and `.local/local-adb-spike/size/`. The r
 reaped its owned emulator after acceptance. No product APK or release was changed.
 
 Current implementation limits include owner-user testing only, helper-side
-Android framework reflection for the shell context/input/UiAutomation, and no
-physical OEM or Play-installed qualification. The ordinary app does not request
-a hidden-API exemption. The helper runs with explicitly obtained shell authority.
+Android framework reflection for the shell context/input/UiAutomation, incomplete
+physical OEM qualification and no Play-installed qualification. The ordinary app
+does not request a hidden-API exemption. The helper runs with explicitly obtained
+shell authority.
 Its startup attestation follows Android's own
 [`content` command's external-provider route](https://android.googlesource.com/platform/frameworks/base/+/99b01a65cc4c104933788b3143285ab6bae65827/cmds/content/src/com/android/commands/content/Content.java),
 which supports a shell process without an ActivityManager-registered Application.
