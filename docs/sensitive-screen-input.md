@@ -241,5 +241,6 @@ The [subsequent physical Moto check](local-adb-phone-spike.md) confirms phone-lo
 pairing/self-grant and fixes a real Android-12 mDNS resolve race. That firmware
 requires a native network-approval repair after reboot because its trusted-network
 loader fails; a settings grant alone did not provide unattended recovery. This
-older OS does not qualify the original sensitive-view filter, and later USB
-transport loss left the physical outage checks and cleanup unfinished.
+older OS does not qualify the original sensitive-view filter. After a USB cable
+replug restored the test transport, the remaining physical outage/off-state
+checks and cleanup passed; unattended reboot acceptance remains unqualified.

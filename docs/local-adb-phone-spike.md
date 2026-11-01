@@ -4,12 +4,13 @@ Review/test date: 2026-11-01. Device: Moto G Power (2022), Android 12 / API 31,
 with no secure screen credential. The owner requested this physical follow-up
 to the [isolated emulator experiment](../experiments/local-adb/README.md).
 
-**Status: partial physical acceptance.** Phone-local pairing, the optional
-settings self-grant, attested helper input and one repaired reboot passed.
-Unattended reboot recovery failed on this firmware. The second reboot lost
-the controller's ADB transport; outage checks and device cleanup are pending
-reconnection. The temporary spike APKs and their new pairing remain installed.
-No production release or installed YepControl upgrade was performed.
+**Status: bounded physical investigation complete, with an unattended-recovery
+limitation.** Phone-local setup/self-grant, attested input, repaired reboot,
+outage recovery, helper expiry and the off-state reboot checks passed. The
+first reboot needed native network approval on this firmware. A later USB
+transport interruption was resolved by the owner's cable replug; the remaining
+checks and cleanup then completed. Both temporary APKs and their pairing were
+removed. No production release or installed YepControl upgrade was performed.
 
 ## What passed on the phone
 
@@ -91,7 +92,7 @@ spike's explicitly enrolled, exact-network accessibility handler is a separate
 qualified workaround on its fixture; importing or integrating that behavior
 is outside this physical check. No sibling code or private enrollment was copied.
 
-## Second reboot and pending cleanup
+## USB interruption, resumed checks and cleanup
 
 The next ordinary reboot timed out waiting for ADB. macOS I/O Registry still
 identified the selected Moto and its ADB USB interface, but the shared SDK
@@ -101,16 +102,35 @@ it. Other phone transports remained available. No shared ADB-server reset,
 lock change, key revocation or other-device operation was attempted. The
 isolated witness servers were stopped afterward.
 
-This does not establish that Android failed to boot or that the app caused
-the USB failure. Physical display/connection confirmation was requested.
-The remaining Wi-Fi/listener/lease tests, off-state reboot and cleanup cannot
-be marked passed from the available observations.
+The owner unplugged and reconnected USB, restoring the original controller
+transport. The phone was already at Ready in the new boot generation, with
+its saved identity and grant intact. No approval action was issued by this
+harness during that boot, and the older adapter's same-boot receipt still
+reported disabled/no approval. The monitoring gap means this second boot
+cannot be counted as independently observed unattended recovery; whether a
+native prompt was also approved during the gap was not established.
 
-On reconnection, finish those bounded checks, turn the experiment off, forget
-only `YepControl-local-spike` through Android's UI, uninstall its two APKs,
-restore the initial Wireless debugging switch, and compare the original ADB
-key set, installed packages and enabled accessibility services. Existing
-YepControl 0.9.0 and the two older access fixtures must be retained.
+The resumed physical checks passed:
+
+| Check | Independent result |
+| --- | --- |
+| Wi-Fi disabled | The same helper PID delivered input while the wireless ADB listener was unavailable. |
+| Wi-Fi and helper loss | A fresh helper recovered through the saved pairing. This app's listener-restoration request counter increased from six to seven. |
+| Listener and helper loss | Another fresh helper recovered after the listener was disabled, with this app's request counter increasing to eight. |
+| App force-stop | The orphan helper exited after **30.05 seconds**; explicit ordinary app launch restored control. This does not claim recovery while Android keeps the app force-stopped. |
+| Advanced off, then reboot | No advanced service returned, and the off readiness receipt was unchanged. This final reboot's USB observation completed normally. |
+| Cleanup | Android's UI forgot only `YepControl-local-spike`; both experimental APKs were uninstalled. The original package set, ADB key set and accessibility-service list matched preflight. |
+
+The initial Wireless debugging switch was restored to off; USB debugging,
+Developer options, screen timeout and the no-secure-credential lock state
+matched preflight. Installed YepControl **0.9.0** and both older access
+fixtures retained their versions. The final handheld doctor reported Ready.
+Owned temporary approval/helper-log files were removed as well.
+
+A resumed-boot debug snapshot measured **21,184 KiB app PSS** and **24,096 KiB
+helper PSS** on this phone. These are process snapshots, not an incremental
+production memory estimate or a battery/Doze qualification. The larger emulator
+measurements should not be treated as a fixed hardware footprint.
 
 Private selectors, controller scripts, raw logs, baselines and receipts remain
 under ignored `.local/local-adb-moto/`.
@@ -127,5 +147,6 @@ If unattended recovery on this firmware is required, separately qualify a
 strictly opted-in, exact-network approval handler using the existing
 accessibility service. Preserve first-unlock, unknown-network, grant, input
 switch and existing browser-authority boundaries. The new discovery fix does
-not replace that missing approval step, and physical qualification is not
-complete until the interrupted checks and cleanup are finished.
+not replace that missing approval step. The bounded physical follow-up and
+cleanup are now complete; reliable unattended recovery on this firmware,
+secure first unlock and long-idle/Doze behavior remain separate qualification.

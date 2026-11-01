@@ -12,8 +12,9 @@ Developer options and Wireless debugging remain explicit user setup steps.
 The [physical Moto follow-up](../../docs/local-adb-phone-spike.md) confirms
 phone-local setup/self-grant and helper input on Android 12, fixes a real mDNS
 resolution race, and finds a firmware network-approval defect after reboot.
-That hardware run is partial: later USB transport loss interrupted the remaining
-checks and cleanup. It must not be reported as unattended physical acceptance.
+After a USB transport interruption, the owner reconnected the phone and the
+remaining outage/off-state checks and cleanup passed. The bounded hardware
+investigation is complete; it must not be reported as unattended reboot acceptance.
 
 ## Measured result — 2026-11-01
 
@@ -74,7 +75,7 @@ reaped its owned emulator after acceptance. No product APK or release was change
 
 Current implementation limits include owner-user testing only, helper-side
 Android framework reflection for the shell context/input/UiAutomation, incomplete
-physical OEM qualification and no Play-installed qualification. The ordinary app
+broader physical OEM qualification and no Play-installed qualification. The ordinary app
 does not request a hidden-API exemption. The helper runs with explicitly obtained
 shell authority.
 Its startup attestation follows Android's own
