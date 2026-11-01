@@ -18,6 +18,15 @@ import {
 } from "../protocol/src/enrollment.js";
 import { b64, createIdentity } from "../protocol/src/index.js";
 
+async function disconnect(page: Page) {
+  const button = page.getByRole("button", { name: "Disconnect", exact: true });
+  if (!(await button.isVisible()))
+    await page
+      .getByRole("button", { name: "More controls", exact: true })
+      .click();
+  await button.click();
+}
+
 const root = fileURLToPath(new URL("../", import.meta.url));
 const artifacts = path.join(root, ".local/viewer-phones-proof");
 await mkdir(artifacts, { recursive: true, mode: 0o700 });
@@ -208,7 +217,7 @@ try {
     home.getByRole("link", { name: "Pixel 9", exact: true }),
   ).toBeVisible();
   await expect(home.locator("time")).toHaveCount(1);
-  await a.getByRole("button", { name: "Disconnect", exact: true }).click();
+  await disconnect(a);
   // Opening a phone checks once, refreshes contact history only on success,
   // and keeps preview/live/disconnected frame geometry identical.
   const beforeFailure = (await records(a))[0]?.lastContactAt;
@@ -238,6 +247,19 @@ try {
     { checks: 1, controls: 0 },
   );
   async function frame(page: Page) {
+    await expect
+      .poll(() =>
+        page
+          .locator(".viewer-workspace")
+          .evaluate((e) =>
+            Math.abs(
+              Number.parseFloat(
+                (e as HTMLElement).style.getPropertyValue("--workspace-height"),
+              ) - e.getBoundingClientRect().height,
+            ),
+          ),
+      )
+      .toBeLessThan(1);
     return page
       .locator(".screen-stage, .control-dock")
       .evaluateAll((elements) =>
@@ -276,12 +298,12 @@ try {
     await expect(
       a.getByRole("region", { name: "Remote screen" }),
     ).toBeVisible();
-    assert.deepEqual(await frame(a), previewFrame);
-    await a.getByRole("button", { name: "Disconnect", exact: true }).click();
+    await expect.poll(() => frame(a)).toEqual(previewFrame);
+    await disconnect(a);
     await expect(
       a.getByRole("region", { name: "Phone preview" }),
     ).toBeVisible();
-    assert.deepEqual(await frame(a), previewFrame);
+    await expect.poll(() => frame(a)).toEqual(previewFrame);
   }
   await a.setViewportSize({ width: 1280, height: 1000 });
   // The centered card, not just its outer screen frame, must remain fixed as
@@ -694,7 +716,7 @@ try {
     await competing.evaluate(() => window.phonesFixture.calls),
     [],
   );
-  await a.getByRole("button", { name: "Disconnect", exact: true }).click();
+  await disconnect(a);
   await home.bringToFront();
   await expect(
     home.getByRole("link", { name: "Switch to RV phone", exact: true }),
@@ -708,9 +730,7 @@ try {
   await expect(
     competing.getByRole("region", { name: "Remote screen" }),
   ).toBeVisible();
-  await competing
-    .getByRole("button", { name: "Disconnect", exact: true })
-    .click();
+  await disconnect(competing);
   console.log(
     "Two phones connected independently; same-phone contention sent no extra request",
   );
@@ -731,7 +751,7 @@ try {
     .getByRole("button", { name: "Connect to phone", exact: true })
     .click();
   await expect(a.getByRole("region", { name: "Remote screen" })).toBeVisible();
-  await a.getByRole("button", { name: "Disconnect", exact: true }).click();
+  await disconnect(a);
   await a.reload();
   await expect
     .poll(() => a.evaluate(() => window.phonesFixture?.checks ?? 0))
@@ -926,7 +946,7 @@ try {
     other.getByRole("region", { name: "Remote screen" }),
   ).toBeVisible();
   assert.equal(await other.evaluate(() => window.phonesFixture.reused), 0);
-  await other.getByRole("button", { name: "Disconnect", exact: true }).click();
+  await disconnect(other);
   await other.evaluate(() =>
     sessionStorage.removeItem("fixture-preparation-ms"),
   );
@@ -940,7 +960,7 @@ try {
     other.getByRole("region", { name: "Remote screen" }),
   ).toBeVisible();
   assert.equal(await other.evaluate(() => window.phonesFixture.reused), 1);
-  await other.getByRole("button", { name: "Disconnect", exact: true }).click();
+  await disconnect(other);
   // Existing public 0.7.0 reports have no preparation extension. Loading the
   // page must not wake them merely to throw away a check before Connect.
   await other.evaluate(async (id) => {

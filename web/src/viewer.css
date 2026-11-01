@@ -365,19 +365,19 @@ input[type="checkbox"] {
   max-height: 100%;
   min-width: 0;
   min-height: 0;
-  width: auto;
+  width: min(100cqw, calc(100cqh * var(--screen-aspect)));
   height: auto;
+  aspect-ratio: var(--screen-aspect);
   object-fit: contain;
   background: #111;
 }
 .viewer-workspace {
   --dock-width: 54px;
   --workspace-gap: 12px;
-  --stage-height: calc(100dvh - 192px);
   width: min(
     100%,
     calc(
-      max(300px, var(--stage-height) * var(--screen-aspect) + 2px) +
+      max(300px, var(--workspace-height, 100dvh) * var(--screen-aspect) + 2px) +
       var(--dock-width) +
       var(--workspace-gap)
     )
@@ -396,6 +396,7 @@ input[type="checkbox"] {
   place-items: center;
   flex: 1;
   height: 100%;
+  container-type: size;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -409,8 +410,9 @@ input[type="checkbox"] {
   max-height: 100%;
   min-width: 0;
   min-height: 0;
-  width: auto;
+  width: min(100cqw, calc(100cqh * var(--screen-aspect)));
   height: auto;
+  aspect-ratio: var(--screen-aspect);
   background: #111;
   touch-action: none;
 }
@@ -846,7 +848,6 @@ a {
   }
   .viewer-workspace {
     --workspace-gap: 8px;
-    --stage-height: calc(100dvh - 176px);
   }
   .screen-overlay {
     padding: 8px;
@@ -994,7 +995,7 @@ a {
   min-width: 44px;
   max-width: 64px;
 }
-.remote-viewer[data-fullscreen] .auxiliary-controls:not([hidden]) {
+.remote-viewer:where([data-fullscreen]) .auxiliary-controls {
   position: absolute;
   right: 8px;
   bottom: calc(100% + 8px);
@@ -1021,6 +1022,68 @@ a {
   height: auto;
   clip-path: none;
   white-space: normal;
+}
+
+@media (max-width: 899px) and (orientation: portrait) {
+  .remote-viewer .viewer-workspace {
+    width: 100%;
+    flex: 1;
+    flex-direction: column;
+    gap: 0;
+    height: auto;
+  }
+  .remote-viewer .screen-stage {
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+  .remote-viewer .control-dock {
+    position: relative;
+    flex-direction: row;
+    justify-content: center;
+    align-items: stretch;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    border-radius: 0;
+    border-width: 1px 0 0;
+    gap: 4px;
+  }
+  .remote-viewer .phone-nav {
+    flex-direction: row;
+  }
+  .remote-viewer .control-dock button {
+    min-width: 44px;
+    max-width: 64px;
+  }
+  .remote-viewer .auxiliary-controls {
+    position: absolute;
+    right: 8px;
+    bottom: calc(100% + 8px);
+    max-height: calc(100dvh - 140px);
+    overflow: auto;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: 0 4px 24px #0003;
+  }
+  .remote-viewer .auxiliary-controls button {
+    justify-content: flex-start;
+    flex-direction: row;
+    gap: 8px;
+    width: 100%;
+    max-width: none;
+    min-height: 44px;
+    font-size: 0.8125rem;
+  }
+  .remote-viewer .auxiliary-controls .control-label {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    white-space: normal;
+  }
 }
 
 .smooth-switch {
@@ -1070,4 +1133,38 @@ a {
 }
 .pairing-link {
   width: 100%;
+}
+
+.control-dock .more-controls {
+  display: none;
+}
+.remote-viewer[data-fullscreen] .more-controls {
+  display: flex;
+}
+.remote-viewer:where([data-fullscreen])
+  :where(.auxiliary-controls):not([data-expanded]) {
+  display: none;
+}
+@media (max-width: 899px) and (orientation: portrait) {
+  .control-dock .more-controls {
+    display: flex;
+  }
+  .auxiliary-controls:not([data-expanded]) {
+    display: none;
+  }
+}
+.remote-viewer[data-fullscreen]:not([data-controls-expanded]):not(
+    [data-media-active]
+  )
+  > .media-toolbar {
+  display: none;
+}
+/* Keep healthy connection status available to assistive technology without a row. */
+.remote-viewer[data-fullscreen]:not([data-attention]) > .viewer-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
 }

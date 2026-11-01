@@ -1,4 +1,10 @@
-import type { CSSProperties, ReactNode } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useClientSettings } from "./client-settings.js";
 
 export const defaultScreenAspect = 1080 / 2400;
@@ -14,11 +20,29 @@ export function ViewerWorkspace({
   aspect?: number;
 }) {
   const { controlLabels } = useClientSettings();
+  const element = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number>();
+  useEffect(() => {
+    const target = element.current;
+    if (!target) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setHeight(entry.contentRect.height);
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
   return (
     <div
+      ref={element}
       className="viewer-workspace"
       data-labels={controlLabels || undefined}
-      style={{ "--screen-aspect": aspect } as CSSProperties}
+      style={
+        {
+          "--screen-aspect": aspect,
+          "--workspace-height":
+            height === undefined ? undefined : `${height}px`,
+        } as CSSProperties
+      }
     >
       <div className="screen-stage">{children}</div>
       {controls}

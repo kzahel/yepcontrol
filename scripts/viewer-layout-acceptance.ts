@@ -56,12 +56,12 @@ async function geometry(page: Page) {
 }
 type Geometry = Awaited<ReturnType<typeof geometry>>;
 async function stable(page: Page, baseline: Geometry) {
-  const current = await geometry(page);
-  assert.deepEqual(
-    current,
-    baseline,
-    "Viewer geometry and page scroll must remain unchanged",
-  );
+  await expect
+    .poll(() => geometry(page), {
+      message:
+        "Viewer geometry and page scroll settle back to their original bounds",
+    })
+    .toEqual(baseline);
   assert.equal(
     await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth,
@@ -103,13 +103,17 @@ try {
       "Test phone",
     );
     await expect(page.getByRole("status")).toHaveCount(1);
-    const baseline = await geometry(page);
+    let baseline = await geometry(page);
     assert.equal(baseline.scroll.y, 0);
     const stage = baseline.boxes[2];
     const rail = baseline.boxes[3];
     assert.ok(
-      stage && rail && rail.x >= stage.x + stage.width,
-      "Controls sit to the right of the screen",
+      stage &&
+        rail &&
+        (width < 900 && height > width
+          ? rail.y >= stage.y + stage.height - 1
+          : rail.x >= stage.x + stage.width - 1),
+      "Portrait mobile controls sit below; wide controls sit beside the screen",
     );
     assert.ok(stage.y + stage.height <= height, "Screen fits the viewport");
     if (width >= 900) {
@@ -244,7 +248,8 @@ try {
         "yes",
       );
       await expect(page.getByRole("status")).toHaveCount(1);
-      await expect(page.getByRole("status")).toBeVisible();
+      await expect(page.getByRole("status")).toHaveText("Connected securely");
+      await expect(page.locator(".media-toolbar")).toBeHidden();
       const screen = await page.locator(".screen-stage").boundingBox();
       const dock = await page.locator(".control-dock").boundingBox();
       const image = await page.locator("canvas").boundingBox();
@@ -289,9 +294,9 @@ try {
           .getByRole("button", { name: "Close typing controls", exact: true })
           .click();
       }
-      await page
-        .getByRole("button", { name: "More controls", exact: true })
-        .click();
+      await expect(
+        page.getByRole("button", { name: "More controls", exact: true }),
+      ).toHaveAttribute("aria-expanded", "false");
       await page.screenshot({
         path: path.join(artifacts, `${name}-fullscreen-${mode}.png`),
       });
@@ -349,6 +354,10 @@ try {
             Reflect.deleteProperty(element, "requestFullscreen"),
           );
     }
+    if (width < 900 && height > width)
+      await page
+        .getByRole("button", { name: "More controls", exact: true })
+        .click();
     for (const button of ["Back", "Home", "Recents", "Wake screen"]) {
       await page.getByRole("button", { name: button, exact: true }).click();
       await stable(page, baseline);
@@ -406,7 +415,8 @@ try {
         page.locator("canvas").evaluate((c) => (c as HTMLCanvasElement).width),
       )
       .toBe(2400);
-    await stable(page, baseline); // Rotation changes only the contained image.
+    // Remote rotation updates the image and workspace instead of preserving a phone ratio.
+    baseline = await geometry(page);
     const canvas = await page.locator("canvas").boundingBox();
     assert.ok(canvas);
     assert.ok(
@@ -419,6 +429,10 @@ try {
     for (const [open, close] of [
       ["Type or open an app", "Close typing controls"],
     ] as const) {
+      if (width < 900 && height > width)
+        await page
+          .getByRole("button", { name: "More controls", exact: true })
+          .click();
       await page.getByRole("button", { name: open, exact: true }).click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await stable(page, baseline);
@@ -583,6 +597,225 @@ try {
     );
     await context.close();
   }
+  // Maximal fit across tablet/phone shapes, host rotation and local rotation.
+  // The canvas itself must be the image rectangle: touch mapping has no letterbox offsets.
+  for (const initialSize of [
+    { width: 1600, height: 1200 },
+    { width: 1200, height: 1600 },
+  ]) {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+    });
+    const page = await context.newPage();
+    activePage = page;
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(
+      `http://127.0.0.1:${address.port}/layout-proof?locked=false&savedPin=false&width=${initialSize.width}&height=${initialSize.height}`,
+    );
+    await page
+      .locator(".phone-screen")
+      .evaluate((c) => c.setAttribute("data-rotation-original", "yes"));
+    let scene = 2;
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 844, height: 390 },
+      { width: 390, height: 640 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const remote of [
+        initialSize,
+        { width: 1080, height: 2400 },
+        { width: 1200, height: 1600 },
+        { width: 1600, height: 1200 },
+      ]) {
+        await page.evaluate((patch) => window.layoutFixture.patch(patch), {
+          ...remote,
+          scene: scene++,
+        });
+        await expect
+          .poll(() =>
+            page
+              .locator(".phone-screen")
+              .evaluate((c) => [
+                c.getAttribute("width"),
+                c.getAttribute("height"),
+              ]),
+          )
+          .toEqual([String(remote.width), String(remote.height)]);
+        for (const fullscreen of [false, true]) {
+          if (fullscreen) {
+            await page
+              .getByRole("button", { name: "Fullscreen", exact: true })
+              .click();
+            await expect(page.locator(".remote-viewer")).toHaveAttribute(
+              "data-fullscreen",
+              "true",
+            );
+          }
+          await expect
+            .poll(
+              async () => {
+                const image = await page.locator(".phone-screen").boundingBox();
+                const stage = await page
+                  .locator(".screen-stage")
+                  .evaluate((e) => ({
+                    width: e.clientWidth,
+                    height: e.clientHeight,
+                  }));
+                if (!image) return Infinity;
+                const expectedWidth = Math.min(
+                  stage.width,
+                  (stage.height * remote.width) / remote.height,
+                );
+                return Math.max(
+                  Math.abs(image.width - expectedWidth),
+                  Math.abs(
+                    image.height -
+                      (expectedWidth * remote.height) / remote.width,
+                  ),
+                );
+              },
+              {
+                message:
+                  "Image uses the largest available rectangle while preserving its aspect",
+              },
+            )
+            .toBeLessThan(1.5);
+          const image = await page.locator(".phone-screen").boundingBox();
+          const stage = await page.locator(".screen-stage").boundingBox();
+          const dock = await page.locator(".control-dock").boundingBox();
+          assert.ok(image && stage && dock);
+          assert.ok(image.x >= stage.x - 1 && image.y >= stage.y - 1);
+          assert.ok(image.x + image.width <= stage.x + stage.width + 1);
+          assert.ok(image.y + image.height <= stage.y + stage.height + 1);
+          if (fullscreen || viewport.height > viewport.width) {
+            assert.ok(
+              Math.abs(
+                stage.width -
+                  (fullscreen ? viewport.width : viewport.width - 16),
+              ) < 1,
+            );
+            assert.ok(dock.y >= stage.y + stage.height - 1);
+          }
+          await page.evaluate(() => {
+            window.layoutFixture.touches.length = 0;
+          });
+          await page.mouse.click(
+            image.x + image.width * 0.9,
+            image.y + image.height * 0.9,
+          );
+          await expect
+            .poll(() =>
+              page.evaluate(() => window.layoutFixture.touches.length),
+            )
+            .toBeGreaterThan(0);
+          const point = await page.evaluate(
+            () => window.layoutFixture.touches[0]?.contacts[0]?.path[0],
+          );
+          assert.ok(
+            point &&
+              Math.abs(point.x - remote.width * 0.9) < 2 &&
+              Math.abs(point.y - remote.height * 0.9) < 2,
+            "Touch maps to the actual remote pixels after rotation",
+          );
+          await expect(page.locator(".phone-screen")).toHaveAttribute(
+            "data-rotation-original",
+            "yes",
+          );
+          assert.equal(
+            await page.evaluate(
+              () => document.documentElement.scrollWidth > innerWidth,
+            ),
+            false,
+          );
+          if (remote.width === 1200 && viewport.height > viewport.width) {
+            await page.screenshot({
+              path: path.join(
+                artifacts,
+                `tablet-${initialSize.width}-${viewport.height}-${fullscreen ? "fullscreen" : "normal"}.png`,
+              ),
+            });
+          }
+          if (fullscreen) {
+            await page
+              .getByRole("button", { name: "Exit fullscreen", exact: true })
+              .click();
+            await expect(page.locator(".remote-viewer")).not.toHaveAttribute(
+              "data-fullscreen",
+            );
+          }
+        }
+      }
+    }
+    // A local rotation finishes held input without replacing the canvas/session.
+    const image = await page.locator(".phone-screen").boundingBox();
+    assert.ok(image);
+    await page.evaluate(() => {
+      window.layoutFixture.trace.length = 0;
+    });
+    await page.mouse.move(
+      image.x + image.width / 2,
+      image.y + image.height / 2,
+    );
+    await page.mouse.down();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.layoutFixture.trace.some((line) => line.startsWith("touch:")),
+        ),
+      )
+      .toBe(true);
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.layoutFixture.trace.some((line) =>
+            line.startsWith("release:"),
+          ),
+        ),
+      )
+      .toBe(true);
+    await page.mouse.up();
+    // Idle fullscreen collapses chrome, but errors and media controls remain reachable.
+    await page.getByRole("button", { name: "Fullscreen", exact: true }).click();
+    await expect(page.locator(".media-toolbar")).toBeHidden();
+    await page
+      .getByRole("button", { name: "More controls", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Camera", exact: true }).click();
+    await expect(page.locator(".remote-viewer")).toHaveAttribute(
+      "data-source",
+      "camera",
+    );
+    await page.getByRole("button", { name: "Screen", exact: true }).click();
+    await expect(page.locator(".remote-viewer")).toHaveAttribute(
+      "data-source",
+      "screen",
+    );
+    await page
+      .getByRole("button", { name: "More controls", exact: true })
+      .click();
+    await page.evaluate(() => window.layoutFixture.failNext());
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(page.getByRole("status")).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("deliberately long");
+    await expect(page.locator(".remote-viewer")).toHaveAttribute(
+      "data-attention",
+      "true",
+    );
+    assert.deepEqual(errors, []);
+    results.push({
+      tabletInitial: initialSize,
+      maximalFit: true,
+      rotationAndTouch: true,
+      errors,
+    });
+    console.log(
+      `tablet ${initialSize.width}×${initialSize.height}: maximal fit, rotation, touch and fullscreen recovery passed`,
+    );
+    await context.close();
+  }
   // The actual React switch must remain usable while Android consent is pending.
   for (const width of [1280, 390]) {
     const context = await browser.newContext({
@@ -599,6 +832,10 @@ try {
       name: "Smooth view",
       exact: true,
     });
+    if (width < 900)
+      await page
+        .getByRole("button", { name: "More controls", exact: true })
+        .click();
     await expect(toggle).toBeEnabled();
     const baseline = await geometry(page);
     for (const reason of [

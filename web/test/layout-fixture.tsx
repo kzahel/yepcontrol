@@ -4,6 +4,7 @@ import {
   decodeReply,
   encodeCommand,
   type Reply,
+  type TouchBatch,
 } from "@remote/protocol/control";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -45,6 +46,8 @@ for (const flag of [
 ] as const) {
   if (params.has(flag)) state[flag] = params.get(flag) === "true";
 }
+if (params.has("width")) state.width = Number(params.get("width"));
+if (params.has("height")) state.height = Number(params.get("height"));
 let nativeId = 0;
 let nativePending: Promise<unknown> = Promise.resolve();
 function nativeCommand(command: Command): Promise<Reply> {
@@ -83,6 +86,7 @@ let failNext = false;
 const trace: string[] = [];
 const unlocks: string[] = [];
 const videos: number[] = [];
+const touches: TouchBatch[] = [];
 const cameraSource = document.createElement("canvas");
 cameraSource.width = 320;
 cameraSource.height = 240;
@@ -101,6 +105,7 @@ window.layoutFixture = {
   trace,
   unlocks,
   videos,
+  touches,
   sensors: sensors?.evidence,
   ended: "",
   legacyVideo: () => {
@@ -129,6 +134,10 @@ const session = {
     if (!connected) throw Error("Session ended");
     trace.push(`${command.op}: locked=${state.locked}`);
     if (trace.length > 30) trace.shift();
+    if (command.op === "touch") {
+      touches.push(command.batch);
+      if (touches.length > 32) touches.shift();
+    }
     if (command.op === "status") {
       sensors?.status();
       return { id: 1, kind: "state", state: { ...state } };
@@ -234,6 +243,7 @@ declare global {
       trace: string[];
       unlocks: string[];
       videos: number[];
+      touches: TouchBatch[];
       ended: string;
       legacyVideo: () => void;
       sensors: ReturnType<typeof sensorFixture>["evidence"] | undefined;

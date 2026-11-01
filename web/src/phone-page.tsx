@@ -15,7 +15,6 @@ import {
   type SavedPhone,
 } from "./store.js";
 import { ViewerHeading } from "./viewer-heading.js";
-import { defaultScreenAspect } from "./viewer-workspace.js";
 export const viewerServices = {
   connect: RemoteSession.connect,
   check: encryptedCheck,
@@ -297,7 +296,6 @@ export function PhonePage({
           initial={remote.state}
           name={phoneName(phone)}
           notice={storageWarning}
-          aspect={defaultScreenAspect}
           onContact={(state) => recordContact(state.device)}
           onEnded={(message) => {
             close();

@@ -27,7 +27,6 @@ export function RemoteScreen({
   notice,
   onContact,
   onEnded,
-  aspect,
 }: {
   phoneId: string;
   session: RemoteSession;
@@ -37,7 +36,6 @@ export function RemoteScreen({
   notice?: string;
   onContact?: (state: ControlState) => void;
   onEnded?: (message?: string) => void;
-  aspect?: number;
 }) {
   const callbacks = useRef({
     onContact,
@@ -61,6 +59,10 @@ export function RemoteScreen({
   const touch = useRef<TouchInput | undefined>(undefined);
   const fullscreen = useViewerFullscreen(() => touch.current?.release());
   const [state, setState] = useState(initial);
+  const [screenAspect, setScreenAspect] = useState(
+    (initial.width || 1080) / (initial.height || 2400),
+  );
+  const [controlsExpanded, setControlsExpanded] = useState(false);
   const [message, setMessage] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [text, setText] = useState("");
@@ -119,6 +121,7 @@ export function RemoteScreen({
     const renderer = canvas.current
       ? new VideoRenderer(canvas.current, (meta) => {
           frame.current = meta;
+          setScreenAspect(meta.width / meta.height);
           smooth.current?.displayed();
         })
       : undefined;
@@ -184,6 +187,7 @@ export function RemoteScreen({
               .getContext("2d")
               ?.drawImage(image, 0, 0, reply.width, reply.height);
             frame.current = reply;
+            setScreenAspect(reply.width / reply.height);
             setMessage("");
           }
           image.close();
@@ -236,6 +240,14 @@ export function RemoteScreen({
       touch.current = undefined;
     };
   }, [session]);
+  useEffect(() => {
+    const target = canvas.current;
+    if (!target) return;
+    // Resizing changes pointer coordinates; finish any gesture using the old box.
+    const observer = new ResizeObserver(() => touch.current?.release());
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
   async function selectSource(next: "screen" | "camera") {
     if (changing.current || source.current === next) return;
     changing.current = true;
@@ -280,6 +292,15 @@ export function RemoteScreen({
       );
     }
   }
+  const attention = !!(
+    notice ||
+    state.localSettings ||
+    unlocking.message ||
+    actionMessage ||
+    smoothState.message ||
+    message ||
+    state.locked
+  );
   return (
     <section
       ref={fullscreen.element}
@@ -288,6 +309,14 @@ export function RemoteScreen({
       aria-label="Remote screen"
       data-transport={connectionPath}
       data-source={view}
+      data-attention={attention || undefined}
+      data-controls-expanded={controlsExpanded || undefined}
+      data-media-active={
+        view === "camera" ||
+        media.microphone.phase !== "off" ||
+        !!media.microphone.message ||
+        undefined
+      }
     >
       <ViewerHeading
         inline={fullscreen.active}
@@ -325,14 +354,11 @@ export function RemoteScreen({
         stopListening={() => void media.stopMicrophone()}
       />
       <ViewerWorkspace
-        aspect={
-          view === "camera"
-            ? media.aspect
-            : (aspect ?? (initial.width || 1080) / (initial.height || 2400))
-        }
+        aspect={view === "camera" ? media.aspect : screenAspect}
         controls={
           <RemoteControls
             screenInput={view === "screen"}
+            onExpandedChange={setControlsExpanded}
             navigate={(action) => void act({ op: "navigation", action })}
             wake={() => void act({ op: "wake" })}
             lock={() => void act({ op: "sleep" })}

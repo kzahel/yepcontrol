@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ControlIcon } from "./control-icon.js";
 
 export function RemoteControls({
@@ -15,6 +15,7 @@ export function RemoteControls({
   fullscreen = false,
   toggleFullscreen,
   screenInput = true,
+  onExpandedChange,
 }: {
   navigate?: (action: "back" | "home" | "recents") => void;
   wake?: () => void;
@@ -29,12 +30,48 @@ export function RemoteControls({
   fullscreen?: boolean;
   toggleFullscreen?: () => void;
   screenInput?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const extraId = useId();
+  const dock = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const close = () => {
+      setExpanded(false);
+      onExpandedChange?.(false);
+    };
+    const outside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Element &&
+        !dock.current?.contains(event.target) &&
+        !event.target.closest(".media-toolbar")
+      )
+        close();
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !document.querySelector("dialog[open]")) {
+        event.preventDefault();
+        close();
+        dock.current
+          ?.querySelector<HTMLButtonElement>(".more-controls")
+          ?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [expanded, onExpandedChange]);
+  function expand(next: boolean) {
+    setExpanded(next);
+    onExpandedChange?.(next);
+  }
   const fullscreenLabel = fullscreen ? "Exit fullscreen" : "Fullscreen";
   return (
-    <div className="control-dock">
+    <div ref={dock} className="control-dock">
       {screenInput && (
         <nav className="phone-nav" aria-label="Android navigation">
           {(["back", "home", "recents"] as const).map((action) => {
@@ -65,7 +102,7 @@ export function RemoteControls({
       <div
         className="auxiliary-controls"
         id={extraId}
-        hidden={fullscreen && !expanded}
+        data-expanded={expanded || undefined}
       >
         {screenInput && (
           <>
@@ -83,7 +120,10 @@ export function RemoteControls({
                 type="button"
                 title="Lock phone"
                 disabled={!lock}
-                onClick={lock}
+                onClick={() => {
+                  expand(false);
+                  lock?.();
+                }}
               >
                 <ControlIcon name="lock" />
                 <span className="control-label">Lock phone</span>
@@ -113,7 +153,10 @@ export function RemoteControls({
                 type="button"
                 title="Type or open an app"
                 disabled={!type}
-                onClick={type}
+                onClick={() => {
+                  expand(false);
+                  type?.();
+                }}
               >
                 <ControlIcon name="keyboard" />
                 <span className="control-label">Type or open an app</span>
@@ -133,28 +176,27 @@ export function RemoteControls({
           </button>
         </div>
       </div>
-      {fullscreen && (
-        <button
-          type="button"
-          title="More controls"
-          aria-label="More controls"
-          aria-controls={extraId}
-          aria-expanded={expanded}
-          onClick={() => setExpanded(!expanded)}
-        >
-          <ControlIcon name="menu" />
-          <span className="control-label" aria-hidden="true">
-            More
-          </span>
-        </button>
-      )}
+      <button
+        className="more-controls"
+        type="button"
+        title="More controls"
+        aria-label="More controls"
+        aria-controls={extraId}
+        aria-expanded={expanded}
+        onClick={() => expand(!expanded)}
+      >
+        <ControlIcon name="menu" />
+        <span className="control-label" aria-hidden="true">
+          More
+        </span>
+      </button>
       {toggleFullscreen && (
         <button
           type="button"
           title={fullscreenLabel}
           aria-label={fullscreenLabel}
           onClick={() => {
-            setExpanded(false);
+            expand(false);
             toggleFullscreen();
           }}
         >
