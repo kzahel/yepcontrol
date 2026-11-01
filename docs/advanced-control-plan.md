@@ -291,3 +291,21 @@ active review. This restores the code-13 submission while committing only the
 already-staged internal-14 candidate. Eighteen publication regressions pass,
 including refusal of mismatched bytes, another production version and other
 tracks. Recovery outcome and Play-installed acceptance remain pending.
+
+The bounded [reconciliation run](https://github.com/kzahel/yepcontrol/actions/runs/41359216774)
+succeeds with the same signed bundle checksum. Console confirms 0.12.0/code 14
+**Available to internal testers**, with 178 countries/regions retained. The
+previous 0.11.1 full production rollout and store changes are again **in review**;
+code 14 has not been promoted to production. The one-time recovery entry point
+and workflow input are removed immediately afterward. The normal internal-only
+publisher and its review-cancellation guard remain, with the safe error labels.
+
+Final pre-update Moto inspection still reports Play-installed 0.9.0/code 10.
+The actual encrypted CLI continues to connect and capture, including ordinary
+Back navigation. Its native Store listing shows the public release notes;
+internal-test enrollment redirects Chrome to Google's signed-out account
+chooser. The enrollment page is left open for the account owner to sign in
+with the account used by that phone's Play Store. This is a release-testing
+account step, not a YepControl account or advanced-control setup requirement.
+The in-place Play update and ordinary-channel Start/Allow/protected-input tests
+remain unqualified, so the code-14 production rollout is still pending.

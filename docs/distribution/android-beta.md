@@ -705,3 +705,45 @@ rollout and its review request is accepted in Console. Quick checks finish and
 Console confirms that the changes are now in review. See the
 [production record](android-production.md). Google approval and public availability
 remain pending; 0.10.0/code 11 is the last confirmed public release.
+
+## 0.12.0 / code 14 — internal availability, 2026-11-02
+
+Optional Advanced control is implemented as a separate, initially off native
+screen, with phone-only Wireless debugging pairing and explicit Start/Stop.
+Ordinary control remains independent. No automatic boot arming or approval
+clicker is included. See the [implementation and acceptance record](../advanced-control-plan.md)
+and [component review](../advanced-control-components.md).
+
+App source `b7473f0e946f6a9d858f6872d824c8f2fc495789` passes full Checks,
+CodeQL and [release acceptance/signing](https://github.com/kzahel/yepcontrol/actions/runs/41354475580).
+The accepted bundle SHA-256 is
+`39f449794070cb336bbb31d2fa3d9941ae32f090582d7dfc3814882fb305d65f`.
+Its downloaded provenance/version/checksum receipt and JAR signature verify.
+The [review demonstration](https://github.com/kzahel/yepcontrol/releases/tag/play-review-v0.12.0)
+includes the existing remote-session recording and an owned-emulator native
+advanced Start/Ready/notification-Stop segment; that segment is not physical
+remote-recovery acceptance.
+
+Google rejects the normal publisher's review-deferral parameter for this edit.
+After the rejection is classified without logging response bodies, an explicit,
+artifact-bound [reconciliation](https://github.com/kzahel/yepcontrol/actions/runs/41359216774)
+commits the existing internal-14 edit and resubmits the already-accepted code-13
+production review. It performs no upload or track write, verifies the server's
+code-14 checksum, requires internal 14/production 13 and no other track releases,
+and refuses to cancel an active review. Its temporary entry point is removed
+after success; ordinary internal publishing keeps its existing review guard.
+
+Console confirms **0.12.0/code 14 — Available to internal testers**, with the
+existing 178 countries/regions retained. The production 0.11.1 full rollout and
+store changes are again **in review**. Code 14 is not promoted to production.
+The paired Moto remains Play-installed 0.9.0/code 10 at the pre-update inspection.
+Its in-place Play update, preserved grants/signing identity and actual ordinary
+remote Start/Android Allow qualification are still required before the
+code-14 100% production promotion.
+
+The ordinary encrypted CLI still connects to the Moto and captures its screen.
+The native Store shows the public release notes, while internal enrollment opens
+Google's signed-out account chooser in Chrome. The account owner must finish
+that Play-test sign-in/enrollment before the in-place update and physical
+acceptance can proceed. The enrollment page is left open; no code-14 production
+submission or availability is claimed.

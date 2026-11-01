@@ -15,11 +15,6 @@ on:
         description: English beta release notes (1–500 characters)
         required: true
         type: string
-      reconcile_code14_edit:
-        description: One-time verified internal-14 edit recovery and accepted production-13 review resubmission
-        required: false
-        default: ''
-        type: string
 permissions:
   contents: read
   actions: read
@@ -98,15 +93,10 @@ jobs:
           VERSION_NAME: ${{ needs.verify.outputs.version_name }}
           STATUS: ${{ inputs.status }}
           NOTES: ${{ inputs.release_notes }}
-          RECONCILE_CODE14_EDIT: ${{ inputs.reconcile_code14_edit }}
         run: |
           printf '%s' "$NOTES" > "$RUNNER_TEMP/notes.txt"
-          reconcile_args=()
-          if [ -n "$RECONCILE_CODE14_EDIT" ]; then
-            reconcile_args=(--reconcile-code14-edit "$RECONCILE_CODE14_EDIT")
-          fi
           python3 scripts/publish_android_bundle.py "$RUNNER_TEMP/candidate" --source "$SOURCE" --run-id "$BUILD_RUN" \
-            --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --track internal --status "$STATUS" --notes-file "$RUNNER_TEMP/notes.txt" "${reconcile_args[@]}"
+            --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --track internal --status "$STATUS" --notes-file "$RUNNER_TEMP/notes.txt"
           cat "$RUNNER_TEMP/candidate/publication.json" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()

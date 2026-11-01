@@ -7,14 +7,12 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from publish_android_bundle import publish, verify_candidate, safe_play_error, reconcile_code14
+from publish_android_bundle import publish, verify_candidate, safe_play_error
 from verify_android_release import verify_build, has_source_checks
 
 
 BUNDLE = b"signed candidate fixture"
 DIGEST = hashlib.sha256(BUNDLE).hexdigest()
-CODE14_DIGEST = "39f449794070cb336bbb31d2fa3d9941ae32f090582d7dfc3814882fb305d65f"
-CODE14_SOURCE = "b7473f0e946f6a9d858f6872d824c8f2fc495789"
 
 
 class FakePlay:
@@ -40,58 +38,7 @@ class FakePlay:
         return {}
 
 
-class RecoveryPlay(FakePlay):
-    def __init__(self):
-        super().__init__(releases=[{"versionCodes": ["14"], "status": "completed"}],
-                         uploaded=[{"versionCode": 14, "sha256": CODE14_DIGEST}],
-                         other_tracks=[{"track": "production", "releases": [
-                             {"versionCodes": ["13"], "status": "completed"}]}])
-
-    def call(self, method, path, body=None, upload=False):
-        if method == "GET" and path == "/123":
-            self.calls.append((method, path, body))
-            return {"id": "123"}
-        return super().call(method, path, body, upload)
-
-
 class PublishingTest(unittest.TestCase):
-    def recover14(self, play, digest=CODE14_DIGEST, source=CODE14_SOURCE, run_id="41354475580"):
-        return reconcile_code14(play, "123", digest, source, run_id)
-
-    def test_recovery_commits_existing_bytes_without_track_write_or_upload(self):
-        play = RecoveryPlay()
-        result = self.recover14(play)
-        self.assertEqual(result["versionCode"], 14)
-        self.assertEqual(result["existingProductionVersionCode"], 13)
-        self.assertTrue(result["reviewRequested"])
-        self.assertEqual([(m, p) for m, p, _ in play.calls if m != "GET"], [
-            ("POST", "/123:validate"), ("POST", "/123:commit?changesNotSentForReview=false"
-             "&changesInReviewBehavior=ERROR_IF_IN_REVIEW")])
-
-    def test_recovery_refuses_other_artifacts_before_access(self):
-        for values in [{"digest": "a" * 64}, {"source": "a" * 40}, {"run_id": "1"}]:
-            play = RecoveryPlay()
-            with self.assertRaises(ValueError):
-                self.recover14(play, **values)
-            self.assertEqual(play.calls, [])
-
-    def test_recovery_refuses_other_server_state_without_mutation(self):
-        for kind in ["different-bytes", "new-production", "draft-production", "other-track"]:
-            play = RecoveryPlay()
-            if kind == "different-bytes": play.uploaded[0]["sha256"] = "a" * 64
-            if kind == "new-production": play.other_tracks[0]["releases"][0]["versionCodes"] = ["14"]
-            if kind == "draft-production": play.other_tracks[0]["releases"][0]["status"] = "draft"
-            if kind == "other-track": play.other_tracks.append({"track": "beta", "releases": [{"versionCodes": ["13"]}]})
-            with self.subTest(kind=kind), self.assertRaises(ValueError):
-                self.recover14(play)
-            self.assertTrue(all(m == "GET" for m, _, _ in play.calls))
-
-    def test_recovery_preserves_edit_after_unknown_commit_outcome(self):
-        play = RecoveryPlay()
-        play.failure = ":commit?"
-        with self.assertRaises(TimeoutError): self.recover14(play)
-        self.assertFalse(any(m in {"DELETE", "PUT"} for m, _, _ in play.calls))
-
     def test_api_diagnostics_exclude_arbitrary_response_text(self):
         raw = json.dumps({"error": {"status": "INVALID_ARGUMENT", "message":
             "It is not allowed to set the query parameter changesNotSentForReview to true. Please remove the query parameter."}})
