@@ -148,13 +148,20 @@ under ignored `.local/local-adb-moto/`.
 Keep native phone-local ADB as the candidate for a separate, default-off
 Advanced screen. This phone confirms provisioning can be performed by the app;
 it does not support an unconditional no-touch-reboot promise on this firmware.
-Expose a clear **Approval required on phone** repair state alongside Ready
-and Wi-Fi required. Keep ordinary control available independently.
+Surface Android's required approval alongside Ready and Wi-Fi required. The
+approval is a phone-side dialog, but ordinary accessibility can operate it on
+this Moto; it does not inherently require a physically present person. Keep
+ordinary control available independently.
 
-If unattended recovery on this firmware is required, separately qualify a
-strictly opted-in, exact-network approval handler using the existing
-accessibility service. Preserve first-unlock, unknown-network, grant, input
-switch and existing browser-authority boundaries. The new discovery fix does
-not replace that missing approval step. The bounded physical follow-up and
-cleanup are now complete; reliable unattended recovery on this firmware,
-secure first unlock and long-idle/Doze behavior remain separate qualification.
+The owner's subsequent [initial-version direction](product.md#optional-advanced-control--owner-direction-2026-11-01)
+prefers a remote **Start advanced control** action and a remote approval click
+on a device without a secure lock screen. Automatic boot arming and automatic
+known-network approval are deferred. The next acceptance check should use the
+actual ordinary viewer/CLI for both actions, with no local or privileged-harness
+intervention. That combined remote flow has not been qualified by these tests.
+
+A strictly opted-in, exact-network automatic approval handler remains an option
+if later requirements justify it. Preserve first-unlock, unknown-network,
+grant, input-switch and existing browser-authority boundaries. The bounded
+physical follow-up and cleanup are complete; fully automatic recovery, secure
+first unlock and long-idle/Doze behavior remain separate qualification.

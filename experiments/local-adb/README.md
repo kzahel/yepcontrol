@@ -62,8 +62,13 @@ same checkpoint. These are snapshots with substantial ART/framework costs, not
 a baseline delta, a steady-memory guarantee or a power measurement. The native
 route avoids a Linux environment, but its resident helper is not memory-free.
 
-**Recommendation:** proceed to bounded physical qualification, then an explicitly
-opted-in Advanced screen. Preserve ordinary accessibility control as the default.
+**Current product direction:** build toward an explicitly opted-in Advanced
+screen with a remotely clicked Start action and native approval operated through
+the ordinary viewer/CLI on a no-secure-lock device. See the
+[owner's arming-first decision](../../docs/product.md#optional-advanced-control--owner-direction-2026-11-01).
+Automatic boot arming and automatic dialog approval are deferred. This experiment
+measures the bootstrap components; the combined ordinary-channel remote arming
+flow remains to be qualified. Preserve ordinary accessibility as the default.
 For production, investigate leasing the privileged helper to actual advanced
 sessions rather than keeping its ART process resident indefinitely. Qualify the
 resulting startup latency, long-idle authorization maintenance, owner-user/OEM

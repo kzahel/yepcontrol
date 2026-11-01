@@ -152,10 +152,11 @@ tiers. A technical privilege level must not be confused with a subscription.
 
 YepControl's ordinary consumer setup remains useful with Developer options off.
 ADB-based control is optional, defaults off, and belongs on a separate advanced
-screen rather than the main setup/readiness checklist. The owner considers
-phone-local reactivation after reboot acceptable and prefers a tap on the phone
-over requiring a computer. This is product direction and exploratory UX work,
-not authorization to implement, change phone debugging settings or publish it.
+screen rather than the main setup/readiness checklist. Initial setup must not
+require a separate computer. The latest owner direction below prioritizes
+remote recovery through ordinary control, without a physical tap on the phone.
+This is product direction and exploratory UX work; production implementation
+and release are separate from the authorized experiments.
 
 **Clarification, 2026-11-01:** target computer-free **initial advanced setup as
 well as subsequent activation**. An external computer running ADB must not be
@@ -166,10 +167,58 @@ still requires device qualification. The owner accepts a bounded spike to
 establish this path; that does not authorize new physical-phone debugging or
 lock-setting changes.
 
+**Latest owner direction — remotely operated arming first:** target a device
+without a secure lock screen. Fully automatic arming after boot and an automatic
+dialog-clicking handler are not initial requirements. A deliberate remote
+**Start advanced control** action followed by a remote click on Android's
+approval dialog is sufficient, similar to requesting smooth streaming.
+The complete recovery must work through the ordinary accessibility channel,
+using the viewer or CLI, before ADB is available. A required physical phone
+tap does not satisfy this initial recovery target.
+
+The initial flow should be:
+
+1. Complete optional computer-free advanced setup once and retain its pairing.
+2. After reboot or loss of advanced access, connect through ordinary control.
+   Advanced control may remain off until requested.
+3. Click **Start advanced control** remotely. Request the listener using the
+   authority established during setup; surface Android's native confirmation
+   when required.
+4. The person or CLI agent approves that dialog through ordinary accessibility.
+   Keep the ordinary channel connected and usable while advanced startup is pending.
+5. Mark advanced control Ready only after authenticating the live helper.
+   Stopping or losing advanced control must leave ordinary access available.
+
+Retain the distinction between the one-time settings permission and automatic
+boot policy: `WRITE_SECURE_SETTINGS` can support an explicitly requested start
+without automatically enabling ADB at boot. Avoid presenting that permission as
+requiring the owner to select automatic restoration. If enabling the listener
+instead needs a Settings interaction, that interaction must also be remotely
+operable for this flow to qualify.
+
+The existing viewer and CLI click/snapshot operations can be the initial
+interface to the same Start button and native approval. A dedicated CLI arming
+command and automatic known-network approval may be added later if measured
+friction warrants them. Existing pairing, per-controller permissions, pause,
+revocation and configuration-protection settings remain authoritative.
+
+**Acceptance gate:** on a no-secure-lock target, reboot, establish an ordinary
+remote connection, start advanced control and approve any Android dialog
+through the actual viewer/CLI, then independently verify helper input. The test
+harness must not use USB shell input, UiAutomation, a local person or existing
+controller-host ADB authority to perform those interactions. The phone's
+embedded client may start the helper through its saved pairing after approval.
+A controller may observe independent effects without becoming the control
+route. The older Moto accessibility adapter demonstrates
+that its approval dialog is accessible to an ordinary service; the new
+viewer/CLI-operated sequence has not yet been qualified end to end. Secure
+first unlock and other Android/OEM dialog restrictions remain outside that
+no-lock-screen acceptance claim.
+
 **Proposed UI:** Settings → Advanced control. Before configuration, offer
 **Set up on this phone** with a guided explanation of Developer options and
-Wireless debugging. After configuration, show an explicit enable switch,
-current availability, **Start advanced control** when needed, and a way to
+Wireless debugging. After configuration, show current availability,
+**Start advanced control** when needed, **Stop** while active, and a way to
 forget the setup. Describe the benefit as controlling additional screens;
 avoid promising universal control or calling the ordinary experience incomplete.
 Advanced access must retain existing browser, input and unlock authority checks.
