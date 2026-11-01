@@ -432,6 +432,11 @@ export async function mobileAcceptance(f: Fixture, pairingOnly = false) {
       await phonePage
         .getByRole("region", { name: "Remote screen", exact: true })
         .waitFor({ timeout: 80000 });
+      const more = phonePage.getByRole("button", {
+        name: "More controls",
+        exact: true,
+      });
+      if (await more.isVisible()) await more.click();
       assert.equal(
         await phonePage
           .getByRole("button", { name: "Disconnect", exact: true })

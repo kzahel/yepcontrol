@@ -204,3 +204,17 @@ The complete local suite passes with these environment controls and the cleaned
 manifest, including protected input, crash expiry and no restart/reboot arming.
 The release bundle builds and its merged-manifest gate passes. Linux CI must
 still confirm this candidate before internal delivery.
+
+### Cross-suite CI progress
+
+On source `39437580df7ea7016eab12ef5c1be732cdcb10f7`, full Checks and the
+Linux/x86 Android-16 advanced suite pass, including phone-only setup, protected
+input, Stop, crash expiry and no reboot arming. Interoperability, native/mobile
+media and hosted process-absent FCM wake also pass. The release job then stopped
+at an older phone-first browser assertion that searched for Disconnect while
+the portrait layout keeps it inside More controls. No signing/upload occurred.
+
+That acceptance now opens the actual More controls menu first. Its complete
+local hosted run passes phone-first automatic connection, secure QR hiding,
+cancelled-code refusal, preserved browser-first pairing, both encrypted browser
+checks and cleanup. The updated full release run is still required.
