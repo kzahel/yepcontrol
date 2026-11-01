@@ -88,7 +88,11 @@ public class AdvancedAcceptance {
       android.view.accessibility.AccessibilityNodeInfo root =
           inst.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
               .getRootInActiveWindow();
-      if (root != null && packageName.contentEquals(root.getPackageName())) {
+      if (root != null
+          && (packageName.contentEquals(root.getPackageName())
+              || (packageName.equals("com.android.permissioncontroller")
+                  && "com.google.android.permissioncontroller"
+                      .contentEquals(root.getPackageName())))) {
         for (android.view.accessibility.AccessibilityNodeInfo node :
             root.findAccessibilityNodeInfosByViewId(packageName + ":id/" + id)) {
           if (node.isVisibleToUser()

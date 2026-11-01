@@ -144,3 +144,8 @@ now resolves that native button from the current focused permission-controller
 window and requires Android to accept its semantic click. This is limited to
 initial local setup; helper input and product-channel remote recovery remain
 separate acceptance requirements. No failed attempt was signed or uploaded.
+
+The local rerun passes the full acceptance after allowing the Google permission
+controller package with its Android resource-ID namespace. The superseded CI
+run was cancelled before signing; the final candidate still requires CI and
+Play-installed Moto acceptance.
