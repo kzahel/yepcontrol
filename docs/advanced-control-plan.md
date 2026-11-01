@@ -149,3 +149,19 @@ The local rerun passes the full acceptance after allowing the Google permission
 controller package with its Android resource-ID namespace. The superseded CI
 run was cancelled before signing; the final candidate still requires CI and
 Play-installed Moto acceptance.
+
+### Abrupt process-death qualification
+
+Local Android 16 acceptance also starts a fresh authenticated helper after Stop,
+abruptly force-stops the app, and verifies both the attested helper process and
+its live endpoint disappear within the lease deadline. Repeated unauthenticated
+challenge probes cannot keep it alive. Reopening the normal app does not re-arm
+advanced control; the subsequent owned reboot still passes. No helper capability
+or identity leaves the phone for this check.
+
+CI now completes notification consent. Its next failure was a missing Build
+number node between the fixed seven taps. Native setup now resolves a fresh row
+for every tap and finishes when Android reports Developer options enabled,
+rather than assuming every coordinate tap was delivered. Local full acceptance
+passes with this change. The earlier CI attempts remain unaccepted and uploaded
+no Android artifact to Play.

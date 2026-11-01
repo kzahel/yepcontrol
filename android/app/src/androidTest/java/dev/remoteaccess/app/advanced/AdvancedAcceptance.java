@@ -203,10 +203,22 @@ public class AdvancedAcceptance {
           new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
       device.waitForIdle();
       scrollTo("Build number");
-      for (int i = 0; i < 7; i++) {
-        device.findObject(By.text("Build number")).click();
-        Thread.sleep(150);
+      for (int i = 0;
+          i < 12
+              && Settings.Global.getInt(
+                      context.getContentResolver(), Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0)
+                  == 0;
+          i++) {
+        // Toasts temporarily replace the active accessibility root. Resolve
+        // each fresh row, and finish on the actual OS setting rather than a tap count.
+        click("Build number");
+        Thread.sleep(300);
       }
+      assertEquals(
+          "Native Developer options setup did not complete",
+          1,
+          Settings.Global.getInt(
+              context.getContentResolver(), Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0));
     }
     context.startActivity(
         new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
@@ -372,6 +384,26 @@ public class AdvancedAcceptance {
             return true;
           }
         });
+  }
+
+  @Test
+  public void holdForProcessDeath() throws Exception {
+    assertTrue("Setup must already be paired", AdvancedControl.paired(context));
+    inst.startActivitySync(
+        new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    AdvancedControl.start(context);
+    await("Restart did not authenticate a helper", () -> AdvancedControl.ready());
+    // No capability or key leaves the phone. The owned runner can only observe
+    // this loopback endpoint closing after abruptly killing the app process.
+    Files.write(
+        new File(context.getNoBackupFilesDir(), "advanced-process-death.json").toPath(),
+        new JSONObject()
+            .put("port", Store.capability.port)
+            .put("pid", Store.capability.pid)
+            .toString()
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    Thread.sleep(90000);
+    fail("Owned runner did not terminate the process-death fixture");
   }
 
   @Test

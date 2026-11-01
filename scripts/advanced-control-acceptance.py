@@ -57,6 +57,60 @@ def test(method):
         except Exception: pass
         raise RuntimeError("Native acceptance failed; inspect private " + method + " log")
 
+def process_death():
+    with (STATE / "process-death.txt").open("w") as output:
+        command = [ADB, "-s", SERIAL, "shell", "am", "instrument", "-w", "-r", "-e", "class",
+                   "dev.remoteaccess.app.advanced.AdvancedAcceptance#holdForProcessDeath",
+                   APP + ".test/androidx.test.runner.AndroidJUnitRunner"]
+        running = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT)
+        forwarded = None
+        try:
+            receipt = wait("Process-death fixture did not become ready",
+                           lambda: json.loads(adb("exec-out", "run-as", APP, "cat", "no_backup/advanced-process-death.json")), 100)
+            port = receipt["port"]
+            pid = receipt["pid"]
+            assert isinstance(pid, int) and 0 < pid <= 2**22
+            assert isinstance(port, int) and 1024 <= port <= 65535
+            forwarded = int(adb("forward", "tcp:0", f"tcp:{port}"))
+
+            def listening():
+                try:
+                    with socket.create_connection(("127.0.0.1", forwarded), timeout=1) as probe:
+                        probe.settimeout(1)
+                        # Forwarding accepts even with no remote server. A real
+                        # helper sends its challenge; no authentication is sent.
+                        return bool(probe.recv(1))
+                except (OSError, TimeoutError):
+                    return False
+
+            wait("Process-death fixture endpoint was not live", listening, 10)
+            adb("shell", "am", "force-stop", APP)
+            # The instrumentation watcher is deliberately interrupted. Reap
+            # only this owned adb client; never affect the shared adb server.
+            running.terminate()
+            try: running.wait(timeout=5)
+            except subprocess.TimeoutExpired: running.kill(); running.wait()
+            def helper_gone():
+                try:
+                    adb("shell", "kill", "-0", str(pid))
+                    return False
+                except subprocess.CalledProcessError:
+                    return not listening()
+
+            wait("Helper outlived its process-death lease", helper_gone, 40)
+            # Restarting the normal app must not re-arm it either.
+            adb("shell", "am", "start", "-W", "-n", APP + "/dev.remoteaccess.app.MainActivity")
+            assert "AdvancedService" not in adb("shell", "dumpsys", "activity", "services", APP)
+        finally:
+            if forwarded is not None:
+                adb("forward", "--remove", f"tcp:{forwarded}")
+            if running.poll() is None:
+                adb("shell", "am", "force-stop", APP)
+                running.terminate()
+                try: running.wait(timeout=5)
+                except subprocess.TimeoutExpired: running.kill(); running.wait()
+
+
 assert f"{SERIAL}\t" not in subprocess.check_output([ADB, "devices"], text=True), "Refusing occupied emulator selector"
 for port in [PORT, PORT + 1]:
     with socket.socket() as port_probe:
@@ -93,6 +147,8 @@ with (STATE / "emulator.log").open("w") as log:
         test("staleStartCannotPublishReadiness")
         test("setupOnPhone")
         result.update(staleStartRejected=True, pairingPrimitive=True, phoneOnlySetup=True, shellAttestation=True, protectedCounterInput=True, identityWrapped=True, stopPreservesPairing=True, helperEndpointClosed=True, multiContactExpiryCancelled=True, staleContinuationRejected=True)
+        process_death()
+        result.update(processDeathLeaseExpired=True, noProcessRestartArming=True)
         # Instrumentation stops its target. Clear that state before boot so this
         # check would catch an accidentally added boot receiver.
         adb("shell", "am", "start", "-W", "-n", APP + "/dev.remoteaccess.app.MainActivity")
