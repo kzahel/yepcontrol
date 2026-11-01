@@ -59,6 +59,8 @@ jobs:
         run: ./android/gradlew -p android :app:assembleDebug :app:assembleDebugAndroidTest "-PsharingWebsite=${HOSTED_ORIGIN:-https://yepcontrol.com}"
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
+      - name: Release build-daemon memory before owned emulator acceptance
+        run: ./android/gradlew -p android --stop
       # Each harness refuses occupied selectors and owns/reaps its emulator.
       - name: Phone-only advanced pairing, protected input and no boot arming
         run: python3 scripts/advanced-control-acceptance.py

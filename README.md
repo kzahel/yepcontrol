@@ -26,8 +26,8 @@ restrictions. No account or AI service is required.
 ## Development
 
 Requires Node 24 LTS (pinned in `.node-version`), pnpm 10.30.3, JDK 17 and
-Android SDK platform 37 with build tools 36.0.0. Set `ANDROID_HOME`;
-the Gradle wrapper is included.
+Android SDK platform 37 with build tools 36.0.0, NDK 28.2.13676358 and
+CMake 3.22.1. Set `ANDROID_HOME`; the Gradle wrapper is included.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -58,6 +58,14 @@ options; subsequent updates preserve explicit choices. Qualification and release
 are tracked in the [implementation plan](docs/camera-microphone-plan.md);
 this source change alone does not establish Play availability.
 
+Android 0.12.0 source adds **Settings → Advanced control**, an optional route
+for advanced taps and swipes. Initial setup pairs on the phone through Wireless
+debugging; no computer or separate ADB app is required. Start is explicit,
+advanced control never arms at boot, and ordinary control works without
+Developer options. Android may still require on-phone approval or first secure
+unlock. This candidate is under qualification; see the [advanced control plan](docs/advanced-control-plan.md)
+for installed testing and store status.
+
 A Node CLI shares the browser's pairing and encrypted control client. See
 [CLI pairing and accessibility control](docs/cli-control.md) for commands and
 agent JSON-lines sessions.
@@ -79,6 +87,7 @@ pnpm exec playwright install chromium
 | `pnpm test:viewer-media` | Camera/listening UI, real browser playback, bounds and independent teardown. |
 | `pnpm test:viewer-phones` | Browser phone storage, multiple phones and tabs. |
 | `pnpm test:interop` | Browser ↔ Android Keystore interoperability. |
+| `python3 scripts/advanced-control-acceptance.py` | Phone-only advanced pairing, protected input, Stop, process death and no boot arming on an owned API 36 emulator. |
 | `pnpm test:smooth-view` | Smooth toggle, consent, video and teardown on an owned emulator. |
 | `pnpm test:mobile-ui` | Native navigation, setup and appearance. |
 | `pnpm test:cli` | Real CLI pairing, accessibility effects/refusals and existing browser controls on an owned emulator. |
@@ -90,6 +99,9 @@ PRs and pushes run the browser layout and phone-management checks alongside
 builds, unit tests, lint and secret scanning. CodeQL scans production components.
 CLI process/protocol tests run with the unit suite. Hosted emulator CI jobs also
 run the CLI when a development origin is configured.
+The advanced-control runner additionally requires the API 36 Google APIs image
+for the host architecture.
+
 Owned-emulator crypto, native navigation and storage smoke tests run nightly,
 on manual dispatch and before building a signed Android release.
 

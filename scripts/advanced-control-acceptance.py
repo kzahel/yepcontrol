@@ -73,6 +73,13 @@ def test(method):
             awake = re.findall(r"mWakefulness=([a-zA-Z]+)", power)
             print("Native presentation: " + json.dumps({"resumed": components, "wakefulness": awake}), flush=True)
         except Exception: pass
+        try:
+            anr = adb("shell", "dumpsys", "activity", "lastanr")
+            (STATE / "last-anr.txt").write_text(anr)
+            processes = re.findall(r"ANR in ([a-zA-Z0-9_.]+)", anr)
+            frames = re.findall(r"^\s*at ((?:android|com\.android|java|javax)\.[a-zA-Z0-9_.$]+\([^\r\n]*\))$", anr, re.M)
+            print("Native ANR: " + json.dumps({"processes": processes, "frames": frames[:20]}), flush=True)
+        except Exception: pass
         raise RuntimeError("Native acceptance failed; inspect private " + method + " log")
 
 def process_death():
@@ -150,14 +157,21 @@ for source, destination, package in [
     assert f"package: name='{package}'" in badging, "Unexpected APK package"
 
 result = {"platform": "Android 16 / API 36 owned emulator"}
+resources = {"hostCpuCount": os.cpu_count()}
+if Path("/proc/meminfo").exists():
+    available = re.search(r"^MemAvailable:\s+(\d+) kB", Path("/proc/meminfo").read_text(), re.M)
+    if available: resources["hostAvailableKiB"] = int(available.group(1))
+print("Owned emulator resources: " + json.dumps(resources), flush=True)
 with (STATE / "emulator.log").open("w") as log:
-    emulator = subprocess.Popen([str(SDK / "emulator/emulator"), "-avd", avd, "-port", str(PORT), "-wipe-data", "-no-window", "-no-audio", "-no-snapshot", "-no-boot-anim", "-gpu", "swiftshader_indirect"], env=ENV, stdout=log, stderr=log)
+    emulator = subprocess.Popen([str(SDK / "emulator/emulator"), "-avd", avd, "-port", str(PORT), "-wipe-data", "-no-window", "-no-audio", "-no-snapshot", "-no-boot-anim", "-gpu", "swiftshader", "-feature", "-Vulkan"], env=ENV, stdout=log, stderr=log)
     try:
         wait("Emulator did not boot", lambda: adb("shell", "getprop", "sys.boot_completed") == "1")
         assert adb("shell", "getprop", "ro.kernel.qemu") == "1"
         adb("shell", "input", "keyevent", "KEYCODE_WAKEUP")
         adb("shell", "wm", "dismiss-keyguard")
         adb("shell", "settings", "put", "system", "screen_off_timeout", "1800000")
+        for animation in ["window_animation_scale", "transition_animation_scale", "animator_duration_scale"]:
+            adb("shell", "settings", "put", "global", animation, "0")
         adb("shell", "svc", "wifi", "enable")
         wait("Owned Wi-Fi fixture did not associate", lambda: "connected" in (v := adb("shell", "cmd", "wifi", "status").lower()) and "disconnected" not in v)
         for file in ["host.apk", "tests.apk"]: adb("install", "-t", str(STATE / file))

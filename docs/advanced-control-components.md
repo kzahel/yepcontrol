@@ -72,3 +72,19 @@ requires explicit setup repair, rather than disabling the OS authorization
 timeout. The native approval remains Android's UI and is never automatically
 clicked. Remote approval acceptance must be measured through ordinary product
 control on each qualified platform; a shell/UIAutomator tap does not prove it.
+
+## Merged manifest review
+
+The ADB library omits a target-SDK declaration. Android's
+[implicit-permission merge behavior](https://developer.android.com/build/manage-manifests#implicit_system_permissions)
+therefore added legacy READ_PHONE_STATE and external-storage permissions. The
+app explicitly removes all three; this route needs none of them. The actual
+merged release manifest is checked before signing against the deliberate
+permission set and the helper components' export/DUMP boundaries. The local
+merged artifact passes, and reintroducing each legacy permission is rejected.
+
+The build compiles against API 37 but retains target SDK 36. Android's
+[local-network permission documentation](https://developer.android.com/privacy-and-security/local-network-permission)
+therefore does not require a new Nearby Devices request for this release. A
+future target-37 change must revisit NSD permission/picker behavior explicitly;
+none is silently added here.

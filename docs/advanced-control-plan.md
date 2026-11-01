@@ -181,3 +181,26 @@ remote approval and require approval on the phone. The required ordinary-channel
 Moto Start/Allow check must establish its measured support; this is not a
 universal promise for all Android/OEM versions. Kotlin checks and debug/release
 lint pass after the copy change.
+
+### Packaging and emulator-system review
+
+The merged-artifact review caught implicit phone-state/storage permissions from
+the ADB library's missing target SDK. All three are explicitly removed and a
+release-manifest verifier now gates signing. The local release bundle, merge and
+lint pass; actual-manifest mutations confirm the legacy permissions are rejected.
+
+The next redacted CI failure showed Android's ANR dialog (`android:id/aerr_*`)
+covering the resumed Developer-options activity. It did not establish a helper
+input defect. The owned harness is moving from deprecated `swiftshader_indirect`
+to the documented SwiftShader GLES path with Vulkan disabled, uses zero-duration
+test animations, and releases CI build-daemon memory before boot. These are
+environment controls to evaluate, not a confirmed explanation of every previous
+failure. Safe ANR process/frame diagnostics are retained on future failures.
+See [Android graphics acceleration](https://developer.android.com/studio/run/emulator-acceleration)
+and [emulator troubleshooting](https://developer.android.com/studio/run/emulator-troubleshooting).
+CI and Play-installed acceptance remain required; no code-14 upload has occurred.
+
+The complete local suite passes with these environment controls and the cleaned
+manifest, including protected input, crash expiry and no restart/reboot arming.
+The release bundle builds and its merged-manifest gate passes. Linux CI must
+still confirm this candidate before internal delivery.
