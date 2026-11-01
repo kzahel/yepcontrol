@@ -51,9 +51,10 @@ To show a development URL in the Android app, set
 For a separate deployment, build with `-PsharingWebsite=https://YOUR_ORIGIN`.
 See [App Links and installation](docs/app-links.md).
 
-The camera/microphone candidate adds separate optional phone settings, Camera
+Android 0.11.1 adds separate optional camera/microphone phone settings, Camera
 Start/Stop and Listen in the viewer, plus bounded JPEG/WAV CLI artifacts.
-Both settings default off, including upgrades. Qualification and release status
+Both settings default off on first setup and upgrades from hosts without these
+options; subsequent updates preserve explicit choices. Qualification and release status
 are tracked in the [implementation plan](docs/camera-microphone-plan.md);
 this source change alone does not establish Play availability.
 

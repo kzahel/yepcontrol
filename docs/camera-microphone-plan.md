@@ -163,7 +163,35 @@ lock/debugging-setting changes remain excluded.
   Sol 6.1 High review approves the final 16-file code/local-qualification candidate
   with no actionable findings. Exact-source CI, signed internal delivery,
   Play-installed acceptance and the final release-evidence re-review remain
-  pending. No camera/microphone release is live yet.
+  pending for that initial candidate. No camera/microphone Android release is
+  publicly available yet.
+
+- **Phase 6 signed/internal physical qualification complete, 2026-11-01;
+  final promotion review approved:** code 12 failed installed acceptance because
+  a late screenshot callback submitted work after service destruction. The
+  reviewed forward fix drains accepted screenshot work and releases rejected
+  buffers; code 12 remains excluded from public promotion. Android 0.11.1/code 13,
+  source `81b85fe7b20bc6d2c04c9dbf735e4482791ac391`, passes full exact-source CI
+  and strict signature/certificate checks and is available to internal testers.
+  An owned emulator also passes a direct public-code-11→13 upgrade, preserving
+  the grant and defaulting both new settings off. The Pixel receives 12→13 from
+  Play with its first-install time, signer, boot, accessibility settings and
+  original browser pairing preserved. Its explicit Camera On/Microphone Off
+  choices survive that update. Ten screenshot/service teardown cycles retain
+  the same process without a fatal exception and produce fresh JPEGs afterward.
+  Normal microphone disclosure/Android consent then enables separate direct and
+  relay H.264/JPEG/audio checks, independent Stops, source handoff, direct loss
+  without automatic restart and playback-suspension cleanup. Fresh camera/audio
+  work under independently verified secure lock; one guarded stored-PIN helper
+  attempt restores the phone, with zero retries and no agent PIN read. Real CLI
+  JPEG/WAV and concurrent agent operations pass against the installed build.
+  Its temporary grant is revoked with HTTP 410 and an authoritative CLI refusal;
+  the original browser still controls the phone. Both test sensor switches are
+  restored off, sensors/projection are idle and the browser is closed. Public
+  promotion is approved by the independent Sol 6.1 High final evidence review,
+  completing all six required phase reviews with no remaining required
+  pre-promotion validation. Production submission, Google approval and actual
+  public availability are still separate, pending states.
 
 ## Product behavior
 
@@ -497,8 +525,10 @@ failed Play-installed physical acceptance: accessibility unbinding raced a late
 screen-screenshot callback, which submitted to a terminated compression worker
 and crashed the app. That build is excluded from public promotion. The forward
 fix owns each delivered screenshot buffer through processing or rejection and
-drains accepted work during service destruction. Its regression checks, signed
-CI delivery and another in-place physical update are required before promotion.
+drains accepted work during service destruction. Its regression checks, full
+signed CI, internal delivery and in-place Play-installed physical acceptance now
+pass on code 13. The independent final promotion review approves this exact
+artifact for the authorized 100% production rollout across the existing regions.
 The prior public release is
 0.10.0/code 11. Fresh installs and upgrades from hosts without sensor settings
 default both features off. Later updates preserve explicit choices: code 12→13

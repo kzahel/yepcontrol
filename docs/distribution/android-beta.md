@@ -604,3 +604,101 @@ reboot or lock/debugging change is involved.
 **0.11.1/code 13**, with screenshot-buffer ownership and worker-shutdown regression
 coverage. It must pass review, full signed CI and another in-place internal Play
 update before physical media acceptance and the final promotion review.
+
+## Android 0.11.1 / code 13 — 2026-11-01
+
+The reviewed forward fix owns screenshot buffers through execution or rejection,
+recycles the wrapped hardware bitmap and drains accepted work at service
+shutdown. Source `81b85fe7b20bc6d2c04c9dbf735e4482791ac391` passes
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/41267812218),
+[CodeQL](https://github.com/kzahel/yepcontrol/actions/runs/41267812194) and the full
+[Android release gate](https://github.com/kzahel/yepcontrol/actions/runs/41267812486).
+The gate includes six native UI/screenshot-queue tests, five media tests, 24
+storage tests, real FCM wake, both QR directions and combined CLI/media/screen,
+video, input and rotation acceptance. The current suite has 225 TypeScript and
+41 JVM protocol tests. Release build, lint and signing pass. Strict downloaded
+signature verification passes with the existing upload certificate. Signed AAB
+SHA-256:
+`f16a3c11165d87ee0b11a0e11c5a48a33023283d217e1e3183c9d888c116921c`.
+
+Earlier forward-fix runs stopped at native UI or readiness assertions before
+signing. Reviewed test corrections wait for a fresh focused Activity, guard
+idempotent Home-to-pairing navigation and let the unchanged native wake deadline
+finish before outer teardown. Failure reporting exposes only fixed status flags
+and safe observations. The intermittent QR readiness timeout's cause remains
+unproved; its exact local reproduction and the complete final CI campaign pass.
+No acceptance criterion or authority assertion was removed.
+
+The [internal access check](https://github.com/kzahel/yepcontrol/actions/runs/41269613131)
+passes. [Publisher attempt 1](https://github.com/kzahel/yepcontrol/actions/runs/41269659893)
+passes validation but receives HTTP 400 at the guarded edit commit. Console
+reconciliation confirms that code 12 is still the internal release. The exact
+verified code-13 AAB is then uploaded and published through Console, which shows
+**0.11.1 / Available to internal testers / code 13**. There is no supported-device
+loss and only the same two deobfuscation/native-symbol warnings. Publisher attempt
+2 returns `unchanged` after verifying the existing bundle's code and SHA-256.
+No review guard or account permission is broadened. The pipeline remains
+internal-only; this does not submit a production review.
+
+### Play-installed physical acceptance passed
+
+The already-paired Pixel updates from code 12 to 13 through Google Play, without
+reinstalling or re-pairing. Installer, Play signing certificate, original
+first-install time, boot and accessibility settings match the baseline. The
+explicit Camera On/Microphone Off choices survive the update. A separate owned
+emulator passes the direct public-code-11→13 upgrade with its grant intact and
+both new settings off; these are distinct upgrade paths.
+
+The original browser reconnects securely and sends Home from YepControl to the
+Android launcher. Ten standalone UIAutomator teardown/rebind cycles keep the
+same app process, produce no fatal exception and deliver fresh JPEG frames
+afterward. The separate microphone disclosure and normal Android while-in-use
+permission then succeed with screen viewing active, including the sequence that
+crashed code 12. Camera permission remains granted from the earlier explicit
+setup. Granting permissions alone starts neither sensor.
+
+After returning the app to the background and waiting beyond recent foreground
+use, the actual deployed viewer decodes rear H.264 and front JPEGs and produces
+nonzero microphone signal on its production Web Audio destination graph. Direct
+and encrypted relay paths pass. The maximum observed scheduled audio is 124 ms;
+the browser requests neither its own camera nor microphone. Separate native
+sensor app-ops and foreground services confirm real capture and release.
+Camera Stop leaves audio running; source handoff releases camera and keeps
+audio. Direct loss releases both sensors without automatic restart, while
+ordinary JPEG viewing recovers over the relay. Explicit relay media startup
+works, and suspending browser playback stops the microphone while camera frames
+continue.
+
+Both sensors are independently idle before a fresh start under verified secure
+keyguard. New camera frames and nonzero audio arrive while the phone remains
+locked. Explicit Stops release both before credential entry. The browser is
+disconnected, and Machine Control's guarded stored-PIN helper makes one accepted
+attempt with zero retries. The agent never reads the PIN. The phone is verified
+unlocked afterward; no physical reboot or lock/debugging change is involved.
+Reconnecting starts neither sensor.
+
+A temporary CLI controller pairs through the normal native approval UI. Actual
+CLI captures produce a rear JPEG, two front JPEGs and an exact 16,000-sample
+one-second WAV. Persistent agent operations run camera and microphone together,
+save a recent second and stop them independently with native confirmation.
+JPEGs decode at 480×640; WAVs contain nonzero PCM. Files are 0600 and new capture
+directories 0700. Cleanup removes only this temporary grant: the relay returns
+HTTP 410 and the real CLI reports authoritative removal. UIAutomator's temporary
+accessibility suppression changes the local layout, so removal uses stable
+visual continuation before one confirmation. The original browser still
+connects and sends Home after revocation.
+
+The two test sensor switches are restored off, with Android permissions retained.
+Native camera/microphone app-ops, sensor foreground services and this app's media
+projection are idle; the browser context is closed. Existing pairing, automatic
+requests, boot and accessibility settings are preserved, and secure keyguard is
+unlocked at final inspection. Raw media, credentials and device selectors remain
+private. Console listing, access instructions and camera/microphone declarations
+are staged with the same synthetic demonstration described above.
+
+The independent Sol 6.1 High final release-evidence review approves exactly this
+code-13 artifact for the authorized 100% production rollout across the existing
+178 regions, with no blocking findings or remaining required pre-promotion
+validation. All six phase reviews are complete. Code 12 must not be promoted.
+Public production remains 0.10.0/code 11; code-13 production submission, Google
+approval and public availability are separate pending gates.
