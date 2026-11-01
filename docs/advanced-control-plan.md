@@ -218,3 +218,10 @@ That acceptance now opens the actual More controls menu first. Its complete
 local hosted run passes phone-first automatic connection, secure QR hiding,
 cancelled-code refusal, preserved browser-first pairing, both encrypted browser
 checks and cleanup. The updated full release run is still required.
+
+The repeat native CI reached the final reboot after completing setup/input/Stop
+and process-death checks, then its `adb reboot` client timed out while that
+transport was being torn down. The harness now tolerates only the command's
+transport timeout/disconnect and independently requires an increased Android
+boot counter plus completed boot. No command retry or shared-server reset is
+performed; no new boot still fails qualification.

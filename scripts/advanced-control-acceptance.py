@@ -186,7 +186,11 @@ with (STATE / "emulator.log").open("w") as log:
         adb("shell", "am", "start", "-W", "-n", APP + "/dev.remoteaccess.app.MainActivity")
         before = adb("exec-out", "run-as", APP, "cat", "shared_prefs/advanced.xml")
         boot = int(adb("shell", "settings", "get", "global", "boot_count"))
-        adb("reboot")
+        # Reboot tears down this very transport. A command timeout/disconnect
+        # does not establish success or failure; independently require a new
+        # boot counter below. Never retry the reboot or reset the shared server.
+        try: adb("reboot", timeout=10)
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError): pass
         wait("Emulator did not reboot", lambda: adb("shell", "getprop", "sys.boot_completed") == "1" and int(adb("shell", "settings", "get", "global", "boot_count")) > boot)
         assert "AdvancedService" not in adb("shell", "dumpsys", "activity", "services", APP)
         assert adb("exec-out", "run-as", APP, "cat", "shared_prefs/advanced.xml") == before
