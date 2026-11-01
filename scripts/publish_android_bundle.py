@@ -141,6 +141,47 @@ def publish(play, bundle, digest, version, name, track, status, notes):
                 print("Could not discard uncommitted edit; reconcile in Console", file=sys.stderr)
 
 
+def reconcile_code14(play, edit_id, digest, source, run_id):
+    """One-time owner-authorized recovery: internal 14 and resubmit accepted 13.
+
+    The normal publisher never requests app-wide review. This explicit path
+    recovers only these already verified bytes and writes no track or bundle.
+    Remove it after this release has been reconciled.
+    """
+    if (digest != "39f449794070cb336bbb31d2fa3d9941ae32f090582d7dfc3814882fb305d65f"
+            or source != "b7473f0e946f6a9d858f6872d824c8f2fc495789"
+            or str(run_id) != "41354475580"
+            or not re.fullmatch(r"[0-9]{1,32}", edit_id)):
+        raise ValueError("Recovery is restricted to the verified code-14 candidate")
+    path = "/" + edit_id
+    if play.call("GET", path).get("id") != edit_id:
+        raise ValueError("Existing edit differs")
+    bundles = play.call("GET", path + "/bundles").get("bundles", [])
+    candidate = [b for b in bundles if b.get("versionCode") == 14]
+    if len(candidate) != 1 or candidate[0].get("sha256") != digest:
+        raise ValueError("Existing edit does not contain the verified code-14 bytes")
+    tracks = play.call("GET", path + "/tracks").get("tracks", [])
+    by_name = {t["track"]: t.get("releases", []) for t in tracks}
+    for track, version in (("internal", "14"), ("production", "13")):
+        releases = by_name.get(track, [])
+        if (len(releases) != 1 or releases[0].get("versionCodes") != [version]
+                or releases[0].get("status") != "completed"):
+            raise ValueError("Recovery requires internal 14 and accepted production 13")
+    if any(releases for track, releases in by_name.items()
+           if track not in {"internal", "production"}):
+        raise ValueError("Other track releases require separate reconciliation")
+    play.call("POST", path + ":validate", {})
+    if play.call("GET", path + "/tracks").get("tracks", []) != tracks:
+        raise ValueError("Tracks changed during reconciliation")
+    # This intentionally resubmits the previously accepted code-13 review.
+    # It cannot cancel another review and never promotes code 14 to production.
+    play.call("POST", path + ":commit?changesNotSentForReview=false"
+              "&changesInReviewBehavior=ERROR_IF_IN_REVIEW")
+    return {"status": "internal_committed_existing_review_resubmitted",
+            "track": "internal", "versionCode": 14, "sha256": digest,
+            "existingProductionVersionCode": 13, "reviewRequested": True}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
@@ -151,16 +192,22 @@ def main():
     parser.add_argument("--track", choices=["internal"], required=True)
     parser.add_argument("--status", choices=["check", "draft", "completed"], default="check")
     parser.add_argument("--notes-file", type=Path, required=True)
+    parser.add_argument("--reconcile-code14-edit")
     args = parser.parse_args()
     bundle, digest, name = verify_candidate(args.directory, args.source, args.run_id,
                                           args.version_code, args.version_name)
-    result = publish(Play(os.environ.get("PLAY_ACCESS_TOKEN")), bundle, digest,
-                     int(args.version_code), name, args.track, args.status,
-                     args.notes_file.read_text().strip())
+    play = Play(os.environ.get("PLAY_ACCESS_TOKEN"))
+    if args.reconcile_code14_edit:
+        if args.status != "completed" or args.version_code != "14" or name != "0.12.0":
+            raise ValueError("Invalid one-time recovery request")
+        result = reconcile_code14(play, args.reconcile_code14_edit, digest, args.source, args.run_id)
+    else:
+        result = publish(play, bundle, digest, int(args.version_code), name, args.track,
+                         args.status, args.notes_file.read_text().strip())
     result.update(source=args.source, buildRunId=args.run_id, versionName=args.version_name)
     (args.directory / "publication.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
-    print("Check internal delivery in Play Console; production review was not requested.")
+    print("Check Play Console availability and review state; the receipt is API acceptance only.")
 
 
 if __name__ == "__main__":

@@ -256,3 +256,38 @@ The negative control removes only the TLS bind/forget calls and fails the
 real-wire certificate assertion with “ADB TLS reused a forgotten identity.”
 Restoring them passes the complete suite; this establishes that the regression
 detects the credential bug rather than readiness alone.
+
+### Complete CI and internal-delivery reconciliation
+
+Exact app source `b7473f0e946f6a9d858f6872d824c8f2fc495789` passes
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/41354473148), CodeQL,
+and the entire [Android release run](https://github.com/kzahel/yepcontrol/actions/runs/41354475580).
+This includes the Linux/x86 native advanced suite, interoperability, native
+control/media, hosted process-absent FCM wake, both QR directions, actual CLI
+security/effects, encrypted viewer control, video and sensor cleanup. Release
+lint and the merged-manifest gate pass before CI signing.
+
+The signed 0.12.0/code-14 bundle SHA-256 is
+`39f449794070cb336bbb31d2fa3d9941ae32f090582d7dfc3814882fb305d65f`.
+Its downloaded source/version/checksum receipt and JAR signature verify locally.
+The public [review demonstration](https://github.com/kzahel/yepcontrol/releases/tag/play-review-v0.12.0)
+retains the earlier remote-session recording and appends an owned-emulator
+native Start/Ready/notification-Stop recording. It does not substitute for
+product-channel remote recovery or Play-installed Moto acceptance.
+
+Internal API upload/validation succeed, but commit rejects the review-deferral
+parameter with `INVALID_ARGUMENT`; fixed-label diagnostics expose this without
+logging arbitrary Google response bodies. Withdrawing the prior code-13 review
+alone did not resolve it. The production code-13 release remains staged and
+must be resubmitted. Google's [commit reference](https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit)
+explains that review submission is app-wide; the default publisher still refuses
+to cancel a review or submit unrelated staged changes.
+
+An explicit one-time recovery is restricted to this exact CI source, run and
+bundle checksum, an existing edit with internal 14 and already-accepted
+production 13, and no other track releases. It revalidates unchanged tracks,
+performs no upload or track write, and requests review without cancelling an
+active review. This restores the code-13 submission while committing only the
+already-staged internal-14 candidate. Eighteen publication regressions pass,
+including refusal of mismatched bytes, another production version and other
+tracks. Recovery outcome and Play-installed acceptance remain pending.
