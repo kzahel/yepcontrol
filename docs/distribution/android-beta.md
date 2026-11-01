@@ -529,3 +529,55 @@ This is a completed physical acceptance check, with that automation limit record
 separately from the passing full owned-emulator campaign. Private receipts remain
 in ignored `.local/unrestricted-proof/`. Production promotion is separate from
 internal delivery and this acceptance.
+
+## Android 0.11.0 / code 12 — 2026-11-01
+
+The owner authorized the six-phase [camera/microphone implementation](../camera-microphone-plan.md),
+independent Sol 6.1 High reviews, incremental commits, deployment and internal
+Play-installed acceptance before public promotion. Both sensor settings default
+off, including upgrades; existing grants and screen control remain compatible.
+
+Source `275d5a8ea17eaee89f704b8113407df0e397e453` passes
+[exact-source Checks](https://github.com/kzahel/yepcontrol/actions/runs/41255655660),
+[CodeQL](https://github.com/kzahel/yepcontrol/actions/runs/41255655675) and the full
+[Android release gate](https://github.com/kzahel/yepcontrol/actions/runs/41255654913).
+Checks include 225 TypeScript tests, build/lint and browser regressions. The
+Linux Android gate passes interoperability, three native UI tests, five media
+tests, 24 storage tests, process-absent FCM wake, both QR directions and the
+combined real CLI, background camera/audio, encrypted H.264, input and rotation
+campaign. Release lint, bundle build and CI signing pass afterward. The downloaded
+receipt matches the source, run and version, strict signature verification passes
+and the upload certificate matches the previous accepted release. Signed AAB
+SHA-256:
+`1d1540bc2ea98135c79d467cd3535cc637241bd3cc75753db5782a7466950dbd`.
+
+Two earlier runs stopped before signing. The first used a stale expected native
+test count; that assertion was updated from 11 to the actual 12. The second timed
+out after a sensor-permission tap while waiting for its opt-in. The exact combined
+sequence then passed locally without changing its assertions or timeout. Strict
+boolean failure diagnostics were added and independently reviewed; the complete
+CI retry passes. The original intermittent consent failure remains unexplained.
+No acceptance requirement was removed.
+
+The [internal access check](https://github.com/kzahel/yepcontrol/actions/runs/41257693955)
+confirms access to the internal track for this exact candidate. The guarded
+[publisher](https://github.com/kzahel/yepcontrol/actions/runs/41257745937) receives
+HTTP 403 at edit validation, before commit, on attempt 1. Console reconciliation
+confirms 0.10.0 remains active. The exact verified signed bundle is then uploaded
+through Console and published specifically to internal testing. Console confirms
+**0.11.0 / Available to internal testers / code 12**. Supported-device counts are
+unchanged; only the existing deobfuscation/native-symbol warnings remain.
+
+Publisher attempt 2 confirms that active release, returning `unchanged` after
+verifying the existing bundle's version and SHA-256. This reconciles the Console
+delivery; it does not fix or bypass the validation refusal. CI remains
+internal-only, with no account-permission expansion or indirect review submission.
+
+Console camera and microphone declarations select **Background camera streaming**
+and **Background audio input**, each with the anonymously accessible
+[sensor demonstration](https://github.com/kzahel/yepcontrol/releases/download/play-review-v0.11.0/yepcontrol-media-review.mp4).
+Existing screen-projection/special-use declarations and their prior demonstration
+remain intact. The listing, reviewer-access instructions and new declarations
+are saved for review. The demonstration is a sampled owned-emulator/debug UI
+movie, separate from Play-installed physical acceptance. Internal delivery alone
+does not establish production approval or public availability.

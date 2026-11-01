@@ -318,3 +318,27 @@ The physical Play-installed 0.9.0/code-10 phone reconnects from its preserved
 browser grant through this deployed viewer. Android 0.10.0 delivery and its
 Play-installed acceptance are recorded separately in the Android release records.
 See [the feature qualification](cli-control.md#phase-3-upgrade-adoption-and-complete-regression--2026-10-30).
+
+## Camera and microphone viewer — 2026-11-01
+
+`relay-v0.5.0`, source `98d13597845140a96b908c30088a197a837b3de3`, passed
+[exact-source Checks](https://github.com/kzahel/yepcontrol/actions/runs/41251427400),
+[CodeQL](https://github.com/kzahel/yepcontrol/actions/runs/41251427362) and
+[production deployment](https://github.com/kzahel/yepcontrol/actions/runs/41251885823).
+The deployment receipt and an independent canonical-origin health check agree
+on version 0.5.0, that source, public admission and Worker
+`73473194-d091-4149-a144-eb094b912bbe`.
+
+The viewer adds explicit Camera Start/Stop, front/rear selection, smooth video
+or still frames, and independent Listen/Stop listening. The privacy page explains
+optional sensor access and controller-owned JPEG/WAV files. Existing screen
+control, pairings and relay authority remain compatible. A public 0.10.0/code-11
+Play-installed phone reconnects from its preserved browser grant, shows update
+guidance for sensors and still responds to an ordinary Home action. The old
+host receives no unsupported media command.
+
+Fresh isolated mobile and desktop Chromium checks against the live origin pass
+the public entry points, rendered pairing QR and privacy disclosure. The
+redundant tag-only build was cancelled; the complete deployment workflow passed.
+Android delivery, Play-installed sensor acceptance and public promotion are
+separate gates in the [camera/microphone plan](camera-microphone-plan.md).
