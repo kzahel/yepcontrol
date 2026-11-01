@@ -160,6 +160,17 @@ class HostedPairingTest {
     }
 
     private fun start(uri: String? = null) {
+        var previous = emptySet<MainActivity>()
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val lifecycle = ActivityLifecycleMonitorRegistry.getInstance()
+            previous =
+                Stage
+                    .values()
+                    .filter { it != Stage.DESTROYED }
+                    .flatMap { lifecycle.getActivitiesInStage(it) }
+                    .filterIsInstance<MainActivity>()
+                    .toSet()
+        }
         val intent =
             (
                 if (
@@ -182,7 +193,64 @@ class HostedPairingTest {
         context.startActivity(intent)
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         val control = if (uri == null) "host_status" else "grant_device"
+        val controlId = if (uri == null) R.id.host_status else R.id.grant_device
+        // CLEAR_TASK creates a new Activity. Accessibility caches can still expose
+        // the previous tree while launch/focus transitions are pending.
+        waitFor {
+            var ready = false
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val current =
+                    ActivityLifecycleMonitorRegistry
+                        .getInstance()
+                        .getActivitiesInStage(
+                            Stage.RESUMED,
+                        ).filterIsInstance<MainActivity>()
+                        .singleOrNull()
+                val view = current?.findViewById<View>(controlId)
+                ready = current != null && current !in previous && current.hasWindowFocus() && view?.isShown == true
+            }
+            ready
+        }
         assertTrue(device.wait(Until.hasObject(By.res("${context.packageName}:id/$control")), 15000))
+    }
+
+    private fun openPairing() {
+        // Only repeat idempotent Home navigation while the real Home button is
+        // still visible. Never repeat code issuance, approval or a remote action.
+        waitFor {
+            device.waitForIdle()
+            var ready = false
+            var point: Pair<Int, Int>? = null
+            InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                val activity =
+                    ActivityLifecycleMonitorRegistry
+                        .getInstance()
+                        .getActivitiesInStage(
+                            Stage.RESUMED,
+                        ).filterIsInstance<MainActivity>()
+                        .singleOrNull()
+                ready =
+                    activity?.findViewById<TextView>(R.id.page_title)?.text == "Give control" &&
+                    activity.findViewById<View>(R.id.give_control)?.isShown == true
+                val button = activity?.findViewById<View>(R.id.pair_device)
+                val rect = android.graphics.Rect()
+                if (!ready &&
+                    activity?.hasWindowFocus() == true &&
+                    button != null &&
+                    button.isEnabled &&
+                    button.isShown &&
+                    button.getGlobalVisibleRect(rect)
+                ) {
+                    point = rect.centerX() to rect.centerY()
+                }
+            }
+            if (!ready) {
+                point?.let { device.click(it.first, it.second) }
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            }
+            ready
+        }
+        title("Give control")
     }
 
     private fun pairedDevice() {
@@ -339,8 +407,7 @@ class HostedPairingTest {
                     assertTrue(device.wait(Until.hasObject(By.res("${context.packageName}:id/host_status")), 10000))
                     assertFalse(device.hasObject(By.res("${context.packageName}:id/scan_pairing_code")))
                     assertFalse(device.hasObject(By.res("${context.packageName}:id/sharing_website")))
-                    click("pair_device")
-                    title("Give control")
+                    openPairing()
                     assertTrue(device.hasObject(By.res("${context.packageName}:id/give_control")))
                     device.pressBack()
                     title("This phone")
@@ -580,16 +647,14 @@ class HostedPairingTest {
                 }
                 "setup" -> {
                     start()
-                    click("pair_device")
-                    title("Give control")
+                    openPairing()
                     val scan = assertNotNull(device.wait(Until.findObject(By.res("${context.packageName}:id/scan_pairing_code")), 10000))
                     assertTrue(scan.isEnabled)
                     assertTrue(device.hasObject(By.res("${context.packageName}:id/give_control")))
                 }
                 "phone-code" -> {
                     start()
-                    click("pair_device")
-                    title("Give control")
+                    openPairing()
                     click("give_control")
                     assertTrue(device.wait(Until.hasObject(By.res("${context.packageName}:id/give_control_qr")), 20000))
                     // Trusted test-only rendering of our own view: the production
