@@ -10,6 +10,7 @@ import socket
 import subprocess
 import time
 import uuid
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / ".local/advanced-control/emulator"
@@ -53,7 +54,24 @@ def test(method):
             print("Native failure: " + safe, flush=True)
         for frame in re.findall(r"^\s*at (dev\.remoteaccess\.[^\r\n]+)$", value, re.M)[:4]:
             print("Native frame: " + frame[:200], flush=True)
-        try: (STATE / "failure-ui.xml").write_text(adb("exec-out", "run-as", APP, "cat", "no_backup/advanced-test-ui.xml"))
+        try:
+            raw_ui = adb("exec-out", "run-as", APP, "cat", "no_backup/advanced-test-ui.xml")
+            (STATE / "failure-ui.xml").write_text(raw_ui)
+            nodes = list(ET.fromstring(raw_ui).iter("node"))
+            # Only static package/resource identifiers leave private evidence.
+            # Never emit text, descriptions, pairing codes or arbitrary attributes.
+            packages = sorted({n.get("package", "") for n in nodes
+                               if re.fullmatch(r"[a-zA-Z0-9_.]+", n.get("package", ""))})
+            ids = sorted({n.get("resource-id", "") for n in nodes
+                          if re.fullmatch(r"[a-zA-Z0-9_.]+:id/[a-zA-Z0-9_]+", n.get("resource-id", ""))})
+            print("Native UI identifiers: " + json.dumps({"packages": packages, "ids": ids[:60]}), flush=True)
+        except Exception: pass
+        try:
+            activity = adb("shell", "dumpsys", "activity", "activities")
+            components = re.findall(r"mResumedActivity:.*? ([a-zA-Z0-9_.]+/[a-zA-Z0-9_.$]+)", activity)
+            power = adb("shell", "dumpsys", "power")
+            awake = re.findall(r"mWakefulness=([a-zA-Z]+)", power)
+            print("Native presentation: " + json.dumps({"resumed": components, "wakefulness": awake}), flush=True)
         except Exception: pass
         raise RuntimeError("Native acceptance failed; inspect private " + method + " log")
 
