@@ -853,7 +853,7 @@ class MainActivity : ComponentActivity() {
         )
         text(
             layout,
-            "Requires Android 11 or later, Wi-Fi and Developer options. No computer is needed. After a restart, connect normally, return here and press Start. Android may ask you to allow Wireless debugging. Approve that dialog using normal remote control. A secure screen lock still needs its first unlock.",
+            "Requires Android 11 or later, Wi-Fi and Developer options. No computer is needed. After a restart, connect normally, return here and press Start. Android may ask you to allow Wireless debugging. Use normal remote control to approve it. If Android blocks remote approval, approve it on the phone. A secure screen lock still needs its first unlock.",
             14f,
         )
         if (!WakeSupport.notificationsAllowed(this)) {

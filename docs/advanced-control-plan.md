@@ -165,3 +165,19 @@ for every tap and finishes when Android reports Developer options enabled,
 rather than assuming every coordinate tap was delivered. Local full acceptance
 passes with this change. The earlier CI attempts remain unaccepted and uploaded
 no Android artifact to Play.
+
+### Native approval transition
+
+Redacted CI evidence identified SystemUI's Wireless debugging network approval
+dialog still in front of Settings when the harness looked for the pairing row.
+Initial owned setup now resolves the native `android:id/alwaysUse` and positive
+button within SystemUI, and waits for an enabled pairing row. It does not rely
+on the approval text appearing within three seconds. Local full acceptance,
+including abrupt process death and reboot, passes with this change. This
+initial-setup harness is not product-channel remote-approval acceptance.
+
+The app's recovery instructions now explicitly state that Android may block
+remote approval and require approval on the phone. The required ordinary-channel
+Moto Start/Allow check must establish its measured support; this is not a
+universal promise for all Android/OEM versions. Kotlin checks and debug/release
+lint pass after the copy change.

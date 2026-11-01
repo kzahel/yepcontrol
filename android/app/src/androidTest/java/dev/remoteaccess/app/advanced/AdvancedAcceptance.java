@@ -94,7 +94,7 @@ public class AdvancedAcceptance {
                   && "com.google.android.permissioncontroller"
                       .contentEquals(root.getPackageName())))) {
         for (android.view.accessibility.AccessibilityNodeInfo node :
-            root.findAccessibilityNodeInfosByViewId(packageName + ":id/" + id)) {
+            root.findAccessibilityNodeInfosByViewId(id)) {
           if (node.isVisibleToUser()
               && node.isEnabled()
               && node.performAction(
@@ -105,7 +105,7 @@ public class AdvancedAcceptance {
       }
       Thread.sleep(100);
     }
-    throw new AssertionError("Native action unavailable: " + packageName + ":id/" + id);
+    throw new AssertionError("Native action unavailable: " + packageName + " / " + id);
   }
 
   void scrollTo(String text) throws Exception {
@@ -187,7 +187,9 @@ public class AdvancedAcceptance {
                   By.res("com.android.permissioncontroller", "permission_allow_button")),
               5000);
       assertNotNull("Native notification permission", allow);
-      clickNativeId("com.android.permissioncontroller", "permission_allow_button");
+      clickNativeId(
+          "com.android.permissioncontroller",
+          "com.android.permissioncontroller:id/permission_allow_button");
       await("Notification consent did not complete", () -> manager.areNotificationsEnabled());
     }
     scrollTo("Set up advanced control");
@@ -234,13 +236,21 @@ public class AdvancedAcceptance {
     if (toggle == null) toggle = device.findObject(By.clazz("android.widget.Switch"));
     assertNotNull("Wireless debugging switch", toggle);
     if (!toggle.isChecked()) toggle.click();
-    UiObject2 trust =
-        device.wait(Until.findObject(By.textContains("Always allow on this network")), 3000);
-    if (trust != null) {
-      trust.click();
-      click("Allow");
+    long approvalDeadline = SystemClock.elapsedRealtime() + 30000;
+    UiObject2 pairing = null;
+    while (SystemClock.elapsedRealtime() < approvalDeadline) {
+      UiObject2 trust = device.findObject(By.res("android", "alwaysUse"));
+      if (trust != null) {
+        if (!trust.isChecked()) clickNativeId("com.android.systemui", "android:id/alwaysUse");
+        clickNativeId("com.android.systemui", "android:id/button1");
+      }
+      pairing = device.findObject(By.text("Pair device with pairing code"));
+      if (pairing != null && pairing.isEnabled()) break;
+      pairing = null;
+      Thread.sleep(200);
     }
-    click("Pair device with pairing code");
+    assertNotNull("Wireless debugging approval did not expose pairing", pairing);
+    pairing.click();
     UiObject2 codeView = device.wait(Until.findObject(By.text(Pattern.compile("[0-9]{6}"))), 10000);
     assertNotNull("Native pairing dialog", codeView);
     String code = codeView.getText();

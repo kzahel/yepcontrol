@@ -68,7 +68,7 @@ def test(method):
         except Exception: pass
         try:
             activity = adb("shell", "dumpsys", "activity", "activities")
-            components = re.findall(r"mResumedActivity:.*? ([a-zA-Z0-9_.]+/[a-zA-Z0-9_.$]+)", activity)
+            components = re.findall(r"(?:topResumedActivity|mResumedActivity)[=:].*? ([a-zA-Z0-9_.]+/[a-zA-Z0-9_.$]+)", activity)
             power = adb("shell", "dumpsys", "power")
             awake = re.findall(r"mWakefulness=([a-zA-Z]+)", power)
             print("Native presentation: " + json.dumps({"resumed": components, "wakefulness": awake}), flush=True)
