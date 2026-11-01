@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from publish_android_bundle import publish, verify_candidate
+from publish_android_bundle import publish, verify_candidate, safe_play_error
 from verify_android_release import verify_build, has_source_checks
 
 
@@ -39,6 +39,17 @@ class FakePlay:
 
 
 class PublishingTest(unittest.TestCase):
+    def test_api_diagnostics_exclude_arbitrary_response_text(self):
+        raw = json.dumps({"error": {"status": "INVALID_ARGUMENT", "message":
+            "It is not allowed to set the query parameter changesNotSentForReview to true. Please remove the query parameter."}})
+        self.assertEqual(safe_play_error(raw), "INVALID_ARGUMENT; review_deferral_parameter")
+        raw = json.dumps({"error": {"status": "FAILED_PRECONDITION", "message":
+            "You already have changes in review. private@example.invalid bearer-fixture"}})
+        self.assertEqual(safe_play_error(raw), "FAILED_PRECONDITION; changes_already_in_review")
+        for raw in ['not JSON', '[]', '{"error":null}',
+                    json.dumps({"error": {"status": "private@example.invalid", "message": "bearer-fixture"}})]:
+            self.assertEqual(safe_play_error(raw), "unclassified")
+
     def run_publish(self, play, status="completed"):
         return publish(play, BUNDLE, DIGEST, 2, "0.1.1", "internal", status, "Tracking improvements.")
 

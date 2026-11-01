@@ -19,6 +19,30 @@ PACKAGE = "com.yepcontrol.app"
 API = "https://androidpublisher.googleapis.com"
 
 
+def safe_play_error(raw):
+    """Expose fixed diagnostic labels, never Google's arbitrary response text."""
+    try:
+        error = json.loads(raw).get("error", {})
+        message = error.get("message", "")
+        status = error.get("status", "")
+        if not isinstance(message, str):
+            return "unclassified"
+        labels = []
+        if status in {"INVALID_ARGUMENT", "FAILED_PRECONDITION", "PERMISSION_DENIED",
+                      "UNAUTHENTICATED", "NOT_FOUND", "ALREADY_EXISTS", "ABORTED",
+                      "RESOURCE_EXHAUSTED", "INTERNAL", "UNAVAILABLE"}:
+            labels.append(status)
+        if "changesNotSentForReview" in message:
+            labels.append("review_deferral_parameter")
+        if "changesInReviewBehavior" in message:
+            labels.append("review_behavior_parameter")
+        if message.startswith("You already have changes in review."):
+            labels.append("changes_already_in_review")
+        return "; ".join(labels) or "unclassified"
+    except (ValueError, AttributeError, TypeError):
+        return "unclassified"
+
+
 def verify_candidate(directory, source, run_id, version_code, version_name):
     read_version(f"VERSION_NAME={version_name}\nVERSION_CODE={version_code}\n")
     receipt = json.loads((directory / "build.json").read_text())
@@ -57,7 +81,8 @@ class Play:
                 return json.loads(content) if content else {}
         except HTTPError as error:
             # Never print arbitrary response bodies or authentication headers.
-            raise RuntimeError(f"Play API {method} {path}: HTTP {error.code}") from None
+            detail = safe_play_error(error.read(65536))
+            raise RuntimeError(f"Play API {method} {path}: HTTP {error.code} ({detail})") from None
 
 
 def publish(play, bundle, digest, version, name, track, status, notes):
