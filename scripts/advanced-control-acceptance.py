@@ -44,7 +44,7 @@ def wait(label, predicate, seconds=150):
 
 
 def test(method):
-    value = adb("shell", "am", "instrument", "-w", "-r", "-e", "class", "dev.remoteaccess.app.advanced.AdvancedAcceptance#" + method, APP + ".test/androidx.test.runner.AndroidJUnitRunner", timeout=210)
+    value = adb("shell", "am", "instrument", "-w", "-r", "-e", "class", "dev.remoteaccess.app.advanced.AdvancedAcceptance#" + method, APP + ".test/androidx.test.runner.AndroidJUnitRunner", timeout=300)
     (STATE / (method + ".txt")).write_text(value)
     if "OK (1 test)" not in value:
         # Only static failure metadata leaves the private evidence directory.
@@ -178,7 +178,7 @@ with (STATE / "emulator.log").open("w") as log:
         test("pairingPrimitive")
         test("staleStartCannotPublishReadiness")
         test("setupOnPhone")
-        result.update(staleStartRejected=True, pairingPrimitive=True, phoneOnlySetup=True, shellAttestation=True, protectedCounterInput=True, identityWrapped=True, stopPreservesPairing=True, helperEndpointClosed=True, multiContactExpiryCancelled=True, staleContinuationRejected=True)
+        result.update(staleStartRejected=True, pairingPrimitive=True, phoneOnlySetup=True, shellAttestation=True, protectedCounterInput=True, identityWrapped=True, stopPreservesPairing=True, helperEndpointClosed=True, forgottenIdentityRepairedWithoutRestart=True, multiContactExpiryCancelled=True, staleContinuationRejected=True)
         process_death()
         result.update(processDeathLeaseExpired=True, noProcessRestartArming=True)
         # Instrumentation stops its target. Clear that state before boot so this

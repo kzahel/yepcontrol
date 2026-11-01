@@ -655,7 +655,24 @@ class HostedPairingTest {
                 "phone-code" -> {
                     start()
                     openPairing()
-                    click("give_control")
+                    if (task.optBoolean("semanticFixture", false)) {
+                        // CLI security tests need this protected scene, not a coordinate
+                        // issuance test. Phone-first acceptance separately exercises touch.
+                        // Activate the actual button once, never issue another code on retry.
+                        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+                            val activity =
+                                ActivityLifecycleMonitorRegistry
+                                    .getInstance()
+                                    .getActivitiesInStage(Stage.RESUMED)
+                                    .filterIsInstance<MainActivity>()
+                                    .single()
+                            val button = assertNotNull(activity.findViewById<View>(R.id.give_control))
+                            assertTrue(button.isShown && button.isEnabled)
+                            assertTrue(button.performClick())
+                        }
+                    } else {
+                        click("give_control")
+                    }
                     assertTrue(device.wait(Until.hasObject(By.res("${context.packageName}:id/give_control_qr")), 20000))
                     // Trusted test-only rendering of our own view: the production
                     // window forbids screenshots/remote capture of the bearer QR.

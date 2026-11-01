@@ -53,8 +53,8 @@ a fresh capability before trusting helper responses. Mutual HMAC challenges
 bind each response to a request. Capability and attested PID live only in the
 app process. Advertised mDNS addresses must belong to this phone, and sockets
 connect only to loopback. ADB uses its pairing/authentication rather than Web
-PKI; the lint exception applies only to this library's trust-manager bytecode,
-not the app's HTTPS clients.
+PKI; the trust-manager exceptions are limited to phone-local ADB contexts in this
+library and the identity adapter, not the app's HTTPS clients.
 
 After initial setup, Start/Stop are ordinary runtime controls. Developer options
 and pairing/forgetting remain on protected setup pages. The controller access,
@@ -88,3 +88,24 @@ The build compiles against API 37 but retains target SDK 36. Android's
 therefore does not require a new Nearby Devices request for this release. A
 future target-37 change must revisit NSD permission/picker behavior explicitly;
 none is silently added here.
+
+## TLS identity ownership
+
+The exact 3.1.1 AAR bytecode retains a singleton SSLContext and its first client
+key manager. Local Forget must also release that credential/session cache; a
+subsequent setup must bind its new stored identity. `AdbTls` supplies a fresh
+Conscrypt context for each current connection owner and an unkeyed context on
+Forget. It publishes the fully initialized context atomically into the two
+validated private fields of the pinned library. No Android hidden-API exemption,
+process-wide provider change or default HTTPS context change is used. A component
+upgrade must pass this adapter and its real-wire certificate acceptance.
+
+The small key/trust-manager adapter is an Apache-2.0 adaptation of the pinned
+component. Its self-signed-certificate trust applies only to the phone-local ADB
+protocol, with the existing pairing and shell-UID attestation boundaries. The
+owned regression performs two setups in one app process, then negotiates ADB
+STLS and observes the actual client certificate in a fresh TLS handshake. A
+unique logical peer name prevents resumption from hiding a stale credential;
+the connected socket remains loopback and performs no DNS lookup. The observed
+public-key fingerprint must match the newly stored identity. Ready alone is
+not treated as evidence of this binding. Local acceptance passes.

@@ -225,3 +225,34 @@ transport was being torn down. The harness now tolerates only the command's
 transport timeout/disconnect and independently requires an increased Android
 boot counter plus completed boot. No command retry or shared-server reset is
 performed; no new boot still fails qualification.
+
+### TLS identity and final regression
+
+Review of the exact AAR bytecode found a singleton client TLS context retaining
+its first key manager. The connection-owner adapter now publishes a fresh
+context with the current identity and fresh session caches; local Forget
+replaces it with an unkeyed context. Both publications occur under the existing
+Start-generation/Store guard. The [component review](advanced-control-components.md#tls-identity-ownership)
+records the pinned private-field integration and its scope.
+
+Ready alone did not distinguish old-cache behavior. The same-process re-pair
+regression therefore observes the client certificate after a real ADB STLS
+upgrade and fresh TLS handshake, comparing it to the new stored public key.
+The complete local suite passes this wire check, plus protected input, Stop,
+crash expiry and no restart/reboot arming. The local full control/media/video
+run and all 226 TypeScript tests pass. Release lint, the bundle and merged
+permission/component gates also pass.
+
+The previous full CI reached CLI acceptance but stopped when its coordinate
+setup did not produce a protected Show code view. CLI security fixtures now
+activate that actual button once semantically; the separate phone-first UI
+suite retains its normal touch path. Future failures expose only a fixed
+phone-code phase enum and input-in-flight boolean, never QR content. The focused
+local real-CLI run passes both pairing directions, protected-page refusals and
+independent revocation with this setup. CI/Play-installed qualification remains
+pending; no code-14 upload has occurred.
+
+The negative control removes only the TLS bind/forget calls and fails the
+real-wire certificate assertion with “ADB TLS reused a forgotten identity.”
+Restoring them passes the complete suite; this establishes that the regression
+detects the credential bug rather than readiness alone.

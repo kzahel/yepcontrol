@@ -440,7 +440,7 @@ export async function cliAcceptance(f: Fixture) {
       ).code,
       2,
     );
-    await command("phone-code");
+    await command("phone-code", { semanticFixture: true });
     assert.equal(
       ((await s.request({ op: "snapshot" })).reply as { code: number }).code,
       4,
@@ -527,7 +527,7 @@ export async function cliAcceptance(f: Fixture) {
     );
     await s.close();
     // The opposite pairing direction uses the normal protected Show code view.
-    await command("phone-code");
+    await command("phone-code", { semanticFixture: true });
     const bytes = Buffer.from(
       adb("shell", "run-as", app, "base64", "files/phone-code.png").replace(
         /\s/g,

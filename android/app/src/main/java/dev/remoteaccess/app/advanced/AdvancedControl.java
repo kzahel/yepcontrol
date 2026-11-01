@@ -45,6 +45,7 @@ public final class AdvancedControl {
   public static void forget(Context c) throws Exception {
     synchronized (Store.class) {
       if (Store.running) throw new IllegalStateException("Stop advanced control first");
+      AdbTls.forget();
       Vault.forget(c);
       Store.prefs(c).edit().clear().apply();
     }

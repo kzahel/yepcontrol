@@ -1,6 +1,9 @@
 package dev.remoteaccess.app
 
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.work.WorkInfo
@@ -55,8 +58,28 @@ class FixtureFailureDiagnostics : TestWatcher() {
                     .getInstance(context)
                     .getWorkInfosForUniqueWork("register-push")
                     .get(3, TimeUnit.SECONDS)
+            var phoneCodePhase = "unavailable"
+            var inputInFlight = false
+            instrumentation.runOnMainSync {
+                val activity =
+                    ActivityLifecycleMonitorRegistry
+                        .getInstance()
+                        .getActivitiesInStage(Stage.RESUMED)
+                        .filterIsInstance<MainActivity>()
+                        .singleOrNull()
+                if (activity != null) {
+                    phoneCodePhase =
+                        ViewModelProvider(activity)[GiveControl::class.java]
+                            .state.phase.name
+                            .lowercase()
+                }
+                inputInFlight = dev.remoteaccess.app.control.ScreenAccessService.current
+                    ?.inputInFlight == true
+            }
             val result =
                 JSONObject()
+                    .put("phoneCodePhase", phoneCodePhase)
+                    .put("inputInFlight", inputInFlight)
                     .put("armed", snapshot.settings.armed)
                     .put("automatic", snapshot.settings.automatic)
                     .put("notificationsAllowed", WakeSupport.notificationsAllowed(context))

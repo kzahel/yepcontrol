@@ -166,75 +166,37 @@ public class AdvancedAcceptance {
       device.dumpWindowHierarchy(new File(context.getNoBackupFilesDir(), "advanced-test-ui.xml"));
   }
 
-  @Test
-  public void setupOnPhone() throws Exception {
-    Configurator.getInstance()
-        .setUiAutomationFlags(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
-    device = UiDevice.getInstance(inst);
-    device.wakeUp();
-    device.pressHome();
-    device.waitForIdle();
-    assertFalse("No implicit start", AdvancedControl.running());
-    assertFalse("Initially unpaired", AdvancedControl.paired(context));
-    advancedPage();
-    NotificationManager manager = context.getSystemService(NotificationManager.class);
-    if (!manager.areNotificationsEnabled()) {
-      scrollTo("Allow setup notifications");
-      click("Allow setup notifications");
-      UiObject2 allow =
-          device.wait(
-              Until.findObject(
-                  By.res("com.android.permissioncontroller", "permission_allow_button")),
-              5000);
-      assertNotNull("Native notification permission", allow);
-      clickNativeId(
-          "com.android.permissioncontroller",
-          "com.android.permissioncontroller:id/permission_allow_button");
-      await("Notification consent did not complete", () -> manager.areNotificationsEnabled());
-    }
+  void beginSetup() throws Exception {
     scrollTo("Set up advanced control");
     click("Set up advanced control");
     UiObject2 confirm = device.wait(Until.findObject(By.res("android", "button1")), 5000);
     assertNotNull("Setup confirmation", confirm);
     confirm.click();
     await("Service did not start", () -> AdvancedControl.running());
-    if (Settings.Global.getInt(
-            context.getContentResolver(), Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0)
-        == 0) {
-      context.startActivity(
-          new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-      device.waitForIdle();
-      scrollTo("Build number");
-      for (int i = 0;
-          i < 12
-              && Settings.Global.getInt(
-                      context.getContentResolver(), Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0)
-                  == 0;
-          i++) {
-        // Toasts temporarily replace the active accessibility root. Resolve
-        // each fresh row, and finish on the actual OS setting rather than a tap count.
-        click("Build number");
-        Thread.sleep(300);
-      }
-      assertEquals(
-          "Native Developer options setup did not complete",
-          1,
-          Settings.Global.getInt(
-              context.getContentResolver(), Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0));
-    }
+  }
+
+  void openWirelessPage() throws Exception {
     context.startActivity(
         new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
     device.waitForIdle();
     scrollTo("Wireless debugging");
     click("Wireless debugging");
     Thread.sleep(800);
     device.waitForIdle();
-    // Native user-visible switch; no settings-provider writes from the harness.
-    UiObject2 toggle =
-        device.wait(Until.findObject(By.res("com.android.settings", "switch_widget")), 3000);
+  }
+
+  UiObject2 wirelessToggle() {
+    UiObject2 toggle = device.findObject(By.res("com.android.settings", "switch_widget"));
+    if (toggle == null) toggle = device.findObject(By.res("android", "switch_widget"));
     if (toggle == null) toggle = device.findObject(By.clazz("android.widget.Switch"));
     assertNotNull("Wireless debugging switch", toggle);
+    return toggle;
+  }
+
+  UiObject2 enableWirelessUi() throws Exception {
+    // Native user-visible switch; no settings-provider writes from the harness.
+    UiObject2 toggle = wirelessToggle();
     if (!toggle.isChecked()) toggle.click();
     long approvalDeadline = SystemClock.elapsedRealtime() + 30000;
     UiObject2 pairing = null;
@@ -250,7 +212,12 @@ public class AdvancedAcceptance {
       Thread.sleep(200);
     }
     assertNotNull("Wireless debugging approval did not expose pairing", pairing);
-    pairing.click();
+    return pairing;
+  }
+
+  void pairUsingPhoneUi() throws Exception {
+    openWirelessPage();
+    enableWirelessUi().click();
     UiObject2 codeView = device.wait(Until.findObject(By.text(Pattern.compile("[0-9]{6}"))), 10000);
     assertNotNull("Native pairing dialog", codeView);
     String code = codeView.getText();
@@ -278,6 +245,122 @@ public class AdvancedAcceptance {
     reply.send(context, 0, fill);
     code = null;
     await("App did not authenticate a shell helper", () -> AdvancedControl.ready());
+  }
+
+  String clientTlsFingerprint() throws Exception {
+    try (Identity owner = new Identity(context, Store.epoch)) {
+      java.security.PrivateKey key = owner.getPrivateKey();
+      java.security.cert.Certificate certificate = owner.getCertificate();
+      Class<?> pairType = Class.forName("io.github.muntashirakon.adb.KeyPair");
+      java.lang.reflect.Constructor<?> constructor =
+          pairType.getDeclaredConstructor(
+              java.security.PrivateKey.class, java.security.cert.Certificate.class);
+      constructor.setAccessible(true);
+      Object pair = constructor.newInstance(key, certificate);
+      java.lang.reflect.Method factory =
+          Class.forName("io.github.muntashirakon.adb.SslUtils")
+              .getDeclaredMethod("getSslContext", pairType);
+      factory.setAccessible(true);
+      javax.net.ssl.SSLContext tls = (javax.net.ssl.SSLContext) factory.invoke(null, pair);
+      try (LocalDiscovery discovery = new LocalDiscovery(context, "_adb-tls-connect._tcp.");
+          java.net.Socket transport = new java.net.Socket()) {
+        int port = discovery.await(12);
+        transport.connect(new java.net.InetSocketAddress("127.0.0.1", port), 5000);
+        transport.setSoTimeout(8000);
+        // ADB starts in its packet protocol, then upgrades with STLS. Use the
+        // exact library builders; only the bounded, empty STLS header is read here.
+        Class<?> protocol = Class.forName("io.github.muntashirakon.adb.AdbProtocol");
+        java.lang.reflect.Method connect = protocol.getDeclaredMethod("generateConnect", int.class);
+        connect.setAccessible(true);
+        transport
+            .getOutputStream()
+            .write((byte[]) connect.invoke(null, android.os.Build.VERSION.SDK_INT));
+        transport.getOutputStream().flush();
+        byte[] header = new byte[24];
+        new java.io.DataInputStream(transport.getInputStream()).readFully(header);
+        java.nio.ByteBuffer message =
+            java.nio.ByteBuffer.wrap(header).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        assertEquals("ADB did not offer STLS", 0x534c5453, message.getInt(0));
+        assertEquals("Unexpected STLS payload", 0, message.getInt(12));
+        java.lang.reflect.Method upgrade = protocol.getDeclaredMethod("generateStls");
+        upgrade.setAccessible(true);
+        transport.getOutputStream().write((byte[]) upgrade.invoke(null));
+        transport.getOutputStream().flush();
+        // A fresh logical peer name bypasses resumption without altering the
+        // library's cached credentials. No DNS lookup occurs on this connected socket.
+        String peer = "identity-" + java.util.UUID.randomUUID() + ".localhost";
+        try (javax.net.ssl.SSLSocket socket =
+            (javax.net.ssl.SSLSocket)
+                tls.getSocketFactory().createSocket(transport, peer, port, true)) {
+          socket.setSoTimeout(8000);
+          socket.startHandshake();
+          java.security.cert.Certificate[] sent = socket.getSession().getLocalCertificates();
+          assertNotNull("TLS client certificate missing", sent);
+          assertTrue("TLS client certificate missing", sent.length > 0);
+          byte[] digest =
+              java.security.MessageDigest.getInstance("SHA-256")
+                  .digest(sent[0].getPublicKey().getEncoded());
+          StringBuilder result = new StringBuilder();
+          for (byte value : digest)
+            result.append(String.format(java.util.Locale.ROOT, "%02x", value & 255));
+          return result.toString();
+        }
+      }
+    }
+  }
+
+  @Test
+  public void setupOnPhone() throws Exception {
+    Configurator.getInstance()
+        .setUiAutomationFlags(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+    device = UiDevice.getInstance(inst);
+    device.wakeUp();
+    device.pressHome();
+    device.waitForIdle();
+    assertFalse("No implicit start", AdvancedControl.running());
+    assertFalse("Initially unpaired", AdvancedControl.paired(context));
+    advancedPage();
+    NotificationManager manager = context.getSystemService(NotificationManager.class);
+    if (!manager.areNotificationsEnabled()) {
+      scrollTo("Allow setup notifications");
+      click("Allow setup notifications");
+      UiObject2 allow =
+          device.wait(
+              Until.findObject(
+                  By.res("com.android.permissioncontroller", "permission_allow_button")),
+              5000);
+      assertNotNull("Native notification permission", allow);
+      clickNativeId(
+          "com.android.permissioncontroller",
+          "com.android.permissioncontroller:id/permission_allow_button");
+      await("Notification consent did not complete", () -> manager.areNotificationsEnabled());
+    }
+    beginSetup();
+    if (Settings.Global.getInt(
+            context.getContentResolver(), Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0)
+        == 0) {
+      context.startActivity(
+          new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+      device.waitForIdle();
+      scrollTo("Build number");
+      for (int i = 0;
+          i < 12
+              && Settings.Global.getInt(
+                      context.getContentResolver(), Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0)
+                  == 0;
+          i++) {
+        // Toasts temporarily replace the active accessibility root. Resolve
+        // each fresh row, and finish on the actual OS setting rather than a tap count.
+        click("Build number");
+        Thread.sleep(300);
+      }
+      assertEquals(
+          "Native Developer options setup did not complete",
+          1,
+          Settings.Global.getInt(
+              context.getContentResolver(), Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0));
+    }
+    pairUsingPhoneUi();
     assertEquals(2000, Store.capability.uid);
     assertTrue(
         context.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS")
@@ -394,6 +477,29 @@ public class AdvancedAcceptance {
             return true;
           }
         });
+
+    String original = Store.prefs(context).getString("identity", "");
+    assertFalse("Original identity missing", original.isEmpty());
+    // Local Forget intentionally leaves Android's old authorization intact.
+    // Observe the next wire certificate so an old, still-authorized key cannot
+    // make Ready alone hide a stale client context.
+    AdvancedControl.forget(context);
+    assertFalse("Forget retained local pairing", AdvancedControl.paired(context));
+    // The app process stays alive throughout: libadb's old singleton is present.
+    advancedPage();
+    beginSetup();
+    pairUsingPhoneUi();
+    assertFalse(
+        "Setup reused the forgotten identity",
+        original.equals(Store.prefs(context).getString("identity", "")));
+    assertEquals(2000, Store.capability.uid);
+    assertTrue(
+        "ADB TLS reused a forgotten identity",
+        Store.prefs(context).getString("identity", "").equals(clientTlsFingerprint()));
+    AdvancedControl.stop(context);
+    await(
+        "Repaired setup did not stop",
+        () -> !AdvancedControl.running() && !AdvancedControl.ready());
   }
 
   @Test

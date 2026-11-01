@@ -73,6 +73,7 @@ final class Identity extends AbsAdbConnectionManager {
     String fingerprint = hex.toString();
     synchronized (Store.class) {
       if (!Store.current(epoch)) throw new IOException("Start cancelled");
+      AdbTls.bind(key, (java.security.cert.X509Certificate) cert);
       Store.prefs(context).edit().putString("identity", fingerprint).apply();
     }
   }

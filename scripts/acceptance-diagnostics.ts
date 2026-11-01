@@ -54,6 +54,26 @@ export function safeFixtureDiagnostics(
         return undefined;
       result[key] = value;
     }
+    if (parsed.phoneCodePhase !== undefined) {
+      if (
+        typeof parsed.phoneCodePhase !== "string" ||
+        ![
+          "idle",
+          "creating",
+          "waiting",
+          "connecting",
+          "completed",
+          "failed",
+          "unavailable",
+        ].includes(parsed.phoneCodePhase)
+      )
+        return undefined;
+      result.phoneCodePhase = parsed.phoneCodePhase;
+    }
+    if (parsed.inputInFlight !== undefined) {
+      if (typeof parsed.inputInFlight !== "boolean") return undefined;
+      result.inputInFlight = parsed.inputInFlight;
+    }
     const state = parsed.wakeState;
     if (
       typeof state !== "string" ||
