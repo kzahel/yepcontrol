@@ -204,14 +204,61 @@ export async function mobileAcceptance(f: Fixture, pairingOnly = false) {
     const target = phonePages.get(page);
     assert.ok(target);
     await page.goto(target);
-    await page
-      .getByRole("status")
-      .filter({
-        hasText: success
-          ? "Ready to connect"
-          : /Phone is unavailable|Connection ended|Access is paused on the phone|Access to this phone was removed on the phone/,
-      })
-      .waitFor({ timeout: success ? 80000 : 15000 });
+    try {
+      await page
+        .getByRole("status")
+        .filter({
+          hasText: success
+            ? "Ready to connect"
+            : /Phone is unavailable|Connection ended|Access is paused on the phone|Access to this phone was removed on the phone/,
+        })
+        .waitFor({ timeout: success ? 80000 : 15000 });
+    } catch (error) {
+      try {
+        const statuses = await page.getByRole("status").allTextContents();
+        let appProcessObserved = false;
+        try {
+          appProcessObserved = /^\d+(?:\s+\d+)*$/.test(
+            adb("shell", "pidof", app).trim(),
+          );
+        } catch {}
+        // Public CI gets only fixed labels/booleans, never arbitrary UI text,
+        // phone names, grant identifiers or relay error bodies.
+        console.error("Readiness wait diagnostics", {
+          expectedSuccess: success,
+          manual,
+          fixtureRunnerRunning:
+            native?.exitCode === null && native.signalCode === null,
+          appProcessObserved,
+          visible: await page.evaluate(
+            () => document.visibilityState === "visible",
+          ),
+          ready: statuses.some((s) => s.includes("Ready to connect")),
+          checking: statuses.some((s) =>
+            /Checking|Contacting|Connecting|Waiting/.test(s),
+          ),
+          ended: statuses.some((s) =>
+            /Connection ended|Connection failed|Connection check failed/.test(
+              s,
+            ),
+          ),
+          unavailable: statuses.some((s) => s.includes("Phone is unavailable")),
+          busy: statuses.some((s) =>
+            /busy|another session|already in use|another tab/i.test(s),
+          ),
+          paused: statuses.some((s) => s.includes("Access is paused")),
+          removed: statuses.some((s) =>
+            s.includes("Access to this phone was removed"),
+          ),
+          expired: statuses.some((s) =>
+            s.includes("Connect when you’re ready"),
+          ),
+        });
+      } catch {
+        console.error("Readiness wait diagnostics unavailable");
+      }
+      throw error;
+    }
   }
   async function manual(peer: { page: Page; id: string }) {
     await parkBrowsers();
