@@ -1,9 +1,11 @@
 # Relay releases and CI deployment
 
+The live website/relay release is `relay-v0.5.1`; see the
+[portrait and tablet viewer receipt](#portrait-and-tablet-viewer--2026-11-01).
+It preserves released hosts, existing pairings and relay authority.
+
 The 2026-10-26 phone-first pairing rollout is recorded in
 [the feature and production receipt](phone-first-pairing.md#production-website-and-relay--2026-10-26).
-The live release is `relay-v0.3.1`; it preserves existing v1 grants and adds the
-phone-issued one-use QR path, matching viewer and shorter installation page.
 
 Relay versions are independent of Android versions. Use immutable tags such as
 `relay-v0.1.0` or `relay-v0.2.0-rc.1`; never move a released tag. The selected
@@ -342,3 +344,34 @@ the public entry points, rendered pairing QR and privacy disclosure. The
 redundant tag-only build was cancelled; the complete deployment workflow passed.
 Android delivery, Play-installed sensor acceptance and public promotion are
 separate gates in the [camera/microphone plan](camera-microphone-plan.md).
+
+
+## Portrait and tablet viewer — 2026-11-01
+
+[`relay-v0.5.1`](https://github.com/kzahel/yepcontrol/tree/relay-v0.5.1), source
+`fc031befbd445c17517f68d6ea832638adfbd114`, passed complete
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/41277780284),
+[CodeQL](https://github.com/kzahel/yepcontrol/actions/runs/41277780292) and the
+[production release/deployment](https://github.com/kzahel/yepcontrol/actions/runs/41278108360).
+The uploaded deployment receipt and independent canonical-origin health check
+agree on version 0.5.1, that source, public admission and Worker
+`e87925c1-ed26-401f-bbf3-45593f510c9b`. The redundant build-only tag run was
+cancelled; the deployment workflow performed its own complete release checks
+and built the deployed bundle.
+
+The viewer uses actual displayed frame dimensions and measured available space,
+puts navigation below the picture on portrait phones, and collapses healthy
+status/idle media controls in fullscreen. Active sharing controls and repair
+messages remain visible. Existing Android binaries, protocols, browser storage,
+pairings and relay authority are unchanged. See [viewer behavior and qualification](fullscreen-viewer.md).
+
+Local and CI Chromium suites cover maximal contained tablet/phone pictures,
+local/remote rotation, changing viewport heights, touch mapping, input release,
+fullscreen/fallback, media sharing and saved phones. All 225 unit tests pass.
+After deployment, the exact viewer HTML and all seven built JS/CSS assets fetched
+from the public origin match the tested local build byte for byte. Fresh isolated
+Chromium sessions load the actual viewer at portrait-phone, landscape-phone and
+desktop sizes with no page errors or horizontal overflow, and verify the viewport
+safe-area declaration. These are synthetic layout and public-origin asset/load
+checks, not physical tablet or iPhone/Safari qualification. No Android update or
+re-pairing is required.
