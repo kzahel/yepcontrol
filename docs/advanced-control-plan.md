@@ -137,3 +137,10 @@ also retains `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES` consistently when
 reading live accessibility nodes, so UiAutomation does not reconfigure the
 connection and suppress the ordinary service during setup. CI qualification and
 Play-installed acceptance remain pending.
+
+The next CI attempt stopped earlier: the notification permission button was
+found, but its coordinate click did not produce the grant. Initial owned setup
+now resolves that native button from the current focused permission-controller
+window and requires Android to accept its semantic click. This is limited to
+initial local setup; helper input and product-channel remote recovery remain
+separate acceptance requirements. No failed attempt was signed or uploaded.

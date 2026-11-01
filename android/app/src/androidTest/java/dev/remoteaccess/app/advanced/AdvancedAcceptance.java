@@ -80,6 +80,30 @@ public class AdvancedAcceptance {
     device.waitForIdle();
   }
 
+  void clickNativeId(String packageName, String id) throws Exception {
+    // Initial local setup may use native semantic actions. Raw/helper and remote
+    // recovery acceptance must exercise their actual input routes separately.
+    long until = SystemClock.elapsedRealtime() + 10000;
+    while (SystemClock.elapsedRealtime() < until) {
+      android.view.accessibility.AccessibilityNodeInfo root =
+          inst.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+              .getRootInActiveWindow();
+      if (root != null && packageName.contentEquals(root.getPackageName())) {
+        for (android.view.accessibility.AccessibilityNodeInfo node :
+            root.findAccessibilityNodeInfosByViewId(packageName + ":id/" + id)) {
+          if (node.isVisibleToUser()
+              && node.isEnabled()
+              && node.performAction(
+                  android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) {
+            return;
+          }
+        }
+      }
+      Thread.sleep(100);
+    }
+    throw new AssertionError("Native action unavailable: " + packageName + ":id/" + id);
+  }
+
   void scrollTo(String text) throws Exception {
     for (int i = 0; i < 18; i++) {
       if (device.findObject(By.text(text)) != null) return;
@@ -159,7 +183,7 @@ public class AdvancedAcceptance {
                   By.res("com.android.permissioncontroller", "permission_allow_button")),
               5000);
       assertNotNull("Native notification permission", allow);
-      allow.click();
+      clickNativeId("com.android.permissioncontroller", "permission_allow_button");
       await("Notification consent did not complete", () -> manager.areNotificationsEnabled());
     }
     scrollTo("Set up advanced control");
