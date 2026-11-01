@@ -149,15 +149,21 @@ export async function controlAcceptance(f: Fixture) {
     adb("shell", "run-as", app, "rm", "-f", "files/hosted-stage");
     console.log(`Native step: ${action}`);
     privateWrite("hosted-command", JSON.stringify({ action, ...extra }));
-    return until(() => {
-      const raw = adb("shell", "run-as", app, "cat", "files/hosted-stage");
-      if (action === "stop" && raw === "stopped") return true;
-      const value = JSON.parse(raw) as {
-        action: string;
-        devices: { id: string }[];
-      };
-      return value.action === action ? value : undefined;
-    });
+    // The native automatic step retains its own 60-second readiness deadline,
+    // after navigation and Android consent. Let it finish (including its
+    // failure diagnostics) before the outer harness terminates instrumentation.
+    return until(
+      () => {
+        const raw = adb("shell", "run-as", app, "cat", "files/hosted-stage");
+        if (action === "stop" && raw === "stopped") return true;
+        const value = JSON.parse(raw) as {
+          action: string;
+          devices: { id: string }[];
+        };
+        return value.action === action ? value : undefined;
+      },
+      action === "automatic" ? 120000 : 60000,
+    );
   }
   const witness = () =>
     JSON.parse(
