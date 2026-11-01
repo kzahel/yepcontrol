@@ -1,7 +1,7 @@
 # Relay releases and CI deployment
 
-The live website/relay release is `relay-v0.5.1`; see the
-[portrait and tablet viewer receipt](#portrait-and-tablet-viewer--2026-11-01).
+The live website/relay release is `relay-v0.5.2`; see the
+[advanced readiness receipt](#optional-advanced-readiness--2026-11-01).
 It preserves released hosts, existing pairings and relay authority.
 
 The 2026-10-26 phone-first pairing rollout is recorded in
@@ -375,3 +375,20 @@ desktop sizes with no page errors or horizontal overflow, and verify the viewpor
 safe-area declaration. These are synthetic layout and public-origin asset/load
 checks, not physical tablet or iPhone/Safari qualification. No Android update or
 re-pairing is required.
+
+
+## Optional advanced readiness — 2026-11-01
+
+[`relay-v0.5.2`](https://github.com/kzahel/yepcontrol/tree/relay-v0.5.2), source
+`baf4c043488f7d94fc13b94ab2c96ccb6d746a9f`, passed
+[Checks](https://github.com/kzahel/yepcontrol/actions/runs/41329293919),
+the [release build](https://github.com/kzahel/yepcontrol/actions/runs/41330334365)
+and [production deployment](https://github.com/kzahel/yepcontrol/actions/runs/41330345255).
+An independent canonical-origin health check agrees on version 0.5.2, that
+source, public admission and Worker `19bc03a7-b67c-4b49-bfd8-a7ada3f33c72`.
+
+The shared control decoder accepts an optional advanced-control readiness
+report. Older Android hosts remain valid without it. Existing pairings, relay
+authority, browser storage and country/store delivery are unchanged by this
+website deployment. Native implementation, installed acceptance and Android
+publication are tracked separately in the [advanced control plan](advanced-control-plan.md).
