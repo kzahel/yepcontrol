@@ -60,10 +60,10 @@ jobs:
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
       # Each harness refuses occupied selectors and owns/reaps its emulator.
-      - run: pnpm test:interop
-      - run: pnpm test:mobile-smoke --media
       - name: Phone-only advanced pairing, protected input and no boot arming
         run: python3 scripts/advanced-control-acceptance.py
+      - run: pnpm test:interop
+      - run: pnpm test:mobile-smoke --media
       - name: Hosted pairing and process-absent FCM wake
         if: inputs.hosted_origin != ''
         run: pnpm test:hosted

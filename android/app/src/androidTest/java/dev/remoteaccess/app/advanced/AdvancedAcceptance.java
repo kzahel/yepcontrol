@@ -35,7 +35,23 @@ public class AdvancedAcceptance {
       if (check.get()) return;
       Thread.sleep(500);
     }
-    throw new AssertionError(label + " (" + AdvancedControl.state() + ")");
+    throw new AssertionError(
+        label
+            + " ("
+            + AdvancedControl.state()
+            + ")"
+            + (label.startsWith("Protected")
+                ? " focus="
+                    + ProtectedFixture.focused
+                    + " drawn="
+                    + ProtectedFixture.drawn
+                    + " events="
+                    + ProtectedFixture.events
+                    + " flags="
+                    + ProtectedFixture.lastFlags
+                    + " action="
+                    + ProtectedFixture.lastAction
+                : ""));
   }
 
   JSONObject receipt(String name) throws Exception {
@@ -49,8 +65,7 @@ public class AdvancedAcceptance {
     Intent intent =
         new Intent(context, activity)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-    if (activity == MainActivity.class) inst.startActivitySync(intent);
-    else context.startActivity(intent);
+    inst.startActivitySync(intent);
     device.waitForIdle();
   }
 
@@ -101,7 +116,8 @@ public class AdvancedAcceptance {
     while (device.findObject(By.res(context.getPackageName(), "advanced_status")) == null
         && SystemClock.elapsedRealtime() < until) {
       android.view.accessibility.AccessibilityNodeInfo root =
-          inst.getUiAutomation().getRootInActiveWindow();
+          inst.getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+              .getRootInActiveWindow();
       if (root != null)
         for (android.view.accessibility.AccessibilityNodeInfo node :
             root.findAccessibilityNodeInfosByViewId(
@@ -233,7 +249,11 @@ public class AdvancedAcceptance {
     // Input validation exercises the real helper, never a desktop shell input command.
     context.startActivity(
         new Intent(context, ProtectedFixture.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-    await("Protected fixture did not show", () -> ProtectedFixture.x > 0);
+    await(
+        "Protected fixture did not show",
+        () -> ProtectedFixture.x > 0 && ProtectedFixture.focused && ProtectedFixture.drawn);
+    device.waitForIdle();
+    inst.waitForIdleSync();
     int before = ProtectedFixture.count;
     JSONObject packet =
         new JSONObject()

@@ -7,7 +7,8 @@ import android.widget.*;
 
 @android.annotation.SuppressLint("SetTextI18n")
 public final class ProtectedFixture extends Activity {
-  public static volatile int count, x, y;
+  public static volatile int count, x, y, events, lastFlags, lastAction = -1;
+  public static volatile boolean focused, drawn;
 
   @Override
   public void onCreate(Bundle state) {
@@ -25,6 +26,7 @@ public final class ProtectedFixture extends Activity {
         });
     root.addView(button, new LinearLayout.LayoutParams(-1, 300));
     setContentView(root);
+    button.getViewTreeObserver().registerFrameCommitCallback(() -> drawn = true);
     button.post(
         () -> {
           int[] location = new int[2];
@@ -32,5 +34,19 @@ public final class ProtectedFixture extends Activity {
           x = location[0] + button.getWidth() / 2;
           y = location[1] + button.getHeight() / 2;
         });
+  }
+
+  @Override
+  public void onWindowFocusChanged(boolean value) {
+    super.onWindowFocusChanged(value);
+    focused = value;
+  }
+
+  @Override
+  public boolean dispatchTouchEvent(android.view.MotionEvent event) {
+    events++;
+    lastFlags = event.getFlags();
+    lastAction = event.getActionMasked();
+    return super.dispatchTouchEvent(event);
   }
 }

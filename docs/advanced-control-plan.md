@@ -120,3 +120,20 @@ The test now waits for loaded Settings and resolves a live accessibility node
 for idempotent page navigation, avoiding scrolling/rendering races in CI.
 Local acceptance passes. Existing sensor and video teardown remains ahead of
 advanced-helper shutdown so optional setup cannot delay their disconnection.
+
+
+### Presented-fixture precondition
+
+The CI run now pairs and authenticates successfully, but its first raw tap did
+not increment the fixture counter. The owned test now waits for the fixture's
+focused window and committed frame before injection, rather than treating a
+layout callback as presentation. It records only synthetic fixture event/focus
+metadata on failure. This distinguishes missed presentation from input filtering;
+no raw input is retried after an ambiguous result. Signing remains gated on the
+complete test passing in CI.
+
+Local Android 16 acceptance passes with these presentation checks. Test navigation
+also retains `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES` consistently when
+reading live accessibility nodes, so UiAutomation does not reconfigure the
+connection and suppress the ordinary service during setup. CI qualification and
+Play-installed acceptance remain pending.
