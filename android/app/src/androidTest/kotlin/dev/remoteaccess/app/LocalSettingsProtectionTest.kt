@@ -83,6 +83,7 @@ class LocalSettingsProtectionTest {
     private fun selector(id: String) = By.res("${context.packageName}:id/$id")
 
     private fun click(id: String) {
+        device.waitForIdle()
         withView(selector(id)) { it.click() }
         instrumentation.waitForIdleSync()
     }
@@ -108,7 +109,32 @@ class LocalSettingsProtectionTest {
                 .put(payload)
                 .array(),
         )
-        return assertNotNull(replies.poll(10, TimeUnit.SECONDS), "Missing native command reply")
+        return replies.poll(10, TimeUnit.SECONDS)
+            ?: throw AssertionError("Missing native command reply; op=$op; ${captureDiagnostic()}")
+    }
+
+    /** Only fixed state and stack locations; never screenshot bytes, UI text or credentials. */
+    private fun captureDiagnostic(): String {
+        val service = ScreenAccessService.current
+        val pending =
+            runCatching {
+                val field = ScreenAccessService::class.java.getDeclaredField("capturing").apply { isAccessible = true }
+                (field.get(service) as java.util.concurrent.atomic.AtomicBoolean).get()
+            }.getOrNull()
+        val relevant =
+            Thread
+                .getAllStackTraces()
+                .entries
+                .filter { (thread, stack) ->
+                    thread.name == "main" ||
+                        stack.any {
+                            it.className.startsWith("dev.remoteaccess.app.control.ScreenAccessService") ||
+                                it.className.startsWith("dev.remoteaccess.app.control.ScreenshotWorkQueue")
+                        }
+                }
+        val ordered = relevant.sortedBy { if (it.key.name == "main") 0 else 1 }
+        val frames = ordered.take(4).map { (_, stack) -> stack.take(12).map { it.toString() } }
+        return "service=${service != null}; capturing=$pending; captureStacks=$frames"
     }
 
     private fun result(
@@ -125,13 +151,37 @@ class LocalSettingsProtectionTest {
     }
 
     private fun capture(): Int {
+        device.waitForIdle()
         var scene = 0
-        waitFor {
-            val reply = command(3)
-            scene = if (reply[4].toInt() == 3) ByteBuffer.wrap(reply).getInt(12) else 0
-            scene != 0
+        val refusals = mutableListOf<Int>()
+        try {
+            waitFor {
+                val reply = command(3)
+                scene = if (reply[4].toInt() == 3) ByteBuffer.wrap(reply).getInt(12) else 0
+                if (reply[4].toInt() == 2) refusals.add(reply.last().toInt())
+                scene != 0
+            }
+        } catch (error: Throwable) {
+            throw AssertionError("Screenshot did not arrive; refusals=${refusals.takeLast(8)}; ${captureDiagnostic()}", error)
         }
         return scene
+    }
+
+    private fun openPairing() {
+        // This local navigation does not issue a code or grant authority. Recheck its effect
+        // while Home is still visible; never replay a remote command or a consent action.
+        waitFor {
+            if (device.hasObject(selector("give_control"))) {
+                true
+            } else {
+                try {
+                    device.findObject(selector("pair_device"))?.takeIf { it.isEnabled }?.click()
+                } catch (_: StaleObjectException) {
+                    // The body can refresh between lookup and the local navigation tap.
+                }
+                device.wait(Until.hasObject(selector("give_control")), 500)
+            }
+        }
     }
 
     private fun tap(
@@ -326,7 +376,7 @@ class LocalSettingsProtectionTest {
                 ),
             )
             view(selector("host_status"))
-            click("pair_device")
+            openPairing()
             view(selector("give_control"))
             assertTrue(LocalSettingsProtection.hideCapture)
             instrumentation.runOnMainSync {
@@ -507,7 +557,7 @@ class LocalSettingsProtectionTest {
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
             )
             view(selector("host_status"))
-            click("pair_device")
+            openPairing()
             view(selector("give_control"))
             assertFalse(LocalSettingsProtection.blocked)
             assertFalse(LocalSettingsProtection.hideCapture)

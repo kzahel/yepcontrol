@@ -36,6 +36,7 @@ class MobileNavigationTest {
     private val device = UiDevice.getInstance(instrumentation)
 
     private fun click(id: String) {
+        device.waitForIdle()
         val selector = By.res("${context.packageName}:id/$id")
         val deadline = System.nanoTime() + 10_000_000_000L
         while (System.nanoTime() < deadline) {
@@ -71,6 +72,8 @@ class MobileNavigationTest {
     }
 
     private fun settings() {
+        // The destination title changes before the previous drawer-close animation completes.
+        assertTrue(device.wait(Until.gone(By.res("${context.packageName}:id/open_settings")), 10000))
         click("navigation_menu")
         click("open_settings")
         title("Settings")
