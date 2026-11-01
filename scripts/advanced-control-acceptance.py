@@ -51,6 +51,8 @@ def test(method):
         if failure:
             safe = re.sub(r"[A-Za-z0-9+/_=-]{32,}|\b[0-9]{6}\b", "<redacted>", failure.group(1)[:240])
             print("Native failure: " + safe, flush=True)
+        for frame in re.findall(r"^\s*at (dev\.remoteaccess\.[^\r\n]+)$", value, re.M)[:4]:
+            print("Native frame: " + frame[:200], flush=True)
         try: (STATE / "failure-ui.xml").write_text(adb("exec-out", "run-as", APP, "cat", "no_backup/advanced-test-ui.xml"))
         except Exception: pass
         raise RuntimeError("Native acceptance failed; inspect private " + method + " log")

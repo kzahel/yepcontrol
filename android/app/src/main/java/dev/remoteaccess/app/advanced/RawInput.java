@@ -12,6 +12,7 @@ import org.json.*;
 @android.annotation.SuppressLint("PrivateApi") // Executed only by the OS-authenticated shell UID.
 final class RawInput {
   private final LinkedHashMap<Integer, float[]> fingers = new LinkedHashMap<>();
+  private final Map<Integer, Integer> slots = new HashMap<>();
   private String owner = "";
   private int sequence = -1, gesture, scene;
   private long down, last, started;
@@ -39,6 +40,7 @@ final class RawInput {
       if (!fingers.isEmpty()) event(MotionEvent.ACTION_CANCEL);
     } finally {
       fingers.clear();
+      slots.clear();
       owner = "";
       sequence = -1;
     }
@@ -57,7 +59,7 @@ final class RawInput {
         || duration < 16
         || duration > 100
         || contacts.length() < 1
-        || contacts.length() > 5) throw new IllegalArgumentException();
+        || contacts.length() > 10) throw new IllegalArgumentException();
     if ((!fingers.isEmpty()
             && (!owner.equals(who)
                 || seq != sequence + 1
@@ -73,10 +75,10 @@ final class RawInput {
       int id = contact.getInt("id");
       JSONArray path = contact.getJSONArray("path");
       if (id < 0
-          || id > 31
+          || id > 1000000
           || input.put(id, contact) != null
           || path.length() < 1
-          || path.length() > 16) throw new IllegalArgumentException();
+          || path.length() > 24) throw new IllegalArgumentException();
       for (int j = 0; j < path.length(); j++) {
         JSONArray point = path.getJSONArray(j);
         if (point.length() != 2
@@ -103,6 +105,10 @@ final class RawInput {
       for (Map.Entry<Integer, JSONObject> entry : input.entrySet()) {
         if (fingers.containsKey(entry.getKey())) continue;
         JSONArray p = entry.getValue().getJSONArray("path").getJSONArray(0);
+        int slot = 0;
+        while (slots.containsValue(slot)) slot++;
+        if (slot >= 10) throw new IllegalArgumentException();
+        slots.put(entry.getKey(), slot);
         fingers.put(entry.getKey(), new float[] {(float) p.getDouble(0), (float) p.getDouble(1)});
         event(
             fingers.size() == 1
@@ -138,6 +144,7 @@ final class RawInput {
                 : MotionEvent.ACTION_POINTER_UP
                     | (index << MotionEvent.ACTION_POINTER_INDEX_SHIFT));
         fingers.remove(entry.getKey());
+        slots.remove(entry.getKey());
       }
       last = SystemClock.uptimeMillis();
       if (fingers.isEmpty()) {
@@ -156,7 +163,7 @@ final class RawInput {
     int i = 0;
     for (Map.Entry<Integer, float[]> finger : fingers.entrySet()) {
       MotionEvent.PointerProperties p = new MotionEvent.PointerProperties();
-      p.id = finger.getKey();
+      p.id = slots.get(finger.getKey());
       p.toolType = MotionEvent.TOOL_TYPE_FINGER;
       properties[i] = p;
       MotionEvent.PointerCoords c = new MotionEvent.PointerCoords();

@@ -46,15 +46,11 @@ public class AdvancedAcceptance {
   }
 
   void start(Class<?> activity) throws Exception {
-    if (activity == MainActivity.class) {
-      // Reliable for both a newly created and an already existing launcher activity.
-      // Harness privilege is used only for UI launch, never pairing or permission grants.
-      device.executeShellCommand(
-          "am start -W -f 0x14000000 -n "
-              + context.getPackageName()
-              + "/dev.remoteaccess.app.MainActivity");
-    } else
-      context.startActivity(new Intent(context, activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    Intent intent =
+        new Intent(context, activity)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    if (activity == MainActivity.class) inst.startActivitySync(intent);
+    else context.startActivity(intent);
     device.waitForIdle();
   }
 
@@ -85,27 +81,39 @@ public class AdvancedAcceptance {
 
   void advancedPage() throws Exception {
     start(MainActivity.class);
-    if (device.findObject(By.res(context.getPackageName(), "advanced_status")) != null) return;
-    UiObject2 menu = device.wait(Until.findObject(By.desc("Open navigation")), 5000);
-    if (menu != null) {
-      menu.click();
-      click("Settings");
-    }
-    for (int i = 0; i < 18; i++) {
-      UiObject2 row = device.findObject(By.res(context.getPackageName(), "advanced_settings"));
-      if (row != null) {
-        row.click();
-        return;
-      }
-      device.swipe(
-          device.getDisplayWidth() / 2,
-          device.getDisplayHeight() * 4 / 5,
-          device.getDisplayWidth() / 2,
-          device.getDisplayHeight() / 3,
-          20);
+    UiObject2 menu =
+        device.wait(Until.findObject(By.res(context.getPackageName(), "navigation_menu")), 15000);
+    assertNotNull("Main navigation did not load", menu);
+    menu.click();
+    UiObject2 settings =
+        device.wait(Until.findObject(By.res(context.getPackageName(), "open_settings")), 10000);
+    assertNotNull("Settings navigation missing", settings);
+    settings.click();
+    assertNotNull(
+        "Settings body did not load",
+        device.wait(Until.findObject(By.res(context.getPackageName(), "screen_access")), 30000));
+    new UiScrollable(new UiSelector().scrollable(true)).scrollToEnd(20);
+    UiObject2 row =
+        device.wait(Until.findObject(By.res(context.getPackageName(), "advanced_settings")), 10000);
+    assertNotNull("Advanced control row missing after loading settings", row);
+    // Navigation is idempotent. Resolve a live node after asynchronous readiness renders.
+    long until = SystemClock.elapsedRealtime() + 15000;
+    while (device.findObject(By.res(context.getPackageName(), "advanced_status")) == null
+        && SystemClock.elapsedRealtime() < until) {
+      android.view.accessibility.AccessibilityNodeInfo root =
+          inst.getUiAutomation().getRootInActiveWindow();
+      if (root != null)
+        for (android.view.accessibility.AccessibilityNodeInfo node :
+            root.findAccessibilityNodeInfosByViewId(
+                context.getPackageName() + ":id/advanced_settings")) {
+          if (node.isVisibleToUser())
+            node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK);
+        }
       Thread.sleep(200);
     }
-    fail("Missing Advanced control settings row");
+    assertNotNull(
+        "Advanced page did not open",
+        device.findObject(By.res(context.getPackageName(), "advanced_status")));
   }
 
   @After
@@ -253,8 +261,12 @@ public class AdvancedAcceptance {
     int afterTap = ProtectedFixture.count;
     JSONObject held = new JSONObject(packet.toString()).put("owner", "held-pointers");
     org.json.JSONArray heldContacts = held.getJSONArray("contacts");
-    heldContacts.getJSONObject(0).put("held", true);
-    heldContacts.put(new JSONObject(heldContacts.getJSONObject(0).toString()).put("id", 1));
+    JSONObject firstHeld = heldContacts.getJSONObject(0).put("held", true).put("id", 1000000);
+    org.json.JSONArray samples = new org.json.JSONArray();
+    for (int i = 0; i < 24; i++) samples.put(firstHeld.getJSONArray("path").getJSONArray(0));
+    firstHeld.put("path", samples);
+    for (int i = 1; i < 10; i++)
+      heldContacts.put(new JSONObject(firstHeld.toString()).put("id", 1000000 - i));
     AdvancedControl.touch(context, held);
     Thread.sleep(1100);
     assertEquals(

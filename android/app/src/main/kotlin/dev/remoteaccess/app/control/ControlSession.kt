@@ -189,10 +189,10 @@ internal class ControlSession(
 
     fun close() {
         if (!active.compareAndSet(true, false)) return
-        AdvancedControl.stop(context)
         output.close()
         MediaController.close(this, reason = 5)
         VideoStream.close(context, this, dev.remoteaccess.protocol.CaptureLifecycle.Reason.DISCONNECTED)
         ScreenAccessService.current?.release(this)
+        AdvancedControl.stop(context)
     }
 }

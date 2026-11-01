@@ -108,3 +108,15 @@ resolved. This run is not an accepted store candidate. The companion website
 release `relay-v0.5.2` deployed successfully from the initially checked source;
 its only runtime change is optional advanced readiness decoding and it remains
 compatible with older hosts. Android signing/installed acceptance remain pending.
+
+
+### Pointer compatibility and CI navigation
+
+Raw input now maps protocol contact IDs (up to 1,000,000) to Android's bounded
+pointer slots. It preserves the existing ten-contact / 24-sample protocol limits.
+The owned acceptance uses all ten high-ID contacts and 24 samples, verifies
+cancellation without a click, rejects stale continuation and accepts fresh input.
+The test now waits for loaded Settings and resolves a live accessibility node
+for idempotent page navigation, avoiding scrolling/rendering races in CI.
+Local acceptance passes. Existing sensor and video teardown remains ahead of
+advanced-helper shutdown so optional setup cannot delay their disconnection.

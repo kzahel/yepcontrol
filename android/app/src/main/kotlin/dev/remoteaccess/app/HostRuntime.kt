@@ -59,15 +59,15 @@ internal object HostRuntime {
             try {
                 val store = HostStore.get(app).load()
                 work(store)
-                if (!store.snapshot.settings.armed) {
-                    dev.remoteaccess.app.advanced.AdvancedControl
-                        .stop(app)
-                }
                 HostSessions.current.get()?.let {
                     if (!store.allowed(it.deviceId, it.generation)) {
                         HostSessions.stop()
                         store.record("Access stopped on phone", it.deviceId)
                     }
+                }
+                if (!store.snapshot.settings.armed) {
+                    dev.remoteaccess.app.advanced.AdvancedControl
+                        .stop(app)
                 }
                 store.snapshot.devices.forEach { device ->
                     if (!store.allowed(device.id, device.generation)) {
