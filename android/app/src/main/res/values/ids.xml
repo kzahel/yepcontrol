@@ -57,4 +57,13 @@
     <item name="privacy_policy" type="id" />
     <item name="dismiss_unrestricted_notice" type="id" />
     <item name="unrestricted_remote_control" type="id" />
+    <item name="advanced_settings" type="id" />
+    <item name="advanced_start" type="id" />
+    <item name="advanced_stop" type="id" />
+    <item name="advanced_status" type="id" />
+    <item name="advanced_developer" type="id" />
+    <item name="advanced_forget" type="id" />
+    <item name="advanced_notifications" type="id" />
+    <item name="open_source_licenses" type="id" />
+    <item name="advanced_setup" type="id" />
 </resources>

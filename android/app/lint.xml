@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- ADB TLS uses Android's pairing/authentication rather than Web PKI. Only
+         loopback connections are allowed. Helper readiness additionally requires
+         a DUMP-protected Binder call from actual shell UID and a fresh capability.
+         Do not suppress this check for the app's HTTPS clients. -->
+    <issue id="TrustAllX509TrustManager">
+        <ignore regexp=".*libadb-android-3[.]1[.]1.*classes[.]jar" />
+    </issue>
+</lint>

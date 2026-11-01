@@ -48,7 +48,17 @@ val mediaFixture = providers.gradleProperty("mediaFixture").orNull == "true"
 android {
     namespace = "dev.remoteaccess.app"
     compileSdk = 37
-    buildFeatures { buildConfig = true }
+    buildFeatures {
+        buildConfig = true
+        prefab = true
+    }
+    ndkVersion = "28.2.13676358"
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
     defaultConfig {
         applicationId = "com.yepcontrol.app"
         minSdk = 30
@@ -90,6 +100,12 @@ android {
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 kotlin { compilerOptions { allWarningsAsErrors.set(true) } }
 dependencies {
+    implementation("com.github.MuntashirAkon:libadb-android:3.1.1") {
+        exclude(group = "com.github.MuntashirAkon.spake2-java")
+    }
+    implementation("org.bouncycastle:bcprov-jdk15to18:1.86")
+    implementation("org.conscrypt:conscrypt-android:2.8.0")
+    implementation("io.github.vvb2060.ndk:boringssl:20251124")
     // Native modal navigation drawer, with RTL and accessibility support.
     implementation("androidx.drawerlayout:drawerlayout:1.2.0")
     // Reviewed Apache-2.0 QR encoder for locally approved, one-use pairing links.

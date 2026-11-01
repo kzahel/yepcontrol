@@ -27,3 +27,6 @@ google-services.json
 *.p12
 *.pfx
 gha-creds-*.json
+
+# Android external-native-build intermediates contain local SDK paths.
+**/.cxx/

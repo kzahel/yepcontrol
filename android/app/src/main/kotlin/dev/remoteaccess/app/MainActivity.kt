@@ -44,6 +44,7 @@ import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.common.MlKitException
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
+import dev.remoteaccess.app.advanced.AdvancedControl
 import dev.remoteaccess.app.control.LocalSettingsProtection
 import dev.remoteaccess.app.control.ScreenAccessService
 import dev.remoteaccess.app.media.MediaController
@@ -275,7 +276,9 @@ class MainActivity : ComponentActivity() {
 
     private fun render() {
         if (isDestroyed || isFinishing) return
-        val sensitive = page in setOf("pair", "grant", "unlock", "saved-pin")
+        val sensitive =
+            page in setOf("pair", "grant", "unlock", "saved-pin", "advanced-setup") ||
+                (page == "advanced" && !AdvancedControl.paired(this))
         val protected = sensitive && !LocalSettingsProtection.unrestricted
         val secretPage = page == "pair" && !LocalSettingsProtection.unrestricted
         if (secretPage) {
@@ -288,6 +291,8 @@ class MainActivity : ComponentActivity() {
             page,
             when (page) {
                 "settings" -> "Settings"
+                "advanced" -> "Advanced control"
+                "advanced-setup" -> "Advanced setup"
                 "features" -> "Set up this phone"
                 "pair" -> "Give control"
                 "activity" -> "Activity"
@@ -329,6 +334,8 @@ class MainActivity : ComponentActivity() {
         notice?.let { text(layout, it, 16f).apply { accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE } }
         when (page) {
             "settings" -> settings(layout)
+            "advanced" -> advancedSettings(layout)
+            "advanced-setup" -> advancedSettings(layout, manage = true)
             "features" -> features(layout)
             "pair" -> pairing(layout)
             "activity" -> activity(layout)
@@ -814,7 +821,88 @@ class MainActivity : ComponentActivity() {
             }
             text(layout, "Debug build. New pairing codes must come from ${Website.current(this).removePrefix("https://")}.", 14f)
         }
+        row(layout, "Advanced control", AdvancedControl.state(), R.id.advanced_settings) { navigate("advanced") }
         unrestrictedSettings(layout)
+    }
+
+    private fun advancedSettings(
+        layout: LinearLayout,
+        manage: Boolean = false,
+    ) {
+        text(layout, AdvancedControl.state(), 20f).id = R.id.advanced_status
+        text(
+            layout,
+            "Optional control for screens Android blocks from ordinary accessibility taps. Normal remote control works without this setup.",
+        )
+        text(
+            layout,
+            "Requires Android 11 or later, Wi-Fi and Developer options. No computer is needed. After a restart, connect normally, return here and press Start. Android may ask you to allow Wireless debugging. Approve that dialog using normal remote control. A secure screen lock still needs its first unlock.",
+            14f,
+        )
+        if (!WakeSupport.notificationsAllowed(this)) {
+            button(layout, "Allow setup notifications", R.id.advanced_notifications) { allowNotifications(prompt = true) }
+            text(layout, "Notifications are needed to enter Android’s pairing code and show the Stop action.", 14f)
+        }
+        if (AdvancedControl.running()) {
+            button(layout, "Stop advanced control", R.id.advanced_stop) {
+                AdvancedControl.stop(this)
+                render()
+            }
+        } else if (WakeSupport.notificationsAllowed(this)) {
+            button(layout, if (AdvancedControl.paired(this)) "Start advanced control" else "Set up advanced control", R.id.advanced_start) {
+                if (!WakeSupport.notificationsAllowed(this)) {
+                    allowNotifications(prompt = true)
+                    return@button
+                }
+                if (!AdvancedControl.paired(this)) {
+                    AlertDialog
+                        .Builder(this)
+                        .setTitle("Set up advanced control?")
+                        .setMessage(
+                            "Developer options and Wireless debugging give this app additional control over this phone. Only set this up on a phone you own. YepControl stores its pairing key on this phone. After pairing, it grants itself permission to request Wireless debugging when you press Start. It never starts advanced control automatically after a restart. Android’s debugging and pairing settings remain under your control.",
+                        ).setNegativeButton("Cancel", null)
+                        .setPositiveButton("Continue") { _, _ ->
+                            AdvancedControl.start(this)
+                            render()
+                        }.show()
+                } else {
+                    AdvancedControl.start(this)
+                    render()
+                }
+            }
+        }
+        if (!AdvancedControl.paired(this)) {
+            text(
+                layout,
+                "1. Enable Developer options: open Android’s About phone and tap Build number seven times.\n2. Open Developer options → Wireless debugging, turn it on and choose Pair device with pairing code.\n3. Keep the code dialog open. Open notifications and reply to YepControl’s Enter pairing code action with the six-digit code.\n4. Return here and wait for Ready. Advanced control stops after an hour; you can start it again.",
+                14f,
+            )
+        }
+        if (manage || !AdvancedControl.paired(this)) {
+            button(layout, "Open Android Developer options", R.id.advanced_developer) {
+                try {
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+                } catch (_: Exception) {
+                    startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS))
+                }
+            }
+            if (AdvancedControl.paired(this) && !AdvancedControl.running()) {
+                button(layout, "Forget advanced setup", R.id.advanced_forget) {
+                    AlertDialog
+                        .Builder(this)
+                        .setTitle("Forget advanced setup?")
+                        .setMessage(
+                            "Removes YepControl’s local pairing key. To remove Android’s matching authorization too, open Wireless debugging → Paired devices and forget YepControl. The Android settings permission remains until the app is uninstalled. It is never used to start advanced control automatically.",
+                        ).setNegativeButton("Cancel", null)
+                        .setPositiveButton("Forget") { _, _ -> perform { AdvancedControl.forget(this) } }
+                        .show()
+                }
+            }
+        } else {
+            button(layout, "Setup and pairing", R.id.advanced_setup) { navigate("advanced-setup") }
+        }
+        handler.removeCallbacks(refresh)
+        handler.postDelayed(refresh, 1500)
     }
 
     private fun unrestrictedSettings(layout: LinearLayout) {
@@ -944,6 +1032,27 @@ class MainActivity : ComponentActivity() {
     private fun about(layout: LinearLayout) {
         row(layout, "Privacy policy", "How YepControl handles your data", R.id.privacy_policy) {
             startActivity(Intent(Intent.ACTION_VIEW, (BuildConfig.SHARING_WEBSITE + "/privacy/").toUri()))
+        }
+        row(layout, "Open source licenses", "Third-party component notices", R.id.open_source_licenses) {
+            val notices =
+                assets.list("third-party").orEmpty().sorted().joinToString("\n\n") { name ->
+                    name + "\n\n" + assets.open("third-party/$name").bufferedReader().use { it.readText() }
+                }
+            val content =
+                TextView(this).apply {
+                    text = notices
+                    setPadding(dp(20), dp(16), dp(20), dp(16))
+                    setTextIsSelectable(true)
+                }
+            AlertDialog
+                .Builder(this)
+                .setTitle("Open source licenses")
+                .setView(
+                    android.widget.ScrollView(this).apply {
+                        addView(content)
+                    },
+                ).setPositiveButton("Close", null)
+                .show()
         }
         text(layout, "YepControl ${BuildConfig.VERSION_NAME}", 14f)
         text(layout, "Pair devices to view and control this phone securely.", 14f)

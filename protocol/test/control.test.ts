@@ -125,6 +125,80 @@ describe("control boundary", () => {
     }
     expect(() => decodeReply(new Uint8Array(1048577))).toThrow();
   });
+  it("keeps optional advanced readiness within the released state envelope", () => {
+    const sensor = {
+      available: true,
+      allowed: true,
+      permission: true,
+      stream: 2147483647,
+      phase: "live",
+      reason: "none",
+    };
+    const state = {
+      type: "state",
+      v: 1,
+      accessibility: true,
+      locked: false,
+      width: 16384,
+      height: 16384,
+      scene: 2147483647,
+      device: {
+        manufacturer: "界".repeat(80),
+        model: "界".repeat(80),
+        name: "界".repeat(80),
+        android: "界".repeat(20),
+        app: "界".repeat(40),
+        sdk: 1000,
+        connectionPreparation: 1,
+      },
+      videoActive: true,
+      video: {
+        v: 1,
+        supported: true,
+        phase: "active",
+        reason: "none",
+        id: 2147483647,
+      },
+      unlockSupported: true,
+      unlockAllowed: true,
+      savedPin: true,
+      unlockBlocked: false,
+      localSettings: false,
+      a11y: 1,
+      media: {
+        v: 1,
+        camera: { ...sensor, front: true, rear: true },
+        microphone: sensor,
+      },
+    };
+    const record = (advancedControl?: unknown) => {
+      const payload = new TextEncoder().encode(
+        JSON.stringify({ ...state, advancedControl }),
+      );
+      const bytes = new Uint8Array(12 + payload.length);
+      bytes.set([65, 82, 80, 49, 1, 0, 0, 0]);
+      new DataView(bytes.buffer).setUint32(8, 1);
+      bytes.set(payload, 12);
+      return bytes;
+    };
+    expect(decodeReply(record())).toMatchObject({ kind: "state" });
+    const ready = { paired: true, running: true, ready: true };
+    expect(record(ready).length).toBeLessThanOrEqual(2048);
+    expect(decodeReply(record(ready))).toMatchObject({
+      state: { advancedControl: ready },
+    });
+    for (const invalid of [
+      null,
+      "ready",
+      { paired: true },
+      { paired: false, running: true, ready: true },
+      { paired: true, running: false, ready: true },
+    ]) {
+      expect(() => decodeReply(record(invalid))).toThrow(
+        "Invalid advanced control state",
+      );
+    }
+  });
   it("requires a bounded device report in every state", () => {
     const device = {
       manufacturer: "Google",

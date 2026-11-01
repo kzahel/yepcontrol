@@ -4,6 +4,7 @@ import android.app.KeyguardManager
 import android.content.Context
 import dev.remoteaccess.app.HostRuntime
 import dev.remoteaccess.app.HostStore
+import dev.remoteaccess.app.advanced.AdvancedControl
 import dev.remoteaccess.app.media.MediaController
 import dev.remoteaccess.app.unlock.PinVault
 import dev.remoteaccess.protocol.ControlCommand
@@ -126,6 +127,11 @@ internal class ControlSession(
                         .put("height", 0)
                         .put("scene", 0)
                 val vault = PinVault(context)
+                state.put(
+                    "advancedControl",
+                    dev.remoteaccess.app.advanced.AdvancedControl
+                        .report(context),
+                )
                 state.put("a11y", 1)
                 state.put("localSettings", LocalSettingsProtection.blocked)
                 state.put("video", VideoStream.state(this)).put("videoActive", VideoStream.available(context, this))
@@ -183,6 +189,7 @@ internal class ControlSession(
 
     fun close() {
         if (!active.compareAndSet(true, false)) return
+        AdvancedControl.stop(context)
         output.close()
         MediaController.close(this, reason = 5)
         VideoStream.close(context, this, dev.remoteaccess.protocol.CaptureLifecycle.Reason.DISCONNECTED)

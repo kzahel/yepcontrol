@@ -279,3 +279,17 @@ matrix. Preserve released hosts, existing pairings and all existing authority
 switches. Physical credential entry and lock/debugging changes remain outside
 scope. Publication submission, Google approval and actual availability must be
 reported separately.
+
+
+## On-demand advanced control and release authorization — 2026-11-01
+
+The owner authorized implementing the manual Start/Stop advanced-control flow in
+`docs/advanced-control-plan.md`, testing through ordinary remote control on the
+attached Moto, incremental commits/pushes, internal Play-installed acceptance
+and promotion of the accepted artifact to production at 100%. Normal control
+must remain useful without Developer options. Initial advanced setup is
+computer-free; retained setup authority does not authorize automatic boot
+arming or automatic Android approval clicks. Preserve existing installed hosts,
+pairings and control/configuration gates. Use owned emulators for reboot tests;
+no physical lock credentials or unrelated debugging configuration may change.
+Store submission, Google approval and actual availability remain distinct.

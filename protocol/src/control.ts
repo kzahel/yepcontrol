@@ -270,6 +270,8 @@ export type ControlState = {
   localSettings?: boolean;
   /** Snapshot and observation-bound node actions. Absent on existing public hosts. */
   a11y?: 1;
+  /** Optional, explicitly started phone-local advanced input. */
+  advancedControl?: { paired: boolean; running: boolean; ready: boolean };
   /** Absent on released hosts until the media implementation is available. */
   media?: MediaState;
 };
@@ -359,6 +361,17 @@ export function decodeReply(data: Uint8Array<ArrayBuffer>): Reply {
         )
           throw new Error("Invalid video state");
       }
+      const advanced = state.advancedControl;
+      if (
+        advanced !== undefined &&
+        (!advanced ||
+          typeof advanced !== "object" ||
+          [advanced.paired, advanced.running, advanced.ready].some(
+            (v) => typeof v !== "boolean",
+          ) ||
+          (advanced.ready && (!advanced.paired || !advanced.running)))
+      )
+        throw new Error("Invalid advanced control state");
       for (const field of [
         "videoActive",
         "unlockSupported",

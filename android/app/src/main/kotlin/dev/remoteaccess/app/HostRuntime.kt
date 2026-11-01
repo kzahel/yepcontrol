@@ -59,6 +59,10 @@ internal object HostRuntime {
             try {
                 val store = HostStore.get(app).load()
                 work(store)
+                if (!store.snapshot.settings.armed) {
+                    dev.remoteaccess.app.advanced.AdvancedControl
+                        .stop(app)
+                }
                 HostSessions.current.get()?.let {
                     if (!store.allowed(it.deviceId, it.generation)) {
                         HostSessions.stop()

@@ -4,10 +4,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        if (providers.gradleProperty("localAdbSpike").orNull == "true") {
-            maven("https://jitpack.io") {
-                content { includeGroupByRegex("com\\.github\\.MuntashirAkon.*") }
-            }
+        maven("https://jitpack.io") {
+            content { includeGroupByRegex("com\\.github\\.MuntashirAkon.*") }
         }
     }
 }

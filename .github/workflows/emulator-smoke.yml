@@ -36,7 +36,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
-      - run: sdkmanager 'platforms;android-37.0' 'build-tools;35.0.0' 'build-tools;36.0.0' 'system-images;android-35;google_apis;x86_64' 'emulator'
+      - run: sdkmanager 'platforms;android-37.0' 'build-tools;35.0.0' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1' 'system-images;android-35;google_apis;x86_64' 'system-images;android-36;google_apis;x86_64' 'emulator'
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
       - name: Enable KVM for owned emulators
         run: |
@@ -62,6 +62,8 @@ jobs:
       # Each harness refuses occupied selectors and owns/reaps its emulator.
       - run: pnpm test:interop
       - run: pnpm test:mobile-smoke --media
+      - name: Phone-only advanced pairing, protected input and no boot arming
+        run: python3 scripts/advanced-control-acceptance.py
       - name: Hosted pairing and process-absent FCM wake
         if: inputs.hosted_origin != ''
         run: pnpm test:hosted

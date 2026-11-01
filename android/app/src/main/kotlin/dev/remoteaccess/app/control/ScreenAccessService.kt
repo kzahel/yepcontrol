@@ -13,6 +13,7 @@ import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.graphics.scale
+import dev.remoteaccess.app.advanced.AdvancedControl
 import dev.remoteaccess.app.unlock.PinUnlock
 import dev.remoteaccess.app.unlock.PinVault
 import dev.remoteaccess.protocol.ControlCommand
@@ -33,10 +34,11 @@ class ScreenAccessService : AccessibilityService() {
     private var rotation = -1
     private var gesture = false
     private val touch = TouchController(this, main)
+    private val advanced = AdvancedInput(this, main)
     private val unlock = PinUnlock(this, main)
     private val semantic = SemanticAccess()
 
-    internal val inputInFlight get() = gesture || touch.dispatching
+    internal val inputInFlight get() = gesture || touch.dispatching || advanced.dispatching
 
     internal fun settingsChanged() {
         invalidate()
@@ -76,6 +78,7 @@ class ScreenAccessService : AccessibilityService() {
     private fun invalidate() {
         semantic.clear()
         touch.release()
+        advanced.release()
         scene = if (scene == Int.MAX_VALUE) 1 else scene + 1
         capturedAt = 0
     }
@@ -85,6 +88,7 @@ class ScreenAccessService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent): Boolean {
+        AdvancedControl.stop(this)
         if (current === this) current = null
         dev.remoteaccess.app.HostStore
             .get(this)
@@ -103,6 +107,7 @@ class ScreenAccessService : AccessibilityService() {
             .forEach { it() }
         invalidate()
         VideoStream.close(this, reason = dev.remoteaccess.protocol.CaptureLifecycle.Reason.PERMISSION)
+        advanced.close()
         compression.close()
         super.onDestroy()
     }
@@ -189,11 +194,12 @@ class ScreenAccessService : AccessibilityService() {
             }
             if (command.op == 12) {
                 touch.release(owner)
+                advanced.release(owner)
                 return@post result(0)
             }
             if (locked()) return@post result(3)
             if (command.op in 20..23) {
-                if (gesture || touch.active) return@post result(6)
+                if (gesture || touch.active || advanced.active) return@post result(6)
                 val root = rootInActiveWindow ?: return@post result(4)
                 if (command.op == 20) {
                     val code =
@@ -219,10 +225,20 @@ class ScreenAccessService : AccessibilityService() {
             }
             if (command.op == 11) {
                 val batch = checkNotNull(command.touch)
-                if (!touch.active && (capturedAt == 0L || android.os.SystemClock.elapsedRealtime() - capturedAt > 10000)) {
+                if (!touch.active &&
+                    !advanced.active &&
+                    (capturedAt == 0L || android.os.SystemClock.elapsedRealtime() - capturedAt > 10000)
+                ) {
                     return@post result(2)
                 }
-                touch.accept(batch, owner, screenWidth, screenHeight, scene, inputAllowed, ::result)
+                if (AdvancedControl.ready() ||
+                    advanced.active
+                ) {
+                    if (gesture || touch.active) return@post result(6)
+                    advanced.accept(batch, owner, screenWidth, screenHeight, scene, { inputAllowed() && !locked() }, ::result)
+                } else {
+                    touch.accept(batch, owner, screenWidth, screenHeight, scene, inputAllowed, ::result)
+                }
                 return@post
             }
             if (command.op == 3) return@post capture(allowed, reply)
@@ -235,7 +251,16 @@ class ScreenAccessService : AccessibilityService() {
                     }
                     val points = if (command.op == 4) listOf(v[1] to v[2]) else listOf(v[1] to v[2], v[3] to v[4])
                     if (points.any { it.first !in 0 until screenWidth || it.second !in 0 until screenHeight }) return@post result(2)
-                    if (gesture || touch.active) return@post result(6)
+                    if (gesture || touch.active || advanced.active) return@post result(6)
+                    if (AdvancedControl.ready()
+                    ) {
+                        invalidate()
+                        val endX = if (command.op == 4) v[1] else v[3]
+                        val endY = if (command.op == 4) v[2] else v[4]
+                        val duration = if (command.op == 4) 50 else v[5]
+                        advanced.stroke(owner, v[1], v[2], endX, endY, duration, { inputAllowed() && !locked() }, ::result)
+                        return@post
+                    }
                     val path =
                         Path().apply {
                             moveTo(v[1].toFloat(), v[2].toFloat())
@@ -318,6 +343,7 @@ class ScreenAccessService : AccessibilityService() {
         main.post {
             semantic.clear(owner)
             touch.release(owner)
+            advanced.release(owner)
             VideoStream.close(this, owner)
         }
     }

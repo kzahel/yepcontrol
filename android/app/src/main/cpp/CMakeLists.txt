@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(yep_pairing LANGUAGES CXX)
+find_package(boringssl REQUIRED CONFIG)
+add_library(yep_pairing SHARED pairing.cpp)
+target_compile_features(yep_pairing PRIVATE cxx_std_17)
+target_compile_options(yep_pairing PRIVATE -Wall -Wextra -Werror -fvisibility=hidden)
+target_link_libraries(yep_pairing PRIVATE boringssl::crypto_static)

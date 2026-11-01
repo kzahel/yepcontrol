@@ -1,0 +1,89 @@
+# On-demand advanced control
+
+Owner authorization, 2026-11-01: implement the proposed manual remote arming flow
+in the live app, verify it on the attached Moto, commit/push the work, deliver an
+internal Play build for installed acceptance, then publish the accepted artifact
+to production at 100%. Existing pairings, ordinary control and access switches
+must survive the update. Submission, Google approval and availability are
+separate outcomes.
+
+## Release scope
+
+Settings → Advanced control is optional and initially off. Initial phone-only
+setup uses Android Developer options / Wireless debugging and a notification
+pairing-code reply. No computer, on-phone Linux environment or separate ADB app
+is required. Setup retains the paired identity and grants this app the limited
+settings permission needed to request Wireless debugging later. That permission
+is separate from the policy: this version never arms advanced control at boot.
+
+Once setup is paired, the Start/Stop page accepts ordinary remote control even
+when configuration protection is on. Pairing/developer options/forgetting live
+in protected setup. A controller opens the control page and presses Start.
+Android may request approval for the current Wi-Fi network; ordinary remote
+control must remain usable for that approval. Stop returns to ordinary control.
+No automatic approval handler is included. No first secure unlock guarantee is
+made. Expired/revoked Android pairing must result in a visible repair action.
+
+Input uses the advanced helper only when explicitly started and authenticated,
+after the existing controller, keyguard, scene and local-settings checks.
+Never replay an input on a second route after an ambiguous result. No arbitrary
+shell operation is exposed to controllers. Secrets stay in backup-excluded,
+credential-encrypted application storage; the ADB identity is protected by an
+Android Keystore wrapping key. Helper bootstrap uses OS-authenticated shell UID,
+a fresh capability and a short renewable lease. Stop/process death/reboot must
+invalidate readiness. Native crypto and dependency notices must be reviewed.
+
+## Verification and delivery
+
+1. Harden and integrate the embedded client, pairing UX and on-demand lifecycle.
+2. Exercise input against a protected fixture on an owned modern emulator;
+   verify default-off, Stop, revocation, process death and reboot behavior.
+3. Verify the real ordinary viewer/CLI can press Start and Android Allow on the
+   unlocked Moto with advanced control initially unavailable. USB observation
+   is permitted; USB input or privileged test automation cannot count as that
+   acceptance. Record precise device/Android limits privately.
+4. Run relevant existing lint/tests/builds and compatibility checks. Review the
+   final security boundaries and component licenses before signing.
+5. Publish to internal Play via existing CI; accept an in-place Play-installed
+   update on the paired Moto. Promote that exact artifact to production, 100%,
+   preserving country selection, then record review/publication state.
+
+Evidence and private selectors belong under ignored `.local/advanced-control/`.
+Progress and limitations will be appended here as the implementation is tested.
+
+## Candidate 0.12.0 / code 14 — local verification, 2026-11-01
+
+Implemented the separate native Advanced control page, explicit Start/Stop,
+phone-only notification pairing, encrypted identity, restricted authenticated
+shell helper and raw single/multiple-contact input. No boot receiver or automatic
+approval handler was added. Generic CLI UI actions can operate the same page;
+there is no separate shell command exposed to controllers. Readiness adds only
+three optional booleans to the existing state envelope. Semantic tree/text and
+secure-screen capture still use their existing Android routes and restrictions.
+
+The owned Android 16 / API 36 arm64 acceptance passes with the production host
+code: initially off, notification consent, native Android pairing code, phone-local
+permission grant, shell-UID attestation with non-shell rejection, input that
+increments a native sensitive-view counter, wrapped identity at rest, Stop
+without losing pairing and reboot without advanced arming. Extended checks
+verify two held contacts expire with cancellation rather than a click, stale
+continuation is refused, fresh input recovers, the stopped helper endpoint closes,
+and paired runtime controls remain reachable while setup stays protected. No desktop ADB pair
+or privileged grant bootstrapped this setup. The primitive's two peers agree on
+a fresh pairing key and reject context reuse. The harness owns/reaps its emulator
+and is included in the release smoke workflow, which uses x86_64 for CI coverage.
+
+The app and release bundle build, Android debug/release lint, Kotlin formatting,
+protocol JVM tests, TypeScript build/typecheck and 226 TypeScript tests pass.
+The protocol boundary test covers old-host absence, malformed readiness and the
+2048-byte released state envelope with maximal device fields and live media.
+The release runtime graph excludes spake2-java/spake2-android. All distributed
+64-bit native libraries have at least 16 KiB ELF LOAD alignment. See
+[component and authority review](advanced-control-components.md) for pins,
+notices and the bounded pairing changes.
+
+The Moto baseline is Play-installed 0.9.0/code 10, Android 12/API 31, with Wireless
+debugging off. Its private baseline is retained before the in-place update.
+Real ordinary-channel Start/Allow, protected input through the product session,
+installed Play acceptance and production promotion are still release gates;
+the native fixture above does not establish those outcomes.
