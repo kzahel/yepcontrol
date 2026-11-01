@@ -28,6 +28,11 @@ export function safeFixtureDiagnostics(
       "fidPresent",
       "approvalVisible",
       "pairingFailureVisible",
+      "cameraAllowed",
+      "microphoneAllowed",
+      "cameraPermission",
+      "microphonePermission",
+      "sensorPermissionButtonVisible",
     ]) {
       if (typeof parsed[key] !== "boolean") return undefined;
       result[key] = parsed[key];

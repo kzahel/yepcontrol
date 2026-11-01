@@ -63,7 +63,20 @@ class FixtureFailureDiagnostics : TestWatcher() {
                     .put("fidPresent", preferences.contains("fid"))
                     .put("approvalVisible", device.hasObject(By.res("${context.packageName}:id/grant_device")))
                     .put("pairingFailureVisible", device.hasObject(By.textStartsWith("Pairing wasn’t confirmed.")))
-                    .put("pairingFailureKind", pairingFailureKind)
+                    .put("cameraAllowed", snapshot.settings.cameraAllowed)
+                    .put("microphoneAllowed", snapshot.settings.microphoneAllowed)
+                    .put(
+                        "cameraPermission",
+                        dev.remoteaccess.app.media.MediaController
+                            .permission(context, true),
+                    ).put(
+                        "microphonePermission",
+                        dev.remoteaccess.app.media.MediaController
+                            .permission(context, false),
+                    ).put(
+                        "sensorPermissionButtonVisible",
+                        device.hasObject(By.res("com.android.permissioncontroller:id/permission_allow_foreground_only_button")),
+                    ).put("pairingFailureKind", pairingFailureKind)
                     .put("devices", snapshot.devices.size)
                     .put("synced", snapshot.devices.count { it.synced })
                     .put("wakeReady", snapshot.devices.count { it.wakeReady })
