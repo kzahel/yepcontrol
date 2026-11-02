@@ -46,7 +46,8 @@ class PublishingTest(unittest.TestCase):
                 super().__init__()
                 self.tracks = [{"track": t, "releases": [{"versionCodes": ["14"],
                     "status": "completed", "name": "0.12.0"}]} for t in ["internal", "production"]]
-                self.countries = {"countries": [{"countryCode": str(n)} for n in range(178)]}
+                self.countries = {"countries": [{"countryCode": str(n)} for n in range(177)],
+                                  "restOfWorld": True}
                 self.listings = [{"language": "en-US", "title": "YepControl – Remote Phone",
                                   "fullDescription": "Accepted copy"}]
                 self.bundle_hash = "39f449794070cb336bbb31d2fa3d9941ae32f090582d7dfc3814882fb305d65f"
@@ -87,7 +88,7 @@ class PublishingTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 request_accepted_code14_review(play, *wrong)
             self.assertEqual(play.calls, [])
-        for scenario in ["hash", "production", "fraction", "targeting", "other", "country", "listing", "concurrent"]:
+        for scenario in ["hash", "production", "fraction", "targeting", "other", "country", "rest", "listing", "concurrent"]:
             with self.subTest(scenario=scenario):
                 play = ReviewPlay()
                 if scenario == "hash": play.bundle_hash = "wrong"
@@ -96,6 +97,7 @@ class PublishingTest(unittest.TestCase):
                 elif scenario == "targeting": play.tracks[1]["releases"][0]["countryTargeting"] = {}
                 elif scenario == "other": play.tracks.append({"track": "beta", "releases": [{}]})
                 elif scenario == "country": play.countries["countries"].pop()
+                elif scenario == "rest": play.countries["restOfWorld"] = False
                 elif scenario == "listing": play.listings[0]["fullDescription"] = "Other copy"
                 elif scenario == "concurrent": play.change = True
                 with self.assertRaises(ValueError):

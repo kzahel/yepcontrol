@@ -175,7 +175,9 @@ def request_accepted_code14_review(play, digest, source, run_id, listing):
             raise ValueError("Other track releases require separate reconciliation")
         countries = play.call("GET", path + "/countryAvailability/production")
         codes = [c.get("countryCode") for c in countries.get("countries", [])]
-        if len(codes) != 178 or len(set(codes)) != 178:
+        # Console's 178 regions are 177 explicit countries plus Rest of world.
+        if (len(codes) != 177 or len(set(codes)) != 177
+                or countries.get("restOfWorld") is not True):
             raise ValueError(f"Production region count differs: {len(codes)} countries, "
                              f"restOfWorld={countries.get('restOfWorld') is True}")
         listings = play.call("GET", path + "/listings").get("listings", [])

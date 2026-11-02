@@ -376,6 +376,12 @@ changed copy, concurrent changes and unknown commit outcome. The normal beta
 publisher's internal-only behavior remains unchanged. Remove the temporary
 entry point immediately after reconciling the result.
 
+The first reconciliation checks stop before commit because the API represents
+Console's 178 regions as **177 explicit countries plus Rest of world**, rather
+than 178 country objects. The guard now requires that exact representation and
+still refuses a lost country or disabled Rest of world. No rollout or country
+write is performed by those checks.
+
 This records a prepared rollout and reconciliation intent, not review acceptance,
 Google approval or public availability. The outcome will be recorded separately.
 Google documents [app-wide edit commit behavior](https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit)
