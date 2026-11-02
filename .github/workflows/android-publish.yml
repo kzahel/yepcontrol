@@ -15,10 +15,6 @@ on:
         description: English beta release notes (1–500 characters)
         required: true
         type: string
-      request_accepted_code14_review:
-        description: One-time review of the physically accepted Console-promoted code 14 (no track writes)
-        type: boolean
-        default: false
 permissions:
   contents: read
   actions: read
@@ -88,7 +84,7 @@ jobs:
           access_token_scopes: https://www.googleapis.com/auth/androidpublisher
           create_credentials_file: false
           export_environment_variables: false
-      - name: Deliver internal candidate or reconcile the accepted code-14 review
+      - name: Upload and commit this verified candidate to internal testing
         env:
           PLAY_ACCESS_TOKEN: ${{ steps.google.outputs.access_token }}
           SOURCE: ${{ needs.verify.outputs.source }}
@@ -97,13 +93,10 @@ jobs:
           VERSION_NAME: ${{ needs.verify.outputs.version_name }}
           STATUS: ${{ inputs.status }}
           NOTES: ${{ inputs.release_notes }}
-          REQUEST_CODE14_REVIEW: ${{ inputs.request_accepted_code14_review }}
         run: |
           printf '%s' "$NOTES" > "$RUNNER_TEMP/notes.txt"
-          REVIEW_ARGS=()
-          if [ "$REQUEST_CODE14_REVIEW" = true ]; then REVIEW_ARGS=(--request-accepted-code14-review); fi
           python3 scripts/publish_android_bundle.py "$RUNNER_TEMP/candidate" --source "$SOURCE" --run-id "$BUILD_RUN" \
-            --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --track internal --status "$STATUS" --notes-file "$RUNNER_TEMP/notes.txt" "${REVIEW_ARGS[@]}"
+            --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --track internal --status "$STATUS" --notes-file "$RUNNER_TEMP/notes.txt"
           cat "$RUNNER_TEMP/candidate/publication.json" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()

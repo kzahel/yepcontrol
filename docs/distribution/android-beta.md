@@ -733,9 +733,10 @@ code-14 checksum, requires internal 14/production 13 and no other track releases
 and refuses to cancel an active review. Its temporary entry point is removed
 after success; ordinary internal publishing keeps its existing review guard.
 
-Console confirms **0.12.0/code 14 — Available to internal testers**, with the
-existing 178 countries/regions retained. The production 0.11.1 full rollout and
-store changes are again **in review**. Code 14 is not promoted to production.
+At the internal-delivery checkpoint, Console confirms **0.12.0/code 14 —
+Available to internal testers**, with the existing 178 countries/regions
+retained. The production 0.11.1 full rollout and store changes are again
+**in review**; code 14 has not yet been promoted at that checkpoint.
 The initial pre-update inspection was Play-installed 0.9.0/code 10. Chrome's
 native account-reuse flow resolves the signed-out enrollment page without a
 password or adding an Android account. History/tab sync is declined; Chrome is
@@ -763,6 +764,7 @@ The temporary controller is removed through the product UI and reports
 authoritative revocation. The original browser remains. Advanced control and
 Wireless debugging finish off; helpers, sensor services and projection are idle.
 The advanced pairing/settings permission remain for later manual Start.
-The exact accepted internal artifact is eligible for the owner's authorized
-100% production promotion; its current store status is recorded separately in
-the [production record](android-production.md).
+The exact accepted internal artifact is subsequently submitted for the owner's
+authorized 100% production rollout. Console confirms review is underway;
+Google approval and public availability remain pending. See the separate
+[production record](android-production.md).

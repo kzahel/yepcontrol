@@ -366,3 +366,15 @@ identity/settings permission are intentionally retained for later manual Start.
 No physical lock credential, reboot or unrelated phone setting changes occur.
 This qualifies manual recovery on the tested trusted network, not physical
 reboot, new-network approval or universal protected-screen access.
+
+### Production review — 2026-11-02
+
+The exact accepted internal code-14 artifact is promoted at 100% across the
+existing 178 regions. Console's final action initially fails to persist;
+artifact-bound reconciliation using the existing CI identity requests review
+without uploading or writing tracks, changing countries or cancelling reviews.
+The temporary reconciliation capability is removed after success. Console now
+independently confirms **Production / 0.12.0 / Start full rollout** under
+**Changes in review**, with completed pre-review checks and managed publishing
+off. See the [production receipt](distribution/android-production.md#full-rollout-review-accepted--2026-11-02).
+Submission is established; Google approval and public availability remain pending.

@@ -386,3 +386,23 @@ This records a prepared rollout and reconciliation intent, not review acceptance
 Google approval or public availability. The outcome will be recorded separately.
 Google documents [app-wide edit commit behavior](https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit)
 and the distinction between [pre-review checks and review](https://support.google.com/googleplay/android-developer/answer/14807773?hl=en).
+
+### Full-rollout review accepted — 2026-11-02
+
+The bounded [review reconciliation run 41398877520](https://github.com/kzahel/yepcontrol/actions/runs/41398877520)
+succeeds at **06:16 UTC**, retaining the exact signed code-14 checksum, 100%
+rollout and 178 regions. Its receipt reports `accepted_code14_review_requested`.
+A fresh Console load independently confirms **Changes in review**, **Your
+changes are now in review**, and **Production / 0.12.0 / Start full rollout**,
+alongside the saved English listing and updated reviewer/declaration information.
+Pre-review checks are complete. The temporary review entry point, workflow input
+and its release-specific tests are removed immediately after verification;
+the ordinary publisher retains its internal-only/review-deferral behavior and
+review-cancellation guard. No signing or account permissions change.
+
+The accepted **0.12.0/code-14 artifact is submitted for 100% production rollout**.
+Managed publishing is **off**, so it can publish automatically after Google
+approval. **Google approval and actual public availability are still pending**;
+0.10.0/code 11 remains the last confirmed public version. Internal Play 0.12.0
+and the compatible production website/relay are available. Private submission,
+installed-update and cleanup receipts remain under `.local/advanced-control/`.
