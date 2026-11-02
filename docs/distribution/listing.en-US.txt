@@ -27,6 +27,9 @@ See the screen, tap, swipe, type and use Android navigation from your paired bro
 OPTIONAL CAMERA AND MICROPHONE
 Enable remote camera and microphone separately in the phone settings and grant their Android permissions. Use Camera and Listen in your paired browser, with explicit Start and Stop. Android shows active sensor indicators and, when notifications are allowed, a Stop sharing notification. Connecting or reconnecting never starts capture. Paired CLI controllers can save bounded JPEG and WAV files locally.
 
+OPTIONAL ADVANCED CONTROL
+For some screens that block ordinary taps, set up Advanced control on the phone without a computer or another ADB app. This optional feature requires Wi-Fi, Developer options and Android Wireless debugging. Start it explicitly when needed and stop it from the app or notification. It never starts automatically after a restart. Android may require approval on the phone. Regular remote control works without Developer options.
+
 YOU CHOOSE WHO CONNECTS
 Name paired browsers, pause an individual browser or all remote access, and remove devices from the phone. Optional background requests use Firebase Cloud Messaging to contact the app when Android permits.
 

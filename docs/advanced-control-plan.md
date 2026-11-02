@@ -38,8 +38,11 @@ invalidate readiness. Native crypto and dependency notices must be reviewed.
 1. Harden and integrate the embedded client, pairing UX and on-demand lifecycle.
 2. Exercise input against a protected fixture on an owned modern emulator;
    verify default-off, Stop, revocation, process death and reboot behavior.
-3. Verify the real ordinary viewer/CLI can press Start and Android Allow on the
-   unlocked Moto with advanced control initially unavailable. USB observation
+3. Verify the real ordinary viewer/CLI can press Start on the unlocked Moto
+   with advanced control initially unavailable, and Android Allow when Android
+   presents that dialog. Record an already-trusted network separately from
+   approval-dialog coverage; never reset unrelated debugging trust to force it.
+   USB observation
    is permitted; USB input or privileged test automation cannot count as that
    acceptance. Record precise device/Android limits privately.
 4. Run relevant existing lint/tests/builds and compatibility checks. Review the
@@ -300,12 +303,66 @@ code 14 has not been promoted to production. The one-time recovery entry point
 and workflow input are removed immediately afterward. The normal internal-only
 publisher and its review-cancellation guard remain, with the safe error labels.
 
-Final pre-update Moto inspection still reports Play-installed 0.9.0/code 10.
+The initial pre-update Moto inspection reports Play-installed 0.9.0/code 10.
 The actual encrypted CLI continues to connect and capture, including ordinary
 Back navigation. Its native Store listing shows the public release notes;
 internal-test enrollment redirects Chrome to Google's signed-out account
-chooser. The enrollment page is left open for the account owner to sign in
-with the account used by that phone's Play Store. This is a release-testing
-account step, not a YepControl account or advanced-control setup requirement.
-The in-place Play update and ordinary-channel Start/Allow/protected-input tests
-remain unqualified, so the code-14 production rollout is still pending.
+chooser. The enrollment page initially appeared to need owner sign-in. The
+account-reuse flow and installed acceptance below supersede that apparent blocker.
+
+### Play-installed Moto acceptance — 2026-11-02
+
+Chrome's native sign-in sheet can reuse the account already present in Android.
+Continuing with that existing account, declining history/tab sync and accepting
+the internal-testing invitation made the candidate available in the native Play
+Store. No password, PIN or new Android account was needed. Chrome was signed
+out again after the update, without clearing browsing data.
+
+The Moto g power (2022), Android 12/API 31, updates in place through Google Play
+from **0.9.0/code 10 to 0.12.0/code 14**. The installer is
+`com.android.vending`; the original install time and APK signing certificate
+match the private baseline. The existing controller reconnects without pairing
+again, and the original browser remains present. Unrestricted remote control,
+camera and microphone remain off. Advanced control initially reports unpaired
+and off, with no helper service.
+
+Initial native setup enables Wireless debugging, pairs using the phone's own
+code and notification reply, and self-grants the limited settings permission.
+No desktop ADB pairing or permission grant is used. The actual helper runs as
+Android's shell user. The temporary native setup driver is then removed; the
+older spike's automatic approval adapter is verified disabled throughout.
+
+Using the actual encrypted CLI session, ordinary control stops advanced input,
+disables Wireless debugging through Settings and returns to the paired runtime
+page. Read-only USB observation confirms the listener is off and the helper
+absent. An ordinary remote raw tap on **Start advanced control** then reaches
+**Ready**, with unrestricted control still off and no USB input. The runtime
+page remains accessible while **Setup and pairing** refuses remote capture.
+
+With advanced input ready, a real raw tap increments an independently observed
+native fixture counter. An 850 ms held gesture starts Android's native drag,
+and a 600 ms raw swipe visibly scrolls the app's Settings page. Real raw taps
+also open Google Maps' profile menu, Settings and App & display, without changing
+Maps preferences. Stopping advanced control removes readiness and a further
+ordinary raw tap increments the same fixture counter again.
+
+The current Wi-Fi network was already trusted by Android, so neither initial
+setup nor manual recovery shows a fresh **Allow wireless debugging** dialog.
+Its ordinary-product approval path is **not newly qualified** by this run.
+Android refuses a diagnostic explicit launch of that unexported SystemUI
+activity; no privilege bypass, trust reset or physical reboot is used to force
+it. Earlier [spike accessibility evidence](local-adb-phone-spike.md) is separate
+from this release's real product-channel evidence. The product and store copy
+retain the possible on-phone approval limitation. API 31 also predates the
+sensitive-view flag: Maps navigation here is not an A/B reproduction of the
+original newer-phone restriction. The protected-view input regression is
+covered on the owned API 36 emulator.
+
+Cleanup removes only the temporary controller through the real app UI; the CLI
+then reports authoritative removal. The original browser remains. Advanced
+control and Wireless debugging are off, both helper processes are absent, sensor
+services are idle and media projection is null. The newly paired advanced
+identity/settings permission are intentionally retained for later manual Start.
+No physical lock credential, reboot or unrelated phone setting changes occur.
+This qualifies manual recovery on the tested trusted network, not physical
+reboot, new-network approval or universal protected-screen access.

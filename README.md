@@ -63,8 +63,11 @@ for advanced taps and swipes. Initial setup pairs on the phone through Wireless
 debugging; no computer or separate ADB app is required. Start is explicit,
 advanced control never arms at boot, and ordinary control works without
 Developer options. Android may still require on-phone approval or first secure
-unlock. This candidate is under qualification; see the [advanced control plan](docs/advanced-control-plan.md)
-for installed testing and store status.
+unlock. Version 0.12.0/code 14 passes an in-place internal Play update and actual
+remote Start, input and Stop on the Moto. Fresh network approval is not exercised
+on its already-trusted Wi-Fi. See the [advanced control plan](docs/advanced-control-plan.md)
+for qualification limits and the [production record](docs/distribution/android-production.md)
+for store status.
 
 A Node CLI shares the browser's pairing and encrypted control client. See
 [CLI pairing and accessibility control](docs/cli-control.md) for commands and

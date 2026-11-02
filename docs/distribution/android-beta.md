@@ -736,14 +736,33 @@ after success; ordinary internal publishing keeps its existing review guard.
 Console confirms **0.12.0/code 14 — Available to internal testers**, with the
 existing 178 countries/regions retained. The production 0.11.1 full rollout and
 store changes are again **in review**. Code 14 is not promoted to production.
-The paired Moto remains Play-installed 0.9.0/code 10 at the pre-update inspection.
-Its in-place Play update, preserved grants/signing identity and actual ordinary
-remote Start/Android Allow qualification are still required before the
-code-14 100% production promotion.
+The initial pre-update inspection was Play-installed 0.9.0/code 10. Chrome's
+native account-reuse flow resolves the signed-out enrollment page without a
+password or adding an Android account. History/tab sync is declined; Chrome is
+signed out again afterward without clearing browsing data.
 
-The ordinary encrypted CLI still connects to the Moto and captures its screen.
-The native Store shows the public release notes, while internal enrollment opens
-Google's signed-out account chooser in Chrome. The account owner must finish
-that Play-test sign-in/enrollment before the in-place update and physical
-acceptance can proceed. The enrollment page is left open; no code-14 production
-submission or availability is claimed.
+### In-place Moto acceptance — 2026-11-02
+
+The Moto g power (2022), Android 12/API 31, receives **0.12.0/code 14 through
+Google Play**, preserving first install time, signing certificate, existing
+pairings and access switches. The actual encrypted CLI reconnects without
+re-pairing. Initial advanced setup pairs on the phone and self-grants its limited
+settings permission; no desktop pairing/grant is used. After removing the native
+setup driver, ordinary product input starts advanced control from a stopped
+helper and disabled Wireless debugging. Raw advanced taps, an 850 ms hold,
+a 600 ms swipe and Google Maps settings navigation pass. Protected setup remains
+refused with unrestricted control off. Ordinary raw input works again after Stop.
+
+The existing Wi-Fi network is already trusted, so Android does not present a
+fresh approval dialog. This run qualifies trusted-network manual recovery;
+new-network approval, physical reboot and universal sensitive-screen access are
+not established. Protected-view input and reboot/no-auto-arm are separately
+tested on the owned API 36 emulator. See the [complete acceptance record](../advanced-control-plan.md#play-installed-moto-acceptance--2026-11-02).
+
+The temporary controller is removed through the product UI and reports
+authoritative revocation. The original browser remains. Advanced control and
+Wireless debugging finish off; helpers, sensor services and projection are idle.
+The advanced pairing/settings permission remain for later manual Start.
+The exact accepted internal artifact is eligible for the owner's authorized
+100% production promotion; its current store status is recorded separately in
+the [production record](android-production.md).
