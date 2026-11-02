@@ -176,7 +176,8 @@ def request_accepted_code14_review(play, digest, source, run_id, listing):
         countries = play.call("GET", path + "/countryAvailability/production")
         codes = [c.get("countryCode") for c in countries.get("countries", [])]
         if len(codes) != 178 or len(set(codes)) != 178:
-            raise ValueError("Production must retain all 178 targeted regions")
+            raise ValueError(f"Production region count differs: {len(codes)} countries, "
+                             f"restOfWorld={countries.get('restOfWorld') is True}")
         listings = play.call("GET", path + "/listings").get("listings", [])
         if (len(listings) != 1 or listings[0].get("language") != "en-US"
                 or listings[0].get("title") != "YepControl – Remote Phone"
