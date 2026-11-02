@@ -331,3 +331,52 @@ settings and Android permissions; both settings default off on first setup and
 upgrades from hosts without them, while later updates preserve explicit choices.
 Private Console submission and installed-build receipts remain ignored under
 `.local/media-access/implementation/phase-6/`.
+
+## Android 0.12.0 / code 14 — accepted full-rollout preparation, 2026-11-02
+
+The owner authorized optional advanced control, in-place internal Play-installed
+Moto acceptance and promotion of the accepted artifact to 100% production. The
+[installed acceptance](android-beta.md#in-place-moto-acceptance--2026-11-02)
+passes preserved signing/pairings/settings, phone-only setup, ordinary remote
+Start from an absent helper/disabled listener, advanced taps/hold/swipe and Maps
+settings navigation, protected setup, Stop and ordinary fallback. The current
+network is already trusted: fresh Android approval and physical reboot are not
+newly qualified. The temporary controller is revoked and the phone is cleaned up.
+
+The exact signed internal artifact from app source
+`b7473f0e946f6a9d858f6872d824c8f2fc495789`, [release run 41354475580](https://github.com/kzahel/yepcontrol/actions/runs/41354475580),
+is promoted through Console, without rebuilding or uploading. AAB SHA-256:
+`39f449794070cb336bbb31d2fa3d9941ae32f090582d7dfc3814882fb305d65f`.
+The saved production release contains only **14 (0.12.0)**, selects **100.0% /
+all existing targeted countries**, and loses no supported devices. The previous
+code-13 review is withdrawn to supersede it. Console's two nonblocking warnings
+are increased download size and absent deobfuscation mapping; native symbols are
+attached. Managed publishing remains off.
+
+The English description now explains the optional phone-only setup, Wi-Fi /
+Developer options / Wireless debugging requirements, explicit Start/Stop and
+possible on-phone approval. Reviewer instructions add advanced setup within
+their 500-character limit. The existing foreground-service declaration links
+the [0.12.0 demonstration](https://github.com/kzahel/yepcontrol/releases/tag/play-review-v0.12.0),
+whose advanced segment is an explicitly identified owned-emulator recording.
+
+Quick checks complete without a blocking issue. The final Console confirmation
+repeatedly closes without a submission receipt through semantic, keyboard and
+visual controls, including a fresh tab; persisted state remains **Changes not
+yet submitted for review**. No browser error or sign-in challenge is reported.
+
+A temporary, explicit code-14-only reconciliation requests review using the
+existing CI identity, without broadening its account permissions. It verifies
+the accepted source/run/hash, completed internal and production 14, all 178
+regions and the exact saved English description. It writes no bundle or track,
+revalidates unchanged state, commits only once, and retains
+`ERROR_IF_IN_REVIEW` so it cannot cancel another review. Boundary regressions
+cover another production version, other tracks, reduced rollout/countries,
+changed copy, concurrent changes and unknown commit outcome. The normal beta
+publisher's internal-only behavior remains unchanged. Remove the temporary
+entry point immediately after reconciling the result.
+
+This records a prepared rollout and reconciliation intent, not review acceptance,
+Google approval or public availability. The outcome will be recorded separately.
+Google documents [app-wide edit commit behavior](https://developers.google.com/android-publisher/api-ref/rest/v3/edits/commit)
+and the distinction between [pre-review checks and review](https://support.google.com/googleplay/android-developer/answer/14807773?hl=en).

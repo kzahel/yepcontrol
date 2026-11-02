@@ -141,6 +141,63 @@ def publish(play, bundle, digest, version, name, track, status, notes):
                 print("Could not discard uncommitted edit; reconcile in Console", file=sys.stderr)
 
 
+def request_accepted_code14_review(play, digest, source, run_id, listing):
+    """One-time review of the physically accepted, Console-promoted artifact.
+
+    No upload, track write, country change, or review cancellation is allowed.
+    Remove this entry point after reconciling this particular release.
+    """
+    if (digest != "39f449794070cb336bbb31d2fa3d9941ae32f090582d7dfc3814882fb305d65f"
+            or source != "b7473f0e946f6a9d858f6872d824c8f2fc495789"
+            or str(run_id) != "41354475580"):
+        raise ValueError("Review is restricted to the accepted code-14 candidate")
+    edit = play.call("POST", "", {})
+    path = "/" + quote(edit["id"], safe="")
+    commit_attempted = False
+    try:
+        bundles = play.call("GET", path + "/bundles").get("bundles", [])
+        candidate = [b for b in bundles if str(b.get("versionCode")) == "14"]
+        if len(candidate) != 1 or candidate[0].get("sha256") != digest:
+            raise ValueError("Staged bundle differs from the accepted code-14 bytes")
+        tracks = play.call("GET", path + "/tracks").get("tracks", [])
+        by_name = {t["track"]: t.get("releases", []) for t in tracks}
+        if len(by_name) != len(tracks):
+            raise ValueError("Duplicate tracks")
+        for track in ("internal", "production"):
+            releases = by_name.get(track, [])
+            if (len(releases) != 1 or releases[0].get("versionCodes") != ["14"]
+                    or releases[0].get("status") != "completed"
+                    or releases[0].get("name") != "0.12.0"
+                    or "countryTargeting" in releases[0]
+                    or "userFraction" in releases[0]):
+                raise ValueError("Review requires completed internal and production 14")
+        if any(r for t, r in by_name.items() if t not in {"internal", "production"}):
+            raise ValueError("Other track releases require separate reconciliation")
+        countries = play.call("GET", path + "/countryAvailability/production")
+        codes = [c.get("countryCode") for c in countries.get("countries", [])]
+        if len(codes) != 178 or len(set(codes)) != 178:
+            raise ValueError("Production must retain all 178 targeted regions")
+        listings = play.call("GET", path + "/listings").get("listings", [])
+        if (len(listings) != 1 or listings[0].get("language") != "en-US"
+                or listings[0].get("title") != "YepControl – Remote Phone"
+                or listings[0].get("fullDescription", "").strip() != listing.strip()):
+            raise ValueError("Review listing differs from the saved release copy")
+        play.call("POST", path + ":validate", {})
+        if (play.call("GET", path + "/tracks").get("tracks", []) != tracks
+                or play.call("GET", path + "/countryAvailability/production") != countries
+                or play.call("GET", path + "/listings").get("listings", []) != listings):
+            raise ValueError("Staged release changed during review reconciliation")
+        commit_attempted = True
+        play.call("POST", path + ":commit?changesNotSentForReview=false"
+                  "&changesInReviewBehavior=ERROR_IF_IN_REVIEW")
+        return {"status": "accepted_code14_review_requested", "track": "production",
+                "versionCode": 14, "sha256": digest, "reviewRequested": True,
+                "rollout": 100, "countries": 178}
+    finally:
+        if not commit_attempted:
+            play.call("DELETE", path)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
@@ -151,16 +208,23 @@ def main():
     parser.add_argument("--track", choices=["internal"], required=True)
     parser.add_argument("--status", choices=["check", "draft", "completed"], default="check")
     parser.add_argument("--notes-file", type=Path, required=True)
+    parser.add_argument("--request-accepted-code14-review", action="store_true")
     args = parser.parse_args()
     bundle, digest, name = verify_candidate(args.directory, args.source, args.run_id,
                                           args.version_code, args.version_name)
-    result = publish(Play(os.environ.get("PLAY_ACCESS_TOKEN")), bundle, digest,
-                     int(args.version_code), name, args.track, args.status,
-                     args.notes_file.read_text().strip())
+    play = Play(os.environ.get("PLAY_ACCESS_TOKEN"))
+    if args.request_accepted_code14_review:
+        if args.status != "completed" or args.version_code != "14" or name != "0.12.0":
+            raise ValueError("Invalid one-time code-14 review request")
+        listing = Path("docs/distribution/listing.en-US.txt").read_text().split("Full description:\n\n", 1)[1]
+        result = request_accepted_code14_review(play, digest, args.source, args.run_id, listing)
+    else:
+        result = publish(play, bundle, digest, int(args.version_code), name, args.track,
+                         args.status, args.notes_file.read_text().strip())
     result.update(source=args.source, buildRunId=args.run_id, versionName=args.version_name)
     (args.directory / "publication.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result))
-    print("Check internal delivery in Play Console; production review was not requested.")
+    print("Verify delivery/review state in Console; API acceptance is not Google approval.")
 
 
 if __name__ == "__main__":

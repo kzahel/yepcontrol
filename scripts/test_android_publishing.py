@@ -2,12 +2,13 @@
 """Release transaction regressions; no credentials or network required."""
 
 import hashlib
+import copy
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
-from publish_android_bundle import publish, verify_candidate, safe_play_error
+from publish_android_bundle import publish, verify_candidate, safe_play_error, request_accepted_code14_review
 from verify_android_release import verify_build, has_source_checks
 
 
@@ -39,6 +40,75 @@ class FakePlay:
 
 
 class PublishingTest(unittest.TestCase):
+    def test_accepted_review_is_bounded_to_exact_bytes_tracks_countries_and_copy(self):
+        class ReviewPlay(FakePlay):
+            def __init__(self):
+                super().__init__()
+                self.tracks = [{"track": t, "releases": [{"versionCodes": ["14"],
+                    "status": "completed", "name": "0.12.0"}]} for t in ["internal", "production"]]
+                self.countries = {"countries": [{"countryCode": str(n)} for n in range(178)]}
+                self.listings = [{"language": "en-US", "title": "YepControl – Remote Phone",
+                                  "fullDescription": "Accepted copy"}]
+                self.bundle_hash = "39f449794070cb336bbb31d2fa3d9941ae32f090582d7dfc3814882fb305d65f"
+                self.change = False
+                self.timeout = False
+
+            def call(self, method, path, body=None, upload=False):
+                self.calls.append((method, path, body))
+                if path == "":
+                    return {"id": "edit-1"}
+                if path.endswith("/bundles"):
+                    return {"bundles": [{"versionCode": 14, "sha256": self.bundle_hash}]}
+                if path.endswith("/tracks"):
+                    return {"tracks": copy.deepcopy(self.tracks)}
+                if path.endswith("/countryAvailability/production"):
+                    return copy.deepcopy(self.countries)
+                if path.endswith("/listings"):
+                    return {"listings": copy.deepcopy(self.listings)}
+                if path.endswith(":validate") and self.change:
+                    self.tracks[1]["releases"][0]["versionCodes"] = ["15"]
+                if ":commit" in path and self.timeout:
+                    raise TimeoutError("unknown remote outcome")
+                return {}
+
+        args = ("39f449794070cb336bbb31d2fa3d9941ae32f090582d7dfc3814882fb305d65f",
+                "b7473f0e946f6a9d858f6872d824c8f2fc495789", "41354475580", "Accepted copy")
+        play = ReviewPlay()
+        result = request_accepted_code14_review(play, *args)
+        self.assertTrue(result["reviewRequested"])
+        self.assertEqual(result["rollout"], 100)
+        self.assertFalse(any(m == "PUT" or "uploadType" in p for m, p, _ in play.calls))
+        self.assertEqual(play.calls[-1][:2], ("POST", "/edit-1:commit?changesNotSentForReview=false"
+                                            "&changesInReviewBehavior=ERROR_IF_IN_REVIEW"))
+        for field in range(3):
+            wrong = list(args)
+            wrong[field] = "wrong"
+            play = ReviewPlay()
+            with self.assertRaises(ValueError):
+                request_accepted_code14_review(play, *wrong)
+            self.assertEqual(play.calls, [])
+        for scenario in ["hash", "production", "fraction", "targeting", "other", "country", "listing", "concurrent"]:
+            with self.subTest(scenario=scenario):
+                play = ReviewPlay()
+                if scenario == "hash": play.bundle_hash = "wrong"
+                elif scenario == "production": play.tracks[1]["releases"][0]["versionCodes"] = ["13"]
+                elif scenario == "fraction": play.tracks[1]["releases"][0]["userFraction"] = 0.5
+                elif scenario == "targeting": play.tracks[1]["releases"][0]["countryTargeting"] = {}
+                elif scenario == "other": play.tracks.append({"track": "beta", "releases": [{}]})
+                elif scenario == "country": play.countries["countries"].pop()
+                elif scenario == "listing": play.listings[0]["fullDescription"] = "Other copy"
+                elif scenario == "concurrent": play.change = True
+                with self.assertRaises(ValueError):
+                    request_accepted_code14_review(play, *args)
+                self.assertFalse(any(m == "PUT" or ":commit" in p for m, p, _ in play.calls))
+                self.assertEqual(play.calls[-1][:2], ("DELETE", "/edit-1"))
+        play = ReviewPlay()
+        play.timeout = True
+        with self.assertRaises(TimeoutError):
+            request_accepted_code14_review(play, *args)
+        self.assertEqual(sum(":commit" in p for _, p, _ in play.calls), 1)
+        self.assertFalse(any(m == "DELETE" for m, _, _ in play.calls))
+
     def test_api_diagnostics_exclude_arbitrary_response_text(self):
         raw = json.dumps({"error": {"status": "INVALID_ARGUMENT", "message":
             "It is not allowed to set the query parameter changesNotSentForReview to true. Please remove the query parameter."}})
