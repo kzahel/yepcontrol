@@ -272,9 +272,16 @@ async function host(grant: Grant, drop = false, media = false) {
       const timers = new Set<ReturnType<typeof setInterval>>();
       const simulated = phoneLane(true, (command) => {
         if (command.op === 24 || command.op === 25) {
+          // Two 100 ms PCM packets supply the exact 200 ms WAV fixture without
+          // making success depend on draining 20 ms packets before the bounded
+          // mailbox fills on a busy runner. Backpressure has separate coverage.
+          let packets = 0;
           const timer = setInterval(
             () => {
-              if (!simulated.streams.has(command.stream)) {
+              if (
+                !simulated.streams.has(command.stream) ||
+                (command.op === 25 && packets === 2)
+              ) {
                 clearInterval(timer);
                 timers.delete(timer);
                 return;
@@ -282,7 +289,7 @@ async function host(grant: Grant, drop = false, media = false) {
               const data =
                 command.op === 24
                   ? new Uint8Array([255, 216, 255, 217])
-                  : new Uint8Array(640);
+                  : new Uint8Array(3200);
               if (command.op === 25)
                 for (let i = 0; i < data.length; i += 2) data[i] = 1;
               simulated.media(
@@ -290,8 +297,9 @@ async function host(grant: Grant, drop = false, media = false) {
                 command.op === 24 ? "jpeg" : "pcm",
                 data,
               );
+              packets++;
             },
-            command.op === 24 ? 1000 : 20,
+            command.op === 24 ? 1000 : 100,
           );
           timers.add(timer);
         }
@@ -411,7 +419,7 @@ it("records exact PCM samples into a WAV through the encrypted CLI transport", a
     out,
     "--json",
   ]).done;
-  expect(result.code, result.stderr).toBe(0);
+  expect(result.code, `${result.stderr}\n${result.stdout}`).toBe(0);
   expect(JSON.parse(result.stdout)).toMatchObject({
     ok: true,
     state: "complete",
