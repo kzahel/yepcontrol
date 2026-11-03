@@ -1,5 +1,10 @@
 import {
+  MAX_UI_NODES,
+  observationLimits,
+  parseSelector,
   parseSnapshot,
+  type UiLimits,
+  type UiSelector,
   type UiSnapshot,
   validObservation,
 } from "./accessibility.js";
@@ -31,9 +36,10 @@ export type Command =
         | "wake"
         | "apps"
         | "videoFrame"
-        | "videoKey"
-        | "snapshot";
+        | "videoKey";
     }
+  | ({ op: "snapshot" } & UiLimits)
+  | ({ op: "query"; selector: UiSelector; maxMatches?: number } & UiLimits)
   | { op: "tap"; scene: number; x: number; y: number }
   | {
       op: "swipe";
@@ -88,6 +94,8 @@ const operations = [
   "microphoneStart",
   "mediaStop",
   "mediaRenew",
+  "snapshotOptions",
+  "query",
 ] as const;
 export const MAX_COMMAND = 32784;
 export function encodeCommand(
@@ -96,10 +104,50 @@ export function encodeCommand(
 ): Uint8Array<ArrayBuffer> {
   if (!Number.isInteger(id) || id < 1 || id > 0xffffffff)
     throw new Error("Invalid command ID");
+  const extendedSnapshot =
+    command.op === "snapshot" &&
+    (command.maxNodes !== undefined ||
+      command.maxDepth !== undefined ||
+      command.timeoutMs !== undefined);
   let values: number[] = [];
   let tail = new Uint8Array();
   if (command.op === "touch") tail = encodeTouch(command.batch);
   switch (command.op) {
+    case "snapshot":
+    case "query": {
+      if (command.op === "snapshot" && !extendedSnapshot) break;
+      const [nodes, depth, timeout] = observationLimits(
+        command,
+        command.op === "query",
+      );
+      if (
+        command.op === "query" &&
+        command.maxMatches !== undefined &&
+        typeof command.maxMatches !== "number"
+      )
+        throw Error("Invalid match limit");
+      const matches = command.op === "query" ? (command.maxMatches ?? 32) : 0;
+      if (
+        !Number.isInteger(matches) ||
+        matches < (command.op === "query" ? 1 : 0) ||
+        matches > 256
+      )
+        throw Error("Invalid match limit");
+      const selector =
+        command.op === "query"
+          ? new TextEncoder().encode(
+              JSON.stringify(parseSelector(command.selector)),
+            )
+          : new Uint8Array();
+      if (selector.length > 4096) throw Error("UI selector too large");
+      tail = new Uint8Array(16 + selector.length);
+      const data = new DataView(tail.buffer);
+      [nodes, depth, matches, timeout].forEach((v, i) => {
+        data.setUint32(i * 4, v);
+      });
+      tail.set(selector, 16);
+      break;
+    }
     case "cameraStart": {
       if (
         !Number.isInteger(command.stream) ||
@@ -144,7 +192,7 @@ export function encodeCommand(
         !validObservation(command.observation) ||
         !Number.isInteger(command.node) ||
         command.node < 0 ||
-        command.node >= 128
+        command.node >= MAX_UI_NODES
       )
         throw new Error("Invalid UI reference");
       const text =
@@ -227,7 +275,16 @@ export function encodeCommand(
   )
     throw new Error("Invalid gesture");
   const out = new Uint8Array(12 + values.length * 4 + tail.length);
-  out.set([65, 82, 67, 49, operations.indexOf(command.op) + 1, 0, 0, 0]);
+  out.set([
+    65,
+    82,
+    67,
+    49,
+    extendedSnapshot ? 28 : operations.indexOf(command.op) + 1,
+    0,
+    0,
+    0,
+  ]);
   const view = new DataView(out.buffer);
   view.setUint32(8, id);
   values.forEach((v, i) => {
@@ -270,6 +327,7 @@ export type ControlState = {
   localSettings?: boolean;
   /** Snapshot and observation-bound node actions. Absent on existing public hosts. */
   a11y?: 1;
+  a11yQuery?: 1;
   /** Optional, explicitly started phone-local advanced input. */
   advancedControl?: { paired: boolean; running: boolean; ready: boolean };
   /** Absent on released hosts until the media implementation is available. */
@@ -333,7 +391,11 @@ export function decodeReply(data: Uint8Array<ArrayBuffer>): Reply {
         state.height > 16384
       )
         throw new Error("Invalid state");
-      if (state.a11y !== undefined && state.a11y !== 1)
+      if (
+        (state.a11y !== undefined && state.a11y !== 1) ||
+        (state.a11yQuery !== undefined &&
+          (state.a11yQuery !== 1 || state.a11y !== 1))
+      )
         throw new Error("Invalid UI capability");
       state.device = parseDevice(state.device);
       if (state.media !== undefined) state.media = parseMediaState(state.media);

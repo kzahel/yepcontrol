@@ -36,6 +36,7 @@ internal class SemanticAccess {
         old.targets.forEach { it.node.recycle() }
     }
 
+    @Suppress("DEPRECATION")
     private fun description(
         node: AccessibilityNodeInfo,
         id: Int,
@@ -46,7 +47,21 @@ internal class SemanticAccess {
         val actions = node.actionList.map { it.id }
         val usable = node.isEnabled && node.isVisibleToUser && !password
         return JSONObject()
-            .put("node", id)
+            .put("enabled", node.isEnabled)
+            .put("checked", node.isChecked)
+            .put("selected", node.isSelected)
+            .put("checkable", node.isCheckable)
+            .put(
+                "stateDescription",
+                if (password) {
+                    ""
+                } else {
+                    node.stateDescription
+                        ?.toString()
+                        .orEmpty()
+                        .take(256)
+                },
+            ).put("node", id)
             .put("parent", parent)
             .put(
                 "role",
@@ -92,6 +107,7 @@ internal class SemanticAccess {
                 description(node, 0, -1).toString(),
                 if (node.isPassword) "" else node.text?.toString().orEmpty(),
                 if (node.isPassword) "" else node.contentDescription?.toString().orEmpty(),
+                if (node.isPassword) "" else node.stateDescription?.toString().orEmpty(),
                 node.viewIdResourceName.orEmpty(),
                 node.className?.toString().orEmpty(),
                 node.packageName?.toString().orEmpty(),
@@ -103,68 +119,185 @@ internal class SemanticAccess {
             ),
         )
 
+    private fun matches(
+        node: AccessibilityNodeInfo,
+        selector: JSONObject,
+    ): Boolean {
+        if (node.isPassword) return false
+        val contains = selector.optString("match", "exact") == "contains"
+
+        fun text(
+            key: String,
+            vararg values: String,
+        ): Boolean =
+            !selector.has(key) || values.any { if (contains) it.contains(selector.getString(key)) else it == selector.getString(key) }
+        if (!text("name", node.text?.toString().orEmpty(), node.contentDescription?.toString().orEmpty()) ||
+            !text("text", node.text?.toString().orEmpty()) ||
+            !text("label", node.contentDescription?.toString().orEmpty()) ||
+            !text("viewId", node.viewIdResourceName.orEmpty()) ||
+            !text("role", node.className?.toString().orEmpty())
+        ) {
+            return false
+        }
+        val flags = listOf("clickable", "editable", "scrollable", "enabled", "checked", "selected").filter { selector.has(it) }
+        if (flags.isEmpty()) return true
+        val descriptor = description(node, 0, -1)
+        return flags.all { selector.getBoolean(it) == descriptor.getBoolean(it) }
+    }
+
     @Suppress("DEPRECATION")
     fun snapshot(
         owner: Any,
         root: AccessibilityNodeInfo,
+        request: ControlCommand? = null,
     ): ByteArray? {
         clear()
-        val nodes = JSONArray()
-        val targets = mutableListOf<Target>()
-        var truncated = false
+        val all = mutableListOf<Target>()
+        val parents = mutableListOf<Int>()
+        val matched = mutableListOf<Int>()
+        val reasons = linkedSetOf<String>()
+        val extended = request != null
+        val query = request?.op == 29
         var visited = 0
         var lookups = 0
+        var stop = false
+        val started = SystemClock.elapsedRealtime()
+        val maxNodes = request?.values?.get(0) ?: 128
+        val maxDepth = request?.values?.get(1) ?: 20
+        val maxMatches = request?.values?.get(2) ?: 0
+        val timeout = request?.values?.get(3) ?: 1000
+        val window = root.windowId
+        var traversalStarted = false
 
-        fun visit(
-            node: AccessibilityNodeInfo,
-            parent: Int,
-            path: List<Int>,
-        ) {
-            if (++visited > 128 || path.size > 20) {
-                truncated = true
-                node.recycle()
-                return
+        try {
+            val selector = if (query) UiSelector.parse(requireNotNull(request).text) else null
+
+            fun visit(
+                node: AccessibilityNodeInfo,
+                parent: Int,
+                path: List<Int>,
+            ) {
+                var retained = false
+                try {
+                    if (visited >= maxNodes) {
+                        reasons.add("nodes")
+                        stop = true
+                        return
+                    }
+                    if (SystemClock.elapsedRealtime() - started >= timeout) {
+                        reasons.add("time")
+                        stop = true
+                        return
+                    }
+                    visited++
+                    if (!node.isVisibleToUser) return
+                    val id = all.size
+                    all.add(Target(path, node, null))
+                    parents.add(parent)
+                    retained = true
+                    if (selector != null && matches(node, selector)) {
+                        if (matched.size == maxMatches) {
+                            reasons.add("matches")
+                            stop = true
+                            return
+                        }
+                        matched.add(id)
+                    }
+                    if (node.isPassword) return
+                    if (path.size >= maxDepth && node.childCount > 0) {
+                        reasons.add("depth")
+                        return
+                    }
+                    for (index in 0 until node.childCount) {
+                        if (stop) break
+                        if (visited >= maxNodes) {
+                            reasons.add("nodes")
+                            stop = true
+                            break
+                        }
+                        if (lookups++ >= maxNodes * 2) {
+                            reasons.add("lookups")
+                            stop = true
+                            break
+                        }
+                        if (SystemClock.elapsedRealtime() - started >= timeout) {
+                            reasons.add("time")
+                            stop = true
+                            break
+                        }
+                        val child = node.getChild(index)
+                        if (child == null) reasons.add("unavailable") else visit(child, id, path + index)
+                    }
+                } finally {
+                    if (!retained) node.recycle()
+                }
             }
-            if (!node.isVisibleToUser) {
-                node.recycle()
-                return
+            traversalStarted = true
+            visit(root, -1, emptyList())
+            if (all.isEmpty()) return null
+            val selected = linkedSetOf(0)
+            if (query) {
+                for (match in matched) {
+                    var ancestor = match
+                    while (ancestor >= 0 && selected.add(ancestor)) ancestor = parents[ancestor]
+                }
+            } else {
+                selected.addAll(all.indices)
             }
-            val id = targets.size
-            nodes.put(description(node, id, parent))
-            targets.add(Target(path, node, signature(node)))
-            // A password container's descendants can expose its text too.
-            if (node.isPassword) return
-            for (index in 0 until node.childCount) {
-                if (visited >= 128 || lookups++ >= 256) {
-                    truncated = true
+            val nodes = JSONArray()
+            val targets = mutableListOf<Target>()
+            val ids = mutableMapOf<Int, Int>()
+            var bytes = 4096
+            for (index in all.indices) {
+                if (index !in selected) continue
+                val target = all[index]
+                val id = targets.size
+                val descriptor = description(target.node, id, if (index == 0) -1 else ids.getValue(parents[index]))
+                bytes += descriptor.toString().toByteArray().size + 1
+                if (bytes > 524276) {
+                    reasons.add("bytes")
                     break
                 }
-                node.getChild(index)?.let { visit(it, id, path + index) }
+                nodes.put(descriptor)
+                targets.add(target.copy(signature = signature(target.node)))
+                ids[index] = id
             }
-        }
-        val window = root.windowId
-        try {
-            visit(root, -1, emptyList())
-            if (targets.isEmpty()) return null
-            val token = ByteArray(16).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it.toInt() and 255) }
-            val payload =
-                JSONObject()
-                    .put(
-                        "observation",
-                        token,
-                    ).put("expiresInMs", 30000)
-                    .put("truncated", truncated)
-                    .put("nodes", nodes)
-                    .toString()
-                    .toByteArray()
-            if (payload.size > 524276) {
-                targets.forEach { it.node.recycle() }
+            if (targets.isEmpty()) {
+                all.forEach { it.node.recycle() }
                 return null
             }
+            val token = ByteArray(16).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it.toInt() and 255) }
+            val result =
+                JSONObject()
+                    .put("observation", token)
+                    .put("expiresInMs", 30000)
+                    .put("truncated", reasons.isNotEmpty())
+                    .put("nodes", nodes)
+            if (extended) {
+                result
+                    .put("scope", if (query) "query" else "window")
+                    .put("windowId", window)
+                    .put(
+                        "packageName",
+                        root.packageName
+                            ?.toString()
+                            .orEmpty()
+                            .take(256),
+                    ).put("visitedNodes", visited)
+                    .put("limitReasons", JSONArray(reasons.toList()))
+                if (query) result.put("matches", JSONArray(matched.mapNotNull { ids[it] }))
+            }
+            val payload = result.toString().toByteArray()
+            if (payload.size > 524276) {
+                all.forEach { it.node.recycle() }
+                return null
+            }
+            all.forEachIndexed { index, target -> if (index !in ids) target.node.recycle() }
             observation = Observation(owner, token, window, SystemClock.elapsedRealtime(), targets)
             return payload
         } catch (_: Exception) {
-            targets.forEach { it.node.recycle() }
+            if (!traversalStarted) root.recycle()
+            all.forEach { it.node.recycle() }
             return null
         }
     }

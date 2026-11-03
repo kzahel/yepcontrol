@@ -452,10 +452,10 @@ class LocalSettingsProtectionTest {
             "settings put secure enabled_accessibility_services com.yepcontrol.app/dev.remoteaccess.app.control.ScreenAccessService",
         )
         device.executeShellCommand("settings put secure accessibility_enabled 1")
-        waitFor { ScreenAccessService.current != null }
         context.startActivity(
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
         )
+        waitFor { ScreenAccessService.current != null }
 
         fun androidButton(scene: Int): ByteArray {
             device.waitForIdle()
@@ -573,6 +573,33 @@ class LocalSettingsProtectionTest {
                 assertTrue(activity().window.attributes.flags and android.view.WindowManager.LayoutParams.FLAG_SECURE != 0)
             }
             result(4, command(20))
+            result(
+                4,
+                command(
+                    28,
+                    ByteBuffer
+                        .allocate(16)
+                        .putInt(512)
+                        .putInt(32)
+                        .putInt(0)
+                        .putInt(1000)
+                        .array(),
+                ),
+            )
+            result(
+                4,
+                command(
+                    29,
+                    ByteBuffer
+                        .allocate(16)
+                        .putInt(2048)
+                        .putInt(32)
+                        .putInt(32)
+                        .putInt(1000)
+                        .array() +
+                        JSONObject().put("name", "Settings").toString().toByteArray(),
+                ),
+            )
             result(4, command(3))
             result(0, command(6, byteArrayOf(2)))
             waitFor { !LocalSettingsProtection.blocked }

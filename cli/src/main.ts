@@ -17,7 +17,8 @@ import { privateArtifact, Store } from "./store.js";
 const help = `YepControl CLI (Node 24+)
   pair [--name NAME] [--from-stdin | --code-file PATH] [--origin HTTPS_ORIGIN]
   phones
-  status | snapshot | screenshot [--out PATH] | apps | wake | sleep
+  status | snapshot [--max-nodes N --max-depth N --timeout-ms N] | screenshot [--out PATH] | apps | wake | sleep
+  query (--selector JSON | --from-stdin) [--max-nodes N --max-depth N --max-matches N --timeout-ms N]
   tap X Y --scene N
   swipe X Y END_X END_Y DURATION_MS --scene N
   text --from-stdin
@@ -64,6 +65,13 @@ async function readInput(max: number) {
   }
   return value.replace(/\r?\n$/, "");
 }
+function selectorJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw Error("Invalid UI selector JSON");
+  }
+}
 async function main() {
   const argumentsForCli = () =>
     parseArgs({
@@ -83,6 +91,11 @@ async function main() {
         facing: { type: "string" },
         scene: { type: "string" },
         stdio: { type: "boolean" },
+        selector: { type: "string" },
+        "max-nodes": { type: "string" },
+        "max-depth": { type: "string" },
+        "max-matches": { type: "string" },
+        "timeout-ms": { type: "string" },
       },
     });
   let parsed: ReturnType<typeof argumentsForCli>;
@@ -165,6 +178,12 @@ async function main() {
     }
     if (action === "session" && !values.stdio)
       throw new Error("Use session --stdio");
+    if (
+      action === "query" &&
+      values.selector !== undefined &&
+      values["from-stdin"]
+    )
+      throw Error("Choose one selector input mode");
     let command: unknown;
     switch (action) {
       case "camera":
@@ -173,8 +192,34 @@ async function main() {
       case "session":
         break;
       case "status":
-      case "snapshot":
         command = { op: action };
+        break;
+      case "snapshot":
+      case "query":
+        command = {
+          op: action,
+          ...(action === "query"
+            ? {
+                selector: selectorJson(
+                  values["from-stdin"]
+                    ? await readInput(4096)
+                    : (values.selector ?? "null"),
+                ),
+              }
+            : {}),
+          ...(values["max-nodes"] !== undefined
+            ? { maxNodes: Number(values["max-nodes"]) }
+            : {}),
+          ...(values["max-depth"] !== undefined
+            ? { maxDepth: Number(values["max-depth"]) }
+            : {}),
+          ...(values["timeout-ms"] !== undefined
+            ? { timeoutMs: Number(values["timeout-ms"]) }
+            : {}),
+          ...(values["max-matches"] !== undefined
+            ? { maxMatches: Number(values["max-matches"]) }
+            : {}),
+        };
         break;
       case "screenshot":
         command = { op: "capture" };

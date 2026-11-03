@@ -71,7 +71,9 @@ for store status.
 
 A Node CLI shares the browser's pairing and encrypted control client. See
 [CLI pairing and accessibility control](docs/cli-control.md) for commands and
-agent JSON-lines sessions.
+agent JSON-lines sessions, configurable larger accessibility snapshots and
+host-side queries with explicit completeness. Query support requires an updated
+host advertising `a11yQuery: 1`; this source change does not establish Play delivery.
 
 ## Verification
 

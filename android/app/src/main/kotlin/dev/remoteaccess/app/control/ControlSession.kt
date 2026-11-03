@@ -133,6 +133,7 @@ internal class ControlSession(
                         .report(context),
                 )
                 state.put("a11y", 1)
+                state.put("a11yQuery", 1)
                 state.put("localSettings", LocalSettingsProtection.blocked)
                 state.put("video", VideoStream.state(this)).put("videoActive", VideoStream.available(context, this))
                 state

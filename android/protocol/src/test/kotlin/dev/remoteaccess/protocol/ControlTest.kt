@@ -23,10 +23,18 @@ class ControlTest {
                 "navigation" -> assertEquals(listOf(2), parsed.values)
                 "text" -> assertEquals(expected.getString("text"), parsed.text)
                 "launch" -> assertEquals(expected.getString("packageName"), parsed.text)
-                "snapshot" -> assertEquals(20, parsed.op)
+                "snapshot" -> {
+                    assertEquals(if (expected.has("maxNodes")) 28 else 20, parsed.op)
+                    if (parsed.op == 28) assertEquals(listOf(1024, 48, 0, 1200), parsed.values)
+                }
+                "query" -> {
+                    assertEquals(29, parsed.op)
+                    assertEquals(listOf(2048, 32, 8, 1000), parsed.values)
+                    assertEquals("Next", org.json.JSONObject(parsed.text).getString("name"))
+                }
                 "nodeClick", "nodeScroll", "nodeText" -> {
                     assertEquals(expected.getString("observation"), parsed.observation)
-                    assertEquals(7, parsed.values[0])
+                    assertEquals(expected.getInt("node"), parsed.values[0])
                     if (parsed.op == 22) assertEquals(2, parsed.values[1])
                     if (parsed.op == 23) assertEquals(expected.getString("text"), parsed.text)
                 }
@@ -89,7 +97,7 @@ class ControlTest {
         val click = bytes("41524331150000000000001500112233445566778899aabbccddeeff00000007")
         for (length in 12 until click.size) assertFails { ControlCommand.decode(click.copyOf(length)) }
         assertFails { ControlCommand.decode(click + byteArrayOf(0)) }
-        assertFails { ControlCommand.decode(click.copyOf().also { it[it.lastIndex] = 128.toByte() }) }
+        assertFails { ControlCommand.decode(click.copyOf().also { it[it.lastIndex - 1] = 16.toByte() }) }
         val scroll = click.copyOf().also { it[4] = 22 }
         for (direction in listOf(0, 3, 255)) assertFails { ControlCommand.decode(scroll + byteArrayOf(direction.toByte())) }
         val text = click.copyOf().also { it[4] = 23 }

@@ -113,5 +113,37 @@
       "text": "Hello 🌞"
     },
     "hex": "41524331170000000000001700112233445566778899aabbccddeeff0000000748656c6c6f20f09f8c9e"
+  },
+  {
+    "id": 111,
+    "command": {
+      "op": "snapshot",
+      "maxNodes": 1024,
+      "maxDepth": 48,
+      "timeoutMs": 1200
+    },
+    "hex": "415243311c0000000000006f000004000000003000000000000004b0"
+  },
+  {
+    "id": 112,
+    "command": {
+      "op": "query",
+      "selector": {
+        "name": "Next",
+        "enabled": true
+      },
+      "maxNodes": 2048,
+      "maxMatches": 8
+    },
+    "hex": "415243311d00000000000070000008000000002000000008000003e87b226e616d65223a224e657874222c22656e61626c6564223a747275657d"
+  },
+  {
+    "id": 113,
+    "command": {
+      "op": "nodeClick",
+      "observation": "00112233445566778899aabbccddeeff",
+      "node": 2048
+    },
+    "hex": "41524331150000000000007100112233445566778899aabbccddeeff00000800"
   }
 ]

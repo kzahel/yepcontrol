@@ -27,3 +27,24 @@ it("gates semantic commands before sending to a legacy public host", async () =>
     op: "status",
   });
 });
+
+it("requires the new capability only for extended observation and large references", async () => {
+  const { requireCapability } = await import("../src/commands.js");
+  for (const request of [
+    { op: "snapshot", maxNodes: 1024 },
+    { op: "query", selector: { name: "Next" } },
+    { op: "nodeClick", observation: "0".repeat(32), node: 200 },
+  ]) {
+    const command = parseCommand(request);
+    expect(() => requireCapability(command, { a11y: 1 })).toThrow(
+      "Update YepControl",
+    );
+    expect(requireCapability(command, { a11y: 1, a11yQuery: 1 })).toEqual(
+      command,
+    );
+  }
+  expect(() => parseCommand({ op: "snapshot", maxMatches: 10 })).toThrow();
+  expect(() =>
+    parseCommand({ op: "query", selector: { text: "Next" }, anything: 1 }),
+  ).toThrow();
+});

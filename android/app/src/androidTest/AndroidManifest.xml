@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application android:label="Control fixture">
+        <activity android:name="dev.remoteaccess.app.QueryFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name="dev.remoteaccess.app.SensorCompetitorActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name="dev.remoteaccess.app.ControlFixtureActivity" android:exported="true" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" android:theme="@android:style/Theme.Material.Light.NoActionBar">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>

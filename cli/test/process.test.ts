@@ -127,3 +127,43 @@ it(
   () => blockedMedia(false),
   45000,
 );
+
+it("does not disclose malformed private selector input in fatal errors", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "yep-query-private-"));
+  const child = spawn(
+    process.execPath,
+    [
+      "--conditions=development",
+      "--import",
+      "tsx",
+      "cli/src/main.ts",
+      "query",
+      "--from-stdin",
+      "--json",
+    ],
+    { env: { ...process.env, YEPCONTROL_HOME: directory } },
+  );
+  let stdout = "",
+    stderr = "";
+  child.stdout.on("data", (d) => {
+    stdout += d;
+  });
+  child.stderr.on("data", (d) => {
+    stderr += d;
+  });
+  const done = once(child, "exit");
+  const timer = setTimeout(() => child.kill("SIGKILL"), 5000);
+  child.stdin.end('{"name":"private-query-marker-that-must-not-be-logged"');
+  try {
+    const [code, signal] = await done;
+    expect(signal).toBeNull();
+    expect(code).toBe(1);
+    expect(stdout).toBe("");
+    expect(stderr).not.toContain("private-query-marker");
+    expect(JSON.parse(stderr).error.message).toBe("Invalid UI selector JSON");
+  } finally {
+    clearTimeout(timer);
+    child.kill("SIGKILL");
+    await rm(directory, { recursive: true, force: true });
+  }
+});

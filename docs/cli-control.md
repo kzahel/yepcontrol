@@ -144,6 +144,67 @@ wire formats and pairing grants are unchanged. The CLI refuses semantic commands
 without sending them to a public host that lacks the capability, preserving its
 status/screenshot/gesture connection. No web UI redesign is required.
 
+### Larger snapshots and host-side queries
+
+Source adds `a11yQuery: 1` alongside `a11y: 1`. A client requires that capability
+before sending either extension or a node action with an ID above 127. Existing
+`snapshot` requests remain opcode 20 with their 128-node/depth-20 bound; installed
+hosts, grants and old clients retain their existing protocol. New opcodes 28/29
+carry bounded observation options and selectors. These source changes do not
+establish availability in the Play-installed app.
+
+```sh
+yepcontrol snapshot --max-nodes 1024 --max-depth 48 --timeout-ms 1200
+yepcontrol query --selector '{"name":"Next"}' --max-nodes 2048
+# Private search text can use query --from-stdin instead of an argument.
+```
+
+In `session --stdio`:
+
+```json
+{"id":"find","op":"query","selector":{"name":"Next","enabled":true},"maxNodes":2048,"maxMatches":32,"timeoutMs":1000}
+```
+
+Selectors combine supplied fields with AND: `name` matches text **or** content
+label; `text`, `label`, `viewId` and `role` match their native values. Role is the
+Android class name, not an inferred widget type. String matching is case-sensitive
+and exact by default; `match: "contains"` enables literal substring matching.
+`clickable`, `editable`, `scrollable`, `enabled`, `checked` and `selected` accept
+booleans. No regex or application-specific schema is evaluated. Selectors require
+at least one condition and bound strings to 256 UTF-16 characters.
+
+| Option | Extended snapshot default | Query default | Bounds |
+| --- | --- | --- | --- |
+| `maxNodes` | 512 | 2048 | 1–4096 visited nodes |
+| `maxDepth` | 32 | 32 | 1–64 child levels |
+| `timeoutMs` | 1000 | 1000 | 10–1500 ms, checked between node retrievals |
+| `maxMatches` | Not applicable | 32 | 1–256 matches |
+
+An extended reply remains `kind: "snapshot"`. It adds `scope` (`window` or
+`query`), `windowId`, `packageName`, `visitedNodes` and `limitReasons`. Query
+`matches` contains IDs of matching nodes; `nodes` contains those nodes and their
+ancestor chains with compact observation-bound IDs. A zero-match reply retains
+root context. It is a search of the visible, non-password active-window tree,
+not a filter of the initial 128-node prefix. Hidden/offscreen content and
+password descendants are outside that searchable surface.
+
+`truncated: false` means this search completed within its declared surface.
+`truncated: true` reports `nodes`, `depth`, `time`, `matches`, `bytes`, `lookups`
+or `unavailable`. A partial zero-match result does not prove absence, and one
+partial match does not establish uniqueness. Return size stays within 512 KiB;
+the host bounds node/child work and traversal depth even on unusual providers.
+A single Android node retrieval may outlast the time budget. All matches are
+observed counts; the host does not invent a total when traversal is incomplete.
+
+Nodes also expose `enabled`, `checked`, `selected`, `checkable` and bounded
+`stateDescription`. Password text, labels and state descriptions are redacted,
+and password descendants are not traversed. Name-only queries preserve clickable
+ancestors for controls whose label is a separate child. Resolve distinct action
+targets, not merely the number of matching labels. Take a fresh observation after
+any refusal; token consumption, expiry, full-value signatures, target identity,
+protected Settings, keyguard and final authority checks remain in force. No
+query implicitly clicks, scrolls, types, grants access or retries an action.
+
 ### Accessibility protocol qualification — 2026-10-30
 
 The additive implementation passes 178 TypeScript tests, shared Kotlin command

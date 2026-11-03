@@ -146,7 +146,7 @@ class ScreenAccessService : AccessibilityService() {
         reply: (Int, ByteArray) -> Unit,
     ) {
         val inputRevision = LocalSettingsProtection.revision
-        val input = command.op in listOf(4, 5, 7, 8, 11, 13, 14, 20, 21, 22, 23) || (command.op == 6 && command.values[0] == 3)
+        val input = command.op in listOf(4, 5, 7, 8, 11, 13, 14, 20, 21, 22, 23, 28, 29) || (command.op == 6 && command.values[0] == 3)
         val inputAllowed = {
             allowed() && (!input || (!LocalSettingsProtection.blocked && inputRevision == LocalSettingsProtection.revision))
         }
@@ -154,7 +154,7 @@ class ScreenAccessService : AccessibilityService() {
             fun result(code: Int) = reply(2, byteArrayOf(code.toByte()))
             if (!allowed() || current !== this) return@post result(8)
             if (!inputAllowed()) return@post result(4)
-            if (command.op !in listOf(1, 2, 3, 10, 17, 18, 20, 21, 22, 23)) semantic.clear()
+            if (command.op !in listOf(1, 2, 3, 10, 17, 18, 20, 21, 22, 23, 28, 29)) semantic.clear()
             if (command.op == 2) return@post reply(1, state().toString().toByteArray())
             if (command.op == 9) {
                 unlock.wake()
@@ -198,13 +198,13 @@ class ScreenAccessService : AccessibilityService() {
                 return@post result(0)
             }
             if (locked()) return@post result(3)
-            if (command.op in 20..23) {
+            if (command.op in 20..23 || command.op in 28..29) {
                 if (gesture || touch.active || advanced.active) return@post result(6)
                 val root = rootInActiveWindow ?: return@post result(4)
-                if (command.op == 20) {
+                if (command.op == 20 || command.op in 28..29) {
                     val code =
                         SemanticGuard.perform(
-                            resolve = { semantic.snapshot(owner, root) },
+                            resolve = { semantic.snapshot(owner, root, command.takeIf { it.op != 20 }) },
                             allowed = { inputAllowed() && current === this && !locked() },
                             onRefused = { semantic.clear(owner) },
                             action = { payload ->

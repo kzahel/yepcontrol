@@ -26,6 +26,23 @@ data class ControlCommand(
             var touch: TouchBatch? = null
             var observation = ""
             when (op) {
+                28, 29 -> {
+                    require(input.remaining() in 16..4112)
+                    values.add(input.int.also { require(it in 1..4096) })
+                    values.add(input.int.also { require(it in 1..64) })
+                    values.add(input.int.also { require(it in (if (op == 28) 0..0 else 1..256)) })
+                    values.add(input.int.also { require(it in 10..1500) })
+                    if (op == 28) require(!input.hasRemaining())
+                    text =
+                        Charsets.UTF_8
+                            .newDecoder()
+                            .onMalformedInput(CodingErrorAction.REPORT)
+                            .onUnmappableCharacter(CodingErrorAction.REPORT)
+                            .decode(input)
+                            .toString()
+                    if (op == 29) require(text.isNotEmpty())
+                }
+
                 24 -> {
                     require(input.remaining() == 7)
                     values.add(input.int.also { require(it > 0) })
@@ -77,7 +94,7 @@ data class ControlCommand(
                     require(input.remaining() >= 20)
                     val token = ByteArray(16).also { input.get(it) }
                     observation = token.joinToString("") { "%02x".format(it.toInt() and 255) }
-                    values.add(input.int.also { require(it in 0..127) })
+                    values.add(input.int.also { require(it in 0..4095) })
                     when (op) {
                         21 -> require(!input.hasRemaining())
                         22 -> {
