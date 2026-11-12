@@ -104,7 +104,7 @@ dependencies {
         exclude(group = "com.github.MuntashirAkon.spake2-java")
     }
     implementation("org.bouncycastle:bcprov-jdk15to18:1.86")
-    implementation("org.conscrypt:conscrypt-android:2.8.0")
+    implementation("org.conscrypt:conscrypt-android:2.9.0")
     implementation("io.github.vvb2060.ndk:boringssl:20251124")
     // Native modal navigation drawer, with RTL and accessibility support.
     implementation("androidx.drawerlayout:drawerlayout:1.2.0")
@@ -140,13 +140,13 @@ dependencies {
     androidTestImplementation("androidx.room:room-testing:2.8.5")
     // Data channels only. Exact AAR/license review: docs/direct-transport.md.
     //noinspection NewerVersionAvailable
-    implementation("io.github.webrtc-sdk:android:150.7871.01")
+    implementation("io.github.webrtc-sdk:android:150.7871.04")
     implementation(project(":protocol"))
     // OkHttp's Kotlin client API is exercised by hosted acceptance.
     //noinspection NewerVersionAvailable
-    implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
-    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.4.0")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.4.1")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
 }
