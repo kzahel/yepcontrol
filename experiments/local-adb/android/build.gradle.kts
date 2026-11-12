@@ -33,10 +33,10 @@ android {
 dependencies {
     if (!baseline) {
         implementation("com.github.MuntashirAkon:libadb-android:3.1.1")
-        implementation("org.bouncycastle:bcprov-jdk15to18:1.81")
-        implementation("org.conscrypt:conscrypt-android:2.5.3")
+        implementation("org.bouncycastle:bcprov-jdk15to18:1.86")
+        implementation("org.conscrypt:conscrypt-android:2.9.0")
     }
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
-    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.4.1")
 }
