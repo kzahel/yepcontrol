@@ -1,25 +1,34 @@
 version: 2
+
+# Security updates only. Routine upgrades are maintainer-run batches.
+# Dependabot requires a schedule, but open-pull-requests-limit: 0 disables
+# version-update PRs without disabling security updates, which are grouped
+# per ecosystem entry.
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
-      node-dependencies:
-        update-types: [minor, patch]
-    open-pull-requests-limit: 5
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: gradle
     directory: /android
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
-      android-dependencies:
-        update-types: [minor, patch]
-    open-pull-requests-limit: 5
+      gradle-security:
+        applies-to: security-updates
+        patterns: ["*"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0
     groups:
-      actions:
-        patterns: ['*']
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]
