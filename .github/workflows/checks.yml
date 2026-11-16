@@ -79,7 +79,7 @@ jobs:
       - run: pnpm --dir experiments/cloudflare-relay typecheck
       - run: pnpm --dir experiments/cloudflare-relay test
   browser-acceptance:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright has no Chromium build for ubuntu-26.04 yet
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -112,7 +112,7 @@ jobs:
 
   hosted-pairing-acceptance:
     if: github.event_name == 'workflow_dispatch' && inputs.hosted_origin != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright has no Chromium build for ubuntu-26.04 yet
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
