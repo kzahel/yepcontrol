@@ -95,6 +95,9 @@ android {
     lint {
         abortOnError = true
         warningsAsErrors = true
+        // Dependency freshness is handled by maintainer-run upgrade batches;
+        // "newer version available" must not fail builds when upstream ships.
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
     }
 }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
