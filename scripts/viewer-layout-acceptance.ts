@@ -826,6 +826,7 @@ try {
     await page.goto(
       `http://127.0.0.1:${address.port}/layout-proof?locked=false&width=1920&height=1080`,
     );
+    await page.waitForFunction(() => !!window.layoutFixture);
     await page.evaluate(() => {
       window.layoutFixture.patch({
         remoteKeys: ["up", "down", "left", "right", "center", "play-pause"],
