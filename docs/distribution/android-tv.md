@@ -64,8 +64,8 @@ See [Android's Wireless debugging prerequisites](https://developer.android.com/t
 ## Play Console owner steps
 
 Documentation checked 2026-11-19. Use the existing app and signing identity.
-The current local build still uses version code 14. A submitted candidate
-needs a fresh version code and the existing signing and internal-test process.
+The TV release candidate is 0.13.0/code 15. Use the existing signing and
+internal-test process.
 See [Android signing and internal delivery](android-beta.md).
 
 1. In the main Store listing and other applicable listings, add dedicated

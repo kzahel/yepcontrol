@@ -108,9 +108,7 @@ dependencies {
     implementation("com.github.MuntashirAkon:libadb-android:3.1.1") {
         exclude(group = "com.github.MuntashirAkon.spake2-java")
     }
-    //noinspection NewerVersionAvailable
     implementation("org.bouncycastle:bcprov-jdk15to18:1.86")
-    //noinspection NewerVersionAvailable
     implementation("org.conscrypt:conscrypt-android:2.8.0")
     implementation("io.github.vvb2060.ndk:boringssl:20251124")
     // Native modal navigation drawer, with RTL and accessibility support.
@@ -125,7 +123,6 @@ dependencies {
     //noinspection GradleDependency
     implementation("androidx.room:room-runtime:2.8.5")
     // Room migration serializers and the app must use the same runtime ABI.
-    //noinspection NewerVersionAvailable
     implementation(platform("org.jetbrains.kotlinx:kotlinx-serialization-bom:1.12.0"))
     // Predictive back support.
     //noinspection GradleDependency
@@ -154,7 +151,6 @@ dependencies {
     //noinspection NewerVersionAvailable
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
-    //noinspection GradleDependency
     androidTestImplementation("androidx.test.uiautomator:uiautomator:2.4.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
