@@ -71,8 +71,8 @@ See [Android signing and internal delivery](android-beta.md).
 1. In the main Store listing and other applicable listings, add dedicated
    landscape Android TV screenshots and mention Android TV in the description.
    Prepare at least one real 16:9 TV screenshot at 1920×1080 with private
-   codes and device data excluded. Use the packaged 320×180 TV banner for the
-   TV banner asset. See [preview asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151)
+   codes and device data excluded. The packaged launcher banner is 320×180.
+   Play Console requires a separate 1280×720 listing asset. See [preview asset requirements](https://support.google.com/googleplay/android-developer/answer/9866151)
    and [TV app quality](https://developer.android.com/develop/adaptive-apps/quality-guidelines/tv-app-quality).
 2. In **Test and release → Advanced settings → Form factors**, use
    **Add form factor → Android TV**, then opt in and accept the TV review
@@ -82,7 +82,10 @@ See [Android signing and internal delivery](android-beta.md).
    See [Play Console form-factor tracks](https://support.google.com/googleplay/android-developer/answer/13295490).
 3. Upload the signed TV-capable AAB with all ARM libraries to the applicable
    internal test track. In **Device catalog**, verify the exact 32-bit TV
-   model and inspect exclusions. On an authorized TV, install through Play
+   model using its Android build device identifier and inspect exclusions.
+   Play can group several retail TV models under the same identifier. See
+   [Play device targeting](https://support.google.com/googleplay/android-developer/answer/7353455).
+   On an authorized TV, install through Play
    as an enrolled tester and exercise pairing, D-pad navigation, connection
    setup and a background request. Coordinate the browser deployment so the
    TV's displayed URL accepts a code. The shared Sony currently has a debug
@@ -92,6 +95,55 @@ See [Android signing and internal delivery](android-beta.md).
 4. Submit the tested artifact for TV review and rollout after approval from
    the owner. Check submission, TV quality approval, and actual Play Store
    discovery and installation separately. See [Distribute to Android TV](https://developer.android.com/training/tv/publishing/distribute).
+
+## Release status — 2026-11-19
+
+Play Console has the Android TV opt-in on the shared mobile and TV release
+track. The English listing has two 1920×1080 TV screenshots, a 1280×720 TV
+banner and TV setup copy. App access has dedicated Android TV reviewer
+instructions. Managed publishing is off. The last confirmed public Android
+version is 0.12.0/code 14.
+
+The [production website and relay](../relay-releases.md#android-tv-viewer--2026-11-19)
+accept TV pairing codes and send TV remote commands. This was verified against
+the public site using an owned Google TV emulator running code 15. The temporary
+pairing was revoked.
+
+The release source is `8813f406f636551550514504867515818bd522dd`.
+[Exact-source Checks](https://github.com/kzahel/yepcontrol/actions/runs/44614600918)
+pass. An owned Android 16 phone emulator passes local advanced setup, protected
+input, helper shutdown after process death, and no boot arming. The local
+hosted suites pass browser QR pairing, both CLI pairing directions, media
+wake, encrypted video, native input, rotation, and revocation. CI runs the
+device, hosted pairing, and hosted control suites independently. All three
+passed in the [release run](https://github.com/kzahel/yepcontrol/actions/runs/44614600360).
+
+The signed 0.13.0/code-15 AAB has SHA-256
+`824f1816de09696e3a6ec282a3600b918e0d58abea6326921c0b08b8a56fbdc0`.
+Bundletool validated those bytes, produced ARMv7 and ARM64 splits, and found
+all four native libraries for ARMv7. The splits built from that bundle and
+locally signed for testing installed and cold-launched through the Leanback
+alias on the owned Android 16 Google TV emulator with 16 KB pages.
+
+The Play API [internal delivery attempt](https://github.com/kzahel/yepcontrol/actions/runs/44621617131)
+rejected review deferral at commit. The signed CI bundle was uploaded through
+Play Console. Console shows **Available to internal testers** for 0.13.0. Its
+release preview reports 2,588 newly supported TV models, for 2,592 total, with
+zero models losing support. The only release warning is the missing optional
+deobfuscation mapping. Native debug symbols are attached.
+
+After internal publication, Device catalog listed the Sony `BRAVIA_AE_M6L`
+with Android 14 and `armeabi-v7a, armeabi` as supported. Play lists BRAVIAs
+under their Android device identifiers. Matching the retail identifier
+`K-65XR8A` requires the office TV's device identifier. Its exact variant and
+Play-installed runtime remain to be verified.
+
+The same code-15 bundle was selected from the Play library for a 100% rollout
+in all 178 existing production regions. Play Console received the five-change
+review request for the release, description, screenshots, banner, and Android
+TV opt-in. Submission activity records **In review** at 22:53 CET. The
+production view initially showed automated quick checks in progress. Google
+approval and public TV discovery are pending.
 
 ## Qualification
 

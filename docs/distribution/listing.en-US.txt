@@ -24,6 +24,9 @@ Open yepcontrol.com in a browser, scan its pairing code in the Android app, then
 VIEW AND CONTROL
 See the screen, tap, swipe, type and use Android navigation from your paired browser. Smooth video is available after Android screen-sharing consent. Connections try a direct route and use the encrypted relay when needed.
 
+ANDROID TV AND GOOGLE TV
+Open YepControl on the TV and choose Give control, then Show code. Scan the QR code with another device or enter the displayed code at yepcontrol.com/control. Use the browser’s Remote panel for directional and playback keys. Directional control requires Android 13 or later.
+
 OPTIONAL CAMERA AND MICROPHONE
 Enable remote camera and microphone separately in the phone settings and grant their Android permissions. Use Camera and Listen in your paired browser, with explicit Start and Stop. Android shows active sensor indicators and, when notifications are allowed, a Stop sharing notification. Connecting or reconnecting never starts capture. Paired CLI controllers can save bounded JPEG and WAV files locally.
 

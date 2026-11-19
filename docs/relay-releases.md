@@ -1,7 +1,7 @@
 # Relay releases and CI deployment
 
-The live website/relay release is `relay-v0.5.2`; see the
-[advanced readiness receipt](#optional-advanced-readiness--2026-11-01).
+The live website/relay release is `relay-v0.6.0`; see the
+[Android TV rollout receipt](#android-tv-viewer--2026-11-19).
 It preserves released hosts, existing pairings and relay authority.
 
 The 2026-10-26 phone-first pairing rollout is recorded in
@@ -392,3 +392,18 @@ report. Older Android hosts remain valid without it. Existing pairings, relay
 authority, browser storage and country/store delivery are unchanged by this
 website deployment. Native implementation, installed acceptance and Android
 publication are tracked separately in the [advanced control plan](advanced-control-plan.md).
+
+
+## Android TV viewer — 2026-11-19
+
+`relay-v0.6.0` at source `3080278513ab4ee16714d066bfce150a6c4b93aa`
+passed [exact-source Checks](https://github.com/kzahel/yepcontrol/actions/runs/44590336346)
+and [production deployment](https://github.com/kzahel/yepcontrol/actions/runs/44592011094).
+The independent health check reports public admission and Worker version
+`aa8ec618-fb46-43ab-af89-6bb19b435225`.
+
+The live `/control` viewer accepted a typed pairing code from an owned Google
+TV emulator running Android 0.13.0/code 15, connected automatically and sent
+directional and playback requests. The fixture grant was removed. The site
+release is compatible with existing handheld pairing and grants. See
+[Android TV delivery](distribution/android-tv.md).
