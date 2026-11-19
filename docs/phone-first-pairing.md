@@ -44,6 +44,10 @@ Instrumentation renders its own QR view privately for decoding; that facility is
 only in the test APK, not the product. [Android secure-window guidance](https://developer.android.com/security/fraud-prevention/activities?hl=en)
 was reviewed 2026-10-26. OS/OEM limits remain separate from the explicit app gate.
 
+The [Android TV path](distribution/android-tv.md#pairing-authority) also
+presents a grouped code for camera-free entry in a browser or CLI. It uses the
+same claim and grant proof and closes the TV code when its QR is consumed.
+
 ## Implementation acceptance — 2026-10-26
 
 The Node suite passes 157 tests, including five real signed phone-invitation

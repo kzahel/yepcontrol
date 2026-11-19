@@ -10,6 +10,7 @@ through an end-to-end encrypted session. The browser-first QR flow also works.
 - Multiple phones and browsers, with per-browser permissions and revocation.
 - Optional background wake and saved-PIN unlock.
 - Android 11+; application ID `com.yepcontrol.app`.
+- Android TV and Google TV support is available in source. See [TV pairing, controls and Play delivery](docs/distribution/android-tv.md).
 
 **Play release:** version 0.10.0/code 11 is publicly released at **100% rollout**
 across all 178 targeted countries/regions, confirmed in Console and the public
