@@ -66,4 +66,6 @@
     <item name="advanced_notifications" type="id" />
     <item name="open_source_licenses" type="id" />
     <item name="advanced_setup" type="id" />
+    <item type="id" name="tv_pair_code" />
+    <item type="id" name="connection_setup_status" />
 </resources>

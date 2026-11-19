@@ -5,6 +5,8 @@ import android.content.Context
 import dev.remoteaccess.app.HostRuntime
 import dev.remoteaccess.app.HostStore
 import dev.remoteaccess.app.advanced.AdvancedControl
+import dev.remoteaccess.app.isTv
+import dev.remoteaccess.app.launcherActivities
 import dev.remoteaccess.app.media.MediaController
 import dev.remoteaccess.app.unlock.PinVault
 import dev.remoteaccess.protocol.ControlCommand
@@ -93,14 +95,9 @@ internal class ControlSession(
                 }
             }
         } else if (command.op == 10) {
-            val intent =
-                android.content
-                    .Intent(android.content.Intent.ACTION_MAIN)
-                    .addCategory(android.content.Intent.CATEGORY_LAUNCHER)
             val apps =
                 context.packageManager
-                    .queryIntentActivities(intent, 0)
-                    .distinctBy { it.activityInfo.packageName }
+                    .launcherActivities(context.isTv())
                     .map {
                         it.loadLabel(context.packageManager).toString().take(100) to it.activityInfo.packageName
                     }.sortedBy { it.first }

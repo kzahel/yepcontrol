@@ -1,5 +1,8 @@
-import { acceptOffer, phoneClaim } from "@remote/client/pairing";
-import { decodePhoneInvitation } from "@remote/protocol/phone-invitation";
+import {
+  acceptOffer,
+  phoneClaim,
+  resolvePhoneInvitation,
+} from "@remote/client/pairing";
 import { useEffect, useState } from "react";
 import { browserName } from "./browser-name.js";
 import {
@@ -18,25 +21,32 @@ function capture() {
     history.replaceState(null, "", location.pathname + location.search);
   return uri;
 }
-const initial = location.pathname === "/control" ? capture() : "";
+const initial =
+  location.pathname === "/control" && location.hash ? capture() : "";
 
 export function ReceivePhone() {
   const [uri, setURI] = useState(initial);
-  const [status, setStatus] = useState("Connecting to phone…");
-  const [busy, setBusy] = useState(true);
+  const [code, setCode] = useState("");
+  const [status, setStatus] = useState(initial ? "Connecting…" : "");
+  const [busy, setBusy] = useState(!!initial);
   useEffect(() => {
     const changed = () => setURI(capture());
     window.addEventListener("hashchange", changed);
     return () => window.removeEventListener("hashchange", changed);
   }, []);
   useEffect(() => {
+    if (!uri) return;
     const abort = new AbortController();
     let completing = false;
     void (async () => {
       try {
-        setStatus("Connecting to phone…");
+        setStatus("Connecting…");
         setBusy(true);
-        const invite = decodePhoneInvitation(uri, location.origin);
+        const invite = await resolvePhoneInvitation(
+          location.origin,
+          uri,
+          abort.signal,
+        );
         const time = await pairingTime();
         const received = performance.now();
         const now = () => time.serverTime + performance.now() - received;
@@ -130,6 +140,7 @@ export function ReceivePhone() {
       } catch (error) {
         if (!abort.signal.aborted) {
           setBusy(false);
+          setURI("");
           setStatus(
             completing
               ? "Pairing wasn’t confirmed. Check the phone before trying again."
@@ -146,8 +157,34 @@ export function ReceivePhone() {
   }, [uri]);
   return (
     <main>
-      <ViewerHeading name="Control a phone" status={status} />
-      {busy && <progress aria-label="Connecting to phone" />}
+      <ViewerHeading name="Control a device" status={status} />
+      {busy ? (
+        <progress aria-label="Connecting to device" />
+      ) : (
+        <form
+          className="tv-code-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setURI(code.trim());
+            setCode("");
+          }}
+        >
+          <label htmlFor="tv-code">Code shown on the TV</label>
+          <input
+            id="tv-code"
+            type="password"
+            value={code}
+            onChange={(event) => setCode(event.currentTarget.value)}
+            maxLength={50}
+            autoComplete="off"
+            spellCheck={false}
+            required
+          />
+          <button type="submit" disabled={!code.trim()}>
+            Connect
+          </button>
+        </form>
+      )}
       <a href="/phones">Your phones</a>
     </main>
   );

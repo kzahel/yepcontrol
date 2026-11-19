@@ -1,4 +1,9 @@
-import { acceptOffer, createPairing, phoneClaim } from "@remote/client/pairing";
+import {
+  acceptOffer,
+  createPairing,
+  phoneClaim,
+  resolvePhoneInvitation,
+} from "@remote/client/pairing";
 import {
   PairingRequestError,
   pairingApi,
@@ -9,7 +14,6 @@ import {
   type Invitation,
   originURL,
 } from "@remote/protocol/enrollment";
-import { decodePhoneInvitation } from "@remote/protocol/phone-invitation";
 import type { Store } from "./store.js";
 export async function pair(
   store: Store,
@@ -26,14 +30,11 @@ export async function pair(
     now = () => time.serverTime + performance.now() - received;
   signal.throwIfAborted();
   let invitation: Invitation;
-  if (uri) {
-    const invite = (() => {
-      try {
-        return decodePhoneInvitation(uri, origin);
-      } catch {
-        throw new Error("Invalid phone pairing code");
-      }
-    })();
+  const invite =
+    uri === undefined
+      ? undefined
+      : await resolvePhoneInvitation(origin, uri, signal);
+  if (invite) {
     if (
       invite.expires * 1000 <= now() ||
       invite.expires * 1000 > now() + 301000
@@ -71,7 +72,7 @@ export async function pair(
     signal.throwIfAborted();
     await show(encodeInvitation(invitation));
   }
-  let seen = uri ? "claimed" : "waiting";
+  let seen = invite ? "claimed" : "waiting";
   while (now() < invitation.expires * 1000) {
     signal.throwIfAborted();
     let result: Awaited<ReturnType<typeof api.request>>;
@@ -93,10 +94,7 @@ export async function pair(
       continue;
     }
     if (result.state === "offered" && result.grant) {
-      if (
-        uri &&
-        result.grant.phone !== decodePhoneInvitation(uri, origin).phone
-      )
+      if (invite && result.grant.phone !== invite.phone)
         throw new Error("Phone identity changed");
       const accepted = await acceptOffer(
         store.identity,

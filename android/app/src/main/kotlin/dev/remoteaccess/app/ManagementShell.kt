@@ -5,9 +5,11 @@ import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
+import android.graphics.drawable.StateListDrawable
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.accessibility.AccessibilityManager
 import android.widget.ImageButton
@@ -27,6 +29,7 @@ internal class ManagementShell(
 
     private fun color(attr: Int): Int = TypedValue().also { activity.theme.resolveAttribute(attr, it, true) }.data
 
+    private val tv = activity.isTv()
     val drawer = DrawerLayout(activity)
     private val sidebar = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
     private val toolbar = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -47,6 +50,7 @@ internal class ManagementShell(
     private var current = ""
     private var revision = 0
     private var scrollPosition = 0
+    private var selectedPage = "home"
 
     init {
         val content = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
@@ -62,10 +66,16 @@ internal class ManagementShell(
         drawer.setDrawerTitle(GravityCompat.START, "Navigation")
         drawer.setBackgroundColor(color(android.R.attr.colorBackground))
         sidebar.setBackgroundColor(color(R.attr.surfaceColor))
+        val horizontal = if (tv) dp(48) else 0
+        val vertical = if (tv) dp(24) else 0
+        if (tv) {
+            content.setPadding(horizontal, vertical, horizontal, vertical)
+            sidebar.setPadding(dp(12), vertical, dp(12), vertical + dp(16))
+        }
         content.setOnApplyWindowInsetsListener { view, insets ->
             val bars = insets.getInsets(WindowInsets.Type.systemBars())
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            sidebar.setPadding(bars.left + dp(12), bars.top, bars.right + dp(12), bars.bottom + dp(16))
+            view.setPadding(bars.left + horizontal, bars.top + vertical, bars.right + horizontal, bars.bottom + vertical)
+            sidebar.setPadding(bars.left + dp(12), bars.top + vertical, bars.right + dp(12), bars.bottom + vertical + dp(16))
             insets
         }
         toolbar.setBackgroundColor(color(R.attr.surfaceColor))
@@ -132,10 +142,25 @@ internal class ManagementShell(
             LinearLayout.LayoutParams(dp(48), dp(48)),
         )
         sidebar.addView(heading)
-        link("home", "This phone", R.id.open_home, R.drawable.ic_home)
+        link("home", if (tv) "This TV" else "This phone", R.id.open_home, R.drawable.ic_home)
         link("devices", "Allowed browsers", R.id.open_devices, R.drawable.ic_devices)
         link("activity", "Activity", R.id.open_activity, R.drawable.ic_activity)
         link("settings", "Settings", R.id.open_settings, R.drawable.ic_settings)
+        if (tv) {
+            highlightControls(toolbar)
+            highlightControls(sidebar)
+            drawer.addDrawerListener(
+                object : DrawerLayout.SimpleDrawerListener() {
+                    override fun onDrawerOpened(drawerView: View) {
+                        links[selectedPage]?.requestFocus()
+                    }
+
+                    override fun onDrawerClosed(drawerView: View) {
+                        if (drawer.findFocus() == null || sidebar.findFocus() != null) navigation.requestFocus()
+                    }
+                },
+            )
+        }
         activity.setContentView(drawer)
         val flags =
             android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
@@ -155,7 +180,12 @@ internal class ManagementShell(
         page: String,
         label: String,
     ) {
-        scrollPosition = if (current == page) scroll.scrollY else 0
+        val samePage = current == page
+        val previous = activity.currentFocus
+        val previousBody = if (tv && samePage && previous != null) focusPath(body, previous) else null
+        val previousAction = if (tv && samePage && previous != null) focusPath(actions, previous) else null
+        val previousId = previous?.id ?: View.NO_ID
+        scrollPosition = if (samePage) scroll.scrollY else 0
         current = page
         title.text = label
         titleAction.visibility = View.GONE
@@ -169,6 +199,7 @@ internal class ManagementShell(
                 "devices", "device" -> "devices"
                 else -> "settings"
             }
+        selectedPage = selected
         links.forEach { (key, link) ->
             link.isSelected = selected == key
             link.setTypeface(null, if (selected == key) Typeface.BOLD else Typeface.NORMAL)
@@ -179,6 +210,74 @@ internal class ManagementShell(
         actions.visibility = View.GONE
         revision++
         restoreScroll()
+        if (tv) {
+            val version = revision
+            scroll.post {
+                if (version != revision) return@post
+                highlightControls(body)
+                highlightControls(actions)
+                if (drawer.isDrawerVisible(GravityCompat.START)) return@post
+                val root =
+                    when {
+                        previousBody != null -> body
+                        previousAction != null -> actions
+                        else -> null
+                    }
+                val byId = if (previousId != View.NO_ID) root?.findViewById<View>(previousId) else null
+                val restored =
+                    byId ?: when {
+                        previousBody != null -> atPath(body, previousBody)
+                        previousAction != null -> atPath(actions, previousAction)
+                        else -> null
+                    }
+                if (restored?.isFocusable == true && restored.isEnabled && restored.requestFocus()) return@post
+                if (!samePage || root != null || activity.currentFocus == null) {
+                    val first =
+                        (body.getFocusables(View.FOCUS_FORWARD) + actions.getFocusables(View.FOCUS_FORWARD)).firstOrNull {
+                            it.isEnabled &&
+                                it.isClickable
+                        }
+                    if (first?.requestFocus() != true) navigation.requestFocus()
+                }
+            }
+        }
+    }
+
+    private fun focusPath(
+        root: ViewGroup,
+        target: View,
+    ): List<Int>? {
+        val path = mutableListOf<Int>()
+        var child = target
+        while (child !== root) {
+            val parent = child.parent as? ViewGroup ?: return null
+            path.add(parent.indexOfChild(child))
+            child = parent
+        }
+        return path.asReversed()
+    }
+
+    private fun atPath(
+        root: ViewGroup,
+        path: List<Int>,
+    ): View? = path.fold(root as View?) { view, index -> (view as? ViewGroup)?.getChildAt(index) }
+
+    private fun highlightControls(view: View) {
+        if (view.isClickable && view.isFocusable) {
+            view.foreground =
+                StateListDrawable().apply {
+                    addState(
+                        intArrayOf(android.R.attr.state_focused),
+                        GradientDrawable().apply {
+                            cornerRadius = dp(8).toFloat()
+                            setStroke(dp(3), color(android.R.attr.textColorPrimary))
+                        },
+                    )
+                }
+        }
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) highlightControls(view.getChildAt(index))
+        }
     }
 
     fun titleAction(
@@ -192,6 +291,7 @@ internal class ManagementShell(
         titleAction.setImageResource(icon)
         titleAction.setOnClickListener { action() }
         titleAction.visibility = View.VISIBLE
+        if (tv) highlightControls(titleAction)
     }
 
     /** Brief confirmation outside the refreshed body, with the user's accessibility timeout. */

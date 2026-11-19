@@ -1,4 +1,8 @@
-import { type Command, encodeCommand } from "@remote/protocol/control";
+import {
+  type Command,
+  type ControlState,
+  encodeCommand,
+} from "@remote/protocol/control";
 /** Narrow public CLI surface; credentials, video and transport negotiation are not accepted. */
 export function parseCommand(value: unknown): Command {
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -19,6 +23,7 @@ export function parseCommand(value: unknown): Command {
     tap: ["scene", "x", "y"],
     swipe: ["scene", "x", "y", "endX", "endY", "duration"],
     navigation: ["action"],
+    key: ["key"],
     text: ["text"],
     launch: ["packageName"],
   };
@@ -46,8 +51,10 @@ export function parseCommand(value: unknown): Command {
 
 export function requireCapability(
   command: Command,
-  state: { a11y?: 1; a11yQuery?: 1 },
+  state: Pick<ControlState, "a11y" | "a11yQuery" | "remoteKeys">,
 ) {
+  if (command.op === "key" && !state.remoteKeys?.includes(command.key))
+    throw new Error("This Android device does not advertise that remote key");
   if (
     (command.op === "query" ||
       (command.op === "snapshot" &&

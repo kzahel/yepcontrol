@@ -8,6 +8,7 @@ import java.util.concurrent.CopyOnWriteArraySet
 internal object LocalSettingsProtection {
     private val owners = mutableSetOf<Any>()
     private val hidden = mutableSetOf<Any>()
+    private val localOnly = mutableSetOf<Any>()
     private val main = Handler(Looper.getMainLooper())
     val listeners = CopyOnWriteArraySet<() -> Unit>()
 
@@ -38,8 +39,8 @@ internal object LocalSettingsProtection {
     }
 
     private fun refresh() {
-        blocked = !unrestricted && owners.isNotEmpty()
-        hideCapture = !unrestricted && hidden.isNotEmpty()
+        blocked = localOnly.isNotEmpty() || (!unrestricted && owners.isNotEmpty())
+        hideCapture = localOnly.isNotEmpty() || (!unrestricted && hidden.isNotEmpty())
         revision++
     }
 
@@ -47,12 +48,14 @@ internal object LocalSettingsProtection {
         owner: Any,
         protected: Boolean,
         hideScreen: Boolean = false,
+        requireLocal: Boolean = false,
     ) {
         check(Looper.myLooper() == Looper.getMainLooper())
         synchronized(this) {
             val changed = if (protected) owners.add(owner) else owners.remove(owner)
             val captureChanged = if (protected && hideScreen) hidden.add(owner) else hidden.remove(owner)
-            if (!changed && !captureChanged) return
+            val localChanged = if (protected && requireLocal) localOnly.add(owner) else localOnly.remove(owner)
+            if (!changed && !captureChanged && !localChanged) return
             refresh()
         }
         ScreenAccessService.current?.settingsChanged()

@@ -19,6 +19,22 @@ export type TouchBatch = {
   duration: number;
   contacts: { id: number; held: boolean; path: { x: number; y: number }[] }[];
 };
+/** Ordered wire IDs. Append new keys without renumbering existing ones. */
+export const remoteKeys = [
+  "up",
+  "down",
+  "left",
+  "right",
+  "center",
+  "play-pause",
+  "stop",
+  "next",
+  "previous",
+  "rewind",
+  "fast-forward",
+] as const;
+export type RemoteKey = (typeof remoteKeys)[number];
+
 export type Command =
   | {
       op: "cameraStart";
@@ -51,6 +67,7 @@ export type Command =
       duration: number;
     }
   | { op: "navigation"; action: "back" | "home" | "recents" }
+  | { op: "key"; key: RemoteKey }
   | { op: "text"; text: string }
   | { op: "launch"; packageName: string }
   | { op: "touch"; batch: TouchBatch }
@@ -96,6 +113,7 @@ const operations = [
   "mediaRenew",
   "snapshotOptions",
   "query",
+  "key",
 ] as const;
 export const MAX_COMMAND = 32784;
 export function encodeCommand(
@@ -237,6 +255,12 @@ export function encodeCommand(
         ["back", "home", "recents"].indexOf(command.action) + 1,
       ]);
       break;
+    case "key": {
+      const key = remoteKeys.indexOf(command.key) + 1;
+      if (!key) throw new Error("Invalid remote key");
+      tail = new Uint8Array([key]);
+      break;
+    }
     case "directOffer":
       tail = new TextEncoder().encode(command.sdp);
       if (!command.sdp.startsWith("v=0\r\n") || tail.length > 32768)
@@ -328,6 +352,7 @@ export type ControlState = {
   /** Snapshot and observation-bound node actions. Absent on existing public hosts. */
   a11y?: 1;
   a11yQuery?: 1;
+  remoteKeys?: RemoteKey[];
   /** Optional, explicitly started phone-local advanced input. */
   advancedControl?: { paired: boolean; running: boolean; ready: boolean };
   /** Absent on released hosts until the media implementation is available. */
@@ -397,6 +422,14 @@ export function decodeReply(data: Uint8Array<ArrayBuffer>): Reply {
           (state.a11yQuery !== 1 || state.a11y !== 1))
       )
         throw new Error("Invalid UI capability");
+      if (
+        state.remoteKeys !== undefined &&
+        (!Array.isArray(state.remoteKeys) ||
+          state.remoteKeys.length > remoteKeys.length ||
+          state.remoteKeys.some((key) => !remoteKeys.includes(key)) ||
+          new Set(state.remoteKeys).size !== state.remoteKeys.length)
+      )
+        throw new Error("Invalid remote keys");
       state.device = parseDevice(state.device);
       if (state.media !== undefined) state.media = parseMediaState(state.media);
       if (state.video !== undefined) {

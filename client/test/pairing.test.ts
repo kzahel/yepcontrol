@@ -10,7 +10,12 @@ import {
 } from "@remote/protocol/enrollment";
 import { verifyClaim } from "@remote/protocol/phone-invitation";
 import { afterEach, expect, it, vi } from "vitest";
-import { acceptOffer, createPairing, phoneClaim } from "../src/pairing.js";
+import {
+  acceptOffer,
+  createPairing,
+  phoneClaim,
+  resolvePhoneInvitation,
+} from "../src/pairing.js";
 
 afterEach(() => vi.unstubAllGlobals());
 it("creates a signed CLI/browser invitation and authenticates the phone before completion", async () => {
@@ -96,4 +101,48 @@ it("binds a phone-issued claim to the CLI identity and name", async () => {
   await expect(
     verifyClaim(invite, { ...claim, name: "Other client" }),
   ).rejects.toThrow();
+});
+
+it("resolves a grouped TV code locally and rejects a relay offer without its secret", async () => {
+  const phone = await createIdentity();
+  const viewer = await createIdentity();
+  const origin = "https://example.test";
+  const expires = Math.floor(Date.now() / 1000) + 300;
+  const phoneKey = b64(phone.publicKey);
+  const fetch = vi.fn(async () =>
+    Response.json({ state: "inviting", phone: phoneKey, expires }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  // Public derivation fixture. Real codes contain 32 independently random symbols.
+  const code = "0123-4567-89ab-cdef\nghjk-mnpq-rstv-wxyz";
+  const invite = await resolvePhoneInvitation(origin, code);
+  expect(invite.id).toBe("336554bc6cda9bb8fbd6e153e41593ec");
+  expect(invite.secret).toBe(
+    "e7a4c702f0541973070ad3b2ab9cd5fc4faf24a80b9dcd47a2f7803a019fb686",
+  );
+  expect(fetch.mock.calls).toEqual([[`${origin}/api/pair/${invite.id}`, {}]]);
+  const claim = await phoneClaim(viewer, invite, "Test CLI");
+  await verifyClaim(invite, claim);
+  const grant: Grant = {
+    id: invite.id,
+    viewer: b64(viewer.publicKey),
+    phone: phoneKey,
+    expires,
+    mac: "00".repeat(32),
+    phoneSignature: "",
+  };
+  grant.phoneSignature = b64(await phone.sign(grantBytes(origin, grant)));
+  await expect(
+    acceptOffer(
+      viewer,
+      { ...invite, viewer: claim.viewer, name: claim.name },
+      grant,
+      "",
+      Date.now(),
+    ),
+  ).rejects.toThrow("Untrusted phone");
+  await expect(resolvePhoneInvitation(origin, "123456")).rejects.toThrow(
+    "Invalid phone pairing code",
+  );
+  expect(fetch).toHaveBeenCalledTimes(1);
 });

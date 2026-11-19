@@ -51,8 +51,16 @@ internal object WakeSupport {
 
     fun register(context: Context): Boolean {
         if (!allowed(context) || FirebaseApp.getApps(context).isEmpty()) return false
-        FirebaseMessaging.getInstance().register().addOnFailureListener {
-            preferences(context).save { putString("wakeState", "Wake registration unavailable. Retry in Settings.") }
+        FirebaseMessaging.getInstance().register().addOnFailureListener { error ->
+            val issue =
+                when (error.message) {
+                    "MISSING_INSTANCEID_SERVICE" -> "play-services"
+                    "FIS_AUTH_ERROR", "BAD_CONFIG" -> "configuration"
+                    else -> "unavailable"
+                }
+            android.util.Log.w("YepControlWake", "Registration failed: $issue (${error.javaClass.simpleName})")
+            preferences(context).save { putString("registrationIssue", issue) }
+            HostStore.get(context).listeners.forEach { it() }
         }
         enqueue(context, Data.EMPTY, registration = true)
         return true

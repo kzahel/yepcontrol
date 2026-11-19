@@ -16,10 +16,16 @@ final class LocalDiscovery implements AutoCloseable {
   final ArrayDeque<NsdServiceInfo> pending = new ArrayDeque<>();
   final Map<String, Integer> attempts = new HashMap<>();
   final NsdManager.DiscoveryListener listener;
+  final java.util.function.IntConsumer onPort;
   volatile boolean closed;
   boolean resolving;
 
   LocalDiscovery(Context context, String type) {
+    this(context, type, null);
+  }
+
+  LocalDiscovery(Context context, String type, java.util.function.IntConsumer onPort) {
+    this.onPort = onPort;
     nsd = context.getSystemService(NsdManager.class);
     listener =
         new NsdManager.DiscoveryListener() {
@@ -97,8 +103,10 @@ final class LocalDiscovery implements AutoCloseable {
                               && (host.isLoopbackAddress()
                                   || NetworkInterface.getByInetAddress(host) != null);
                       android.util.Log.d("LocalAdbDiscovery", "resolved local=" + local);
-                      if (local && info.getPort() > 0 && info.getPort() <= 65535)
-                        ports.offer(info.getPort());
+                      if (local && info.getPort() > 0 && info.getPort() <= 65535) {
+                        if (onPort == null) ports.offer(info.getPort());
+                        else onPort.accept(info.getPort());
+                      }
                     } catch (Exception ignored) {
                       android.util.Log.d("LocalAdbDiscovery", "local address check failed");
                     }

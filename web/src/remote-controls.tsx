@@ -3,6 +3,7 @@ import { ControlIcon } from "./control-icon.js";
 
 export function RemoteControls({
   navigate,
+  openRemote,
   wake,
   lock,
   smooth,
@@ -17,6 +18,7 @@ export function RemoteControls({
   screenInput = true,
   onExpandedChange,
 }: {
+  openRemote?: (() => void) | undefined;
   navigate?: (action: "back" | "home" | "recents") => void;
   wake?: () => void;
   lock?: () => void;
@@ -97,6 +99,16 @@ export function RemoteControls({
               </button>
             );
           })}
+          {openRemote && (
+            <button
+              type="button"
+              onClick={openRemote}
+              title="Open remote keys"
+              aria-haspopup="dialog"
+            >
+              Remote
+            </button>
+          )}
         </nav>
       )}
       <div

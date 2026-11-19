@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.net.*;
 import android.os.*;
 import android.provider.Settings;
+import dev.remoteaccess.app.control.TvPairingPrompt;
 import java.util.concurrent.*;
 import org.json.JSONObject;
 
@@ -17,6 +18,11 @@ public final class AdvancedService extends Service {
   private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor();
   private volatile boolean closed;
   private volatile Identity activeAdb;
+  private final Handler main = new Handler(Looper.getMainLooper());
+  private LocalDiscovery tvDiscovery;
+  private TvPairingPrompt tvPrompt;
+  private boolean pairing;
+  private final Runnable tvTimeout = this::closeTvPairing;
   private long started;
   private int enableAttempts;
   private boolean hadReady;
@@ -115,7 +121,7 @@ public final class AdvancedService extends Service {
         if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) wifi = true;
       }
       if (!wifi) {
-        state("Connect this phone to Wi-Fi");
+        state("Connect this device to Wi-Fi");
         return;
       }
       if (Settings.Global.getInt(getContentResolver(), "adb_wifi_enabled", 0) == 0) {
@@ -162,33 +168,61 @@ public final class AdvancedService extends Service {
       stopSelf();
       return START_NOT_STICKY;
     }
-    if (intent != null && intent.hasExtra("code")) {
-      String code = intent.getStringExtra("code");
-      if (code != null && code.matches("[0-9]{6}") && !AdvancedControl.paired(this))
-        worker.execute(
-            () -> {
-              try (LocalDiscovery discovery = new LocalDiscovery(this, "_adb-tls-pairing._tcp.");
-                  Identity adb = new Identity(this, epoch)) {
-                activeAdb = adb;
-                state("Pairing on this phone");
-                adb.setTimeout(8, TimeUnit.SECONDS);
-                if (!adb.pair("127.0.0.1", discovery.await(20), code))
-                  throw new SecurityException();
-                if (!closed) {
-                  Store.paired(this, epoch);
-                  state("Paired · connecting");
-                }
-              } catch (Exception e) {
-                state("Pairing failed · request a new Android pairing code");
-              }
-            });
-    }
+    if (intent != null && "tv-pairing".equals(intent.getAction())) watchTvPairing();
+    if (intent != null && intent.hasExtra("code")) pair(intent.getStringExtra("code"), 0);
     return START_NOT_STICKY;
+  }
+
+  private void watchTvPairing() {
+    closeTvPairing();
+    if (!Store.current(epoch) || pairing || AdvancedControl.paired(this) || !TvPairingPrompt.available()) return;
+    tvDiscovery = new LocalDiscovery(this, "_adb-tls-pairing._tcp.", port -> {
+      if (!Store.current(epoch) || tvDiscovery == null) return;
+      closeTvPairing();
+      tvPrompt = TvPairingPrompt.show(code -> pair(code, port));
+      if (tvPrompt == null) state("Couldn’t open the TV keypad · return to YepControl to retry");
+    });
+    main.postDelayed(tvTimeout, 120000);
+  }
+
+  private void closeTvPairing() {
+    main.removeCallbacks(tvTimeout);
+    if (tvDiscovery != null) tvDiscovery.close();
+    tvDiscovery = null;
+    if (tvPrompt != null) tvPrompt.close();
+    tvPrompt = null;
+  }
+
+  private void pair(String code, int knownPort) {
+    if (code == null || !code.matches("[0-9]{6}") || pairing ||
+        !Store.current(epoch) || AdvancedControl.paired(this)) return;
+    closeTvPairing();
+    pairing = true;
+    worker.execute(() -> {
+      try (LocalDiscovery discovery = knownPort == 0
+               ? new LocalDiscovery(this, "_adb-tls-pairing._tcp.") : null;
+           Identity adb = new Identity(this, epoch)) {
+        if (!Store.current(epoch)) return;
+        activeAdb = adb;
+        state("Pairing with Android");
+        adb.setTimeout(8, TimeUnit.SECONDS);
+        int port = discovery == null ? knownPort : discovery.await(20);
+        if (!Store.current(epoch) || !adb.pair("127.0.0.1", port, code))
+          throw new SecurityException();
+        Store.paired(this, epoch);
+        state("Paired · connecting");
+      } catch (Exception e) {
+        state("Pairing failed · request a new Android pairing code");
+      } finally {
+        main.post(() -> pairing = false);
+      }
+    });
   }
 
   @Override
   public void onDestroy() {
     closed = true;
+    closeTvPairing();
     worker.shutdownNow();
     Identity closing = activeAdb;
     if (closing != null)

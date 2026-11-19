@@ -37,6 +37,11 @@ public final class AdvancedControl {
     c.startForegroundService(new Intent(c, AdvancedService.class));
   }
 
+  public static void watchTvPairing(Context c) {
+    if (running() && !paired(c))
+      c.startForegroundService(new Intent(c, AdvancedService.class).setAction("tv-pairing"));
+  }
+
   public static void stop(Context c) {
     Store.cancel();
     c.stopService(new Intent(c, AdvancedService.class));

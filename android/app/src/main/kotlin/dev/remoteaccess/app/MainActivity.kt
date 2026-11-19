@@ -213,7 +213,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openNotificationSettings() {
-        startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+        try {
+            startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+        } catch (_: android.content.ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri()))
+        }
     }
 
     private fun sessionStatus(status: String): String =
@@ -254,6 +258,13 @@ class MainActivity : ComponentActivity() {
         outState.putString("deviceId", deviceId)
         super.onSaveInstanceState(outState)
     }
+
+    private val tv by lazy { isTv() }
+    private val deviceLabel get() = if (tv) "this TV" else "this phone"
+    private val deviceKind get() = if (tv) "TV" else "Phone"
+    private val supportsUnlock get() = !tv || getSystemService(android.app.KeyguardManager::class.java).isDeviceSecure
+
+    private fun hasCamera() = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY)
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
@@ -296,21 +307,22 @@ class MainActivity : ComponentActivity() {
         val sensitive =
             page in setOf("pair", "grant", "unlock", "saved-pin", "advanced-setup") ||
                 (page == "advanced" && !AdvancedControl.paired(this))
-        val protected = sensitive && !LocalSettingsProtection.unrestricted
-        val secretPage = page == "pair" && !LocalSettingsProtection.unrestricted
+        val localTvPairing = tv && page == "pair"
+        val protected = sensitive && (!LocalSettingsProtection.unrestricted || localTvPairing)
+        val secretPage = page == "pair" && protected
         if (secretPage) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
-        LocalSettingsProtection.set(foregroundOwner, listening && sensitive, page == "pair")
+        LocalSettingsProtection.set(foregroundOwner, listening && sensitive, page == "pair", requireLocal = localTvPairing)
         shell.page(
             page,
             when (page) {
                 "settings" -> "Settings"
                 "advanced" -> "Advanced control"
                 "advanced-setup" -> "Advanced setup"
-                "features" -> "Set up this phone"
+                "features" -> "Set up $deviceLabel"
                 "pair" -> "Give control"
                 "activity" -> "Activity"
                 "devices" -> "Allowed browsers"
@@ -321,7 +333,7 @@ class MainActivity : ComponentActivity() {
                 "grant" -> "Allow this browser?"
                 "unlock" -> "Unlocking"
                 "saved-pin" -> "Saved PIN"
-                else -> "This phone"
+                else -> deviceLabel.replaceFirstChar { it.uppercase() }
             },
         )
         val layout = shell.body
@@ -375,7 +387,7 @@ class MainActivity : ComponentActivity() {
         val status =
             when {
                 !state.settings.armed -> "Remote access is off"
-                devices.isEmpty() -> "Allow a browser to view and control this phone"
+                devices.isEmpty() -> "Allow a browser to view and control $deviceLabel"
                 live != null -> "${store.device(live.deviceId)?.nickname ?: "Device"} · ${sessionStatus(live.status)}"
                 devices.none { it.enabled } -> "Access is paused for all paired devices"
                 !state.settings.automatic -> "Available while this app is open"
@@ -411,7 +423,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (state.settings.armed && devices.isNotEmpty() && devices.none { it.enabled }) {
-            row(layout, "Allowed browsers", "Choose who can control this phone", R.id.manage_access) { navigate("devices") }
+            row(layout, "Allowed browsers", "Choose who can control $deviceLabel", R.id.manage_access) { navigate("devices") }
         }
         if (devices.isEmpty()) {
             button(layout, "Give control", R.id.pair_device) { navigate("pair") }
@@ -429,11 +441,17 @@ class MainActivity : ComponentActivity() {
             GiveControl.Phase.IDLE, GiveControl.Phase.FAILED, GiveControl.Phase.COMPLETED -> {
                 if (state.phase == GiveControl.Phase.FAILED) text(layout, "Code expired or unavailable.")
                 button(layout, "Show code", R.id.give_control) { giveControl.begin(this) }.minimumHeight = dp(64)
-                text(layout, "The first browser to scan gets access.", 14f)
-                if (scanner.pending != null) {
-                    scanTile(layout)
-                } else {
-                    button(layout, "Scan browser’s code", R.id.scan_pairing_code) { scanPairingCode() }
+                text(
+                    layout,
+                    if (tv) "Showing a code gives one controller access to this TV." else "The first browser to scan gets access.",
+                    14f,
+                )
+                if (hasCamera() && !tv) {
+                    if (scanner.pending != null) {
+                        scanTile(layout)
+                    } else {
+                        button(layout, "Scan browser’s code", R.id.scan_pairing_code) { scanPairingCode() }
+                    }
                 }
             }
             GiveControl.Phase.CREATING, GiveControl.Phase.CONNECTING -> {
@@ -442,21 +460,44 @@ class MainActivity : ComponentActivity() {
                 button(layout, "Cancel", R.id.cancel_give_control) { giveControl.cancel() }
             }
             GiveControl.Phase.WAITING -> {
-                text(layout, "Scan to control this phone.").id = R.id.give_control_status
-                val matrix = QRCodeWriter().encode(requireNotNull(state.link), BarcodeFormat.QR_CODE, 720, 720)
-                val pixels = IntArray(720 * 720) { at -> if (matrix[at % 720, at / 720]) Color.BLACK else Color.WHITE }
-                layout.addView(
-                    ImageView(this).apply {
-                        id = R.id.give_control_qr
-                        contentDescription = "Scan to control this phone"
-                        setBackgroundColor(Color.WHITE)
-                        setImageBitmap(Bitmap.createBitmap(pixels, 720, 720, Bitmap.Config.ARGB_8888))
-                        keepScreenOn = true
-                    },
-                    LinearLayout.LayoutParams(-1, dp(320)),
-                )
+                val qr = qrImage(requireNotNull(state.link))
+                val code = state.tvCode
+                if (code == null) {
+                    text(layout, "Scan to control $deviceLabel.").id = R.id.give_control_status
+                    layout.addView(qr, LinearLayout.LayoutParams(-1, dp(320)))
+                } else {
+                    val pair = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+                    val directions =
+                        LinearLayout(this).apply {
+                            orientation = LinearLayout.VERTICAL
+                            setPaddingRelative(dp(24), 0, 0, 0)
+                        }
+                    pair.addView(qr, LinearLayout.LayoutParams(dp(224), dp(224)))
+                    pair.addView(directions, LinearLayout.LayoutParams(0, -2, 1f))
+                    layout.addView(pair)
+                    val host = Website.current(this).removePrefix("https://")
+                    text(directions, "Scan the QR code or enter this code at $host/control.", 18f).id = R.id.give_control_status
+                    text(directions, code.split('-').chunked(4).joinToString("\n") { it.joinToString("-") }, 24f).apply {
+                        id = R.id.tv_pair_code
+                        typeface = Typeface.MONOSPACE
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                        isSaveEnabled = false
+                    }
+                }
                 button(layout, "Cancel", R.id.cancel_give_control) { giveControl.cancel() }
             }
+        }
+    }
+
+    private fun qrImage(link: String): ImageView {
+        val matrix = QRCodeWriter().encode(link, BarcodeFormat.QR_CODE, 720, 720)
+        val pixels = IntArray(720 * 720) { at -> if (matrix[at % 720, at / 720]) Color.BLACK else Color.WHITE }
+        return ImageView(this).apply {
+            id = R.id.give_control_qr
+            contentDescription = "Scan to control $deviceLabel"
+            setBackgroundColor(Color.WHITE)
+            setImageBitmap(Bitmap.createBitmap(pixels, 720, 720, Bitmap.Config.ARGB_8888))
+            keepScreenOn = true
         }
     }
 
@@ -555,10 +596,10 @@ class MainActivity : ComponentActivity() {
                     1 -> "1 removed device is waiting for cleanup."
                     else -> "$pendingRemovals removed devices are waiting for cleanup."
                 }
-            text(layout, "$label Access is already blocked on this phone.", 14f).id = R.id.cleanup_status
+            text(layout, "$label Access is already blocked on $deviceLabel.", 14f).id = R.id.cleanup_status
             button(layout, "Retry cleanup", R.id.retry_cleanup) {
                 WakeSupport.enqueue(this, androidx.work.Data.EMPTY, registration = true)
-                notice = "Retrying cleanup. Access remains blocked on this phone."
+                notice = "Retrying cleanup. Access remains blocked on $deviceLabel."
                 render()
             }
         }
@@ -623,7 +664,7 @@ class MainActivity : ComponentActivity() {
     private fun features(layout: LinearLayout) {
         val device = deviceId?.let(store::device)
         text(layout, "${device?.nickname ?: "The device"} is paired.", 20f)
-        text(layout, "Choose how you want to use this phone. You can change these later in Settings.")
+        text(layout, "Choose how you want to use $deviceLabel. You can change these later in Settings.")
         setupChecklist(layout, device)
         shell.actions.visibility = View.VISIBLE
         button(shell.actions, "Continue", R.id.skip_features) {
@@ -646,7 +687,7 @@ class MainActivity : ComponentActivity() {
         val notifications = WakeSupport.notificationsAllowed(this)
         val restore = RestartRecovery.enabled(this)
         val list = section(layout)
-        text(list, "Phone access", 20f)
+        text(list, "$deviceKind access", 20f)
         check(
             list,
             "Screen and control",
@@ -675,12 +716,42 @@ class MainActivity : ComponentActivity() {
                 R.id.allow_notifications,
             ) { allowNotifications(prompt = false) }
         }
-        check(list, "Reconnect after restart", "After you unlock the phone once", restore, R.id.restore_setup) {
+        check(list, "Reconnect after restart", "After the first local unlock", restore, R.id.restore_setup) {
             perform { RestartRecovery.setEnabled(this, !restore) }
         }
+        val availableSensors =
+            listOf(true, false).filter { camera ->
+                !tv || if (camera) hasCamera() else packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_MICROPHONE)
+            }
+        if (availableSensors.isNotEmpty()) sensorSetup(layout, availableSensors, notifications)
+        if (!supportsUnlock) return
+        val optional = section(layout)
+        text(optional, "Optional · Unlocking", 14f)
+        if (device != null) {
+            row(
+                optional,
+                "Unlock from ${device.nickname}",
+                if (device.unlockAllowed) "Allowed" else "Not allowed",
+                R.id.unlock_settings,
+            ) { navigate("unlock", device.id) }
+        }
+        val saved = PinVault(this).saved()
+        row(
+            optional,
+            "Save PIN on $deviceLabel",
+            if (saved) "Unlock without typing the PIN" else "Otherwise type the PIN to unlock",
+            R.id.saved_pin_settings,
+        ) { navigate("saved-pin") }
+    }
+
+    private fun sensorSetup(
+        layout: LinearLayout,
+        availableSensors: List<Boolean>,
+        notifications: Boolean,
+    ) {
         val sensors = section(layout)
-        text(sensors, "Optional · Camera and microphone", 14f)
-        for (camera in listOf(true, false)) {
+        text(sensors, "Optional sensors", 14f)
+        for (camera in availableSensors) {
             val enabled = MediaController.allowed(this, camera)
             val permission = MediaController.permission(this, camera)
             check(
@@ -710,23 +781,6 @@ class MainActivity : ComponentActivity() {
             text(sensors, "Notifications are off. Allow them to show active sharing and its Stop sharing action.", 14f)
             button(sensors, "Allow sharing notifications", R.id.media_notifications) { allowNotifications(prompt = true) }
         }
-        val optional = section(layout)
-        text(optional, "Optional · Unlocking", 14f)
-        if (device != null) {
-            row(
-                optional,
-                "Unlock from ${device.nickname}",
-                if (device.unlockAllowed) "Allowed" else "Not allowed",
-                R.id.unlock_settings,
-            ) { navigate("unlock", device.id) }
-        }
-        val saved = PinVault(this).saved()
-        row(
-            optional,
-            "Save PIN on this phone",
-            if (saved) "Unlock without typing the PIN" else "Otherwise type the PIN to unlock",
-            R.id.saved_pin_settings,
-        ) { navigate("saved-pin") }
     }
 
     private fun allowSensor(camera: Boolean) {
@@ -775,7 +829,7 @@ class MainActivity : ComponentActivity() {
             .Builder(this)
             .setTitle("Allow remote screen access?")
             .setMessage(
-                "YepControl uses Android accessibility to let browsers you approve view this phone’s screen " +
+                "YepControl uses Android accessibility to let browsers you approve view $deviceLabel’s screen " +
                     "and perform taps, swipes and typing you request. Screen content may include private information from other apps.\n\n" +
                     "Screen content and controls are encrypted between your devices. " +
                     "You can stop remote access in YepControl or Android settings.",
@@ -796,7 +850,7 @@ class MainActivity : ComponentActivity() {
     private fun connectionRequests(layout: LinearLayout) {
         text(
             layout,
-            "Paired devices can contact this phone while the app is closed when that is on in Settings. " +
+            "Paired devices can contact $deviceLabel while the app is closed when that is on in Settings. " +
                 "Delivery depends on Android and network availability.",
             14f,
         )
@@ -853,12 +907,22 @@ class MainActivity : ComponentActivity() {
         )
         text(
             layout,
-            "Requires Android 11 or later, Wi-Fi and Developer options. No computer is needed. After a restart, connect normally, return here and press Start. Android may ask you to allow Wireless debugging. Use normal remote control to approve it. If Android blocks remote approval, approve it on the phone. A secure screen lock still needs its first unlock.",
+            "Requires ${if (tv) "Android TV 13" else "Android 11"} or later, Wi-Fi and Developer options. No computer is needed. After a restart, connect normally, return here and press Start. Android may ask you to allow Wireless debugging. Use normal remote control to approve it. If Android blocks remote approval, approve it on $deviceLabel. A secure screen lock still needs its first unlock.",
             14f,
         )
+        if (tv && android.os.Build.VERSION.SDK_INT < 33) {
+            text(layout, "Wireless debugging for advanced control requires Android TV 13 or later.", 14f)
+            return
+        }
         if (!WakeSupport.notificationsAllowed(this)) {
             button(layout, "Allow setup notifications", R.id.advanced_notifications) { allowNotifications(prompt = true) }
-            text(layout, "Notifications are needed to enter Android’s pairing code and show the Stop action.", 14f)
+            val reason =
+                if (tv) {
+                    "Notifications show when advanced control is running."
+                } else {
+                    "Notifications are needed to enter Android’s pairing code and show the Stop action."
+                }
+            text(layout, reason, 14f)
         }
         if (AdvancedControl.running()) {
             button(layout, "Stop advanced control", R.id.advanced_stop) {
@@ -872,11 +936,15 @@ class MainActivity : ComponentActivity() {
                     return@button
                 }
                 if (!AdvancedControl.paired(this)) {
+                    if (tv && ScreenAccessService.current == null) {
+                        shell.message("Turn on Screen and control in YepControl Settings first.")
+                        return@button
+                    }
                     AlertDialog
                         .Builder(this)
                         .setTitle("Set up advanced control?")
                         .setMessage(
-                            "Developer options and Wireless debugging give this app additional control over this phone. Enabled paired controllers can start and use advanced input. Only set this up on a phone you own. YepControl stores its pairing key on this phone. After pairing, it grants itself permission to request Wireless debugging when you press Start. It never starts advanced control automatically after a restart. Android’s debugging and pairing settings remain under your control.",
+                            "Developer options and Wireless debugging give this app additional control over $deviceLabel. Enabled paired controllers can start and use advanced input. Only set this up on a device you own. YepControl stores its pairing key on $deviceLabel. After pairing, it grants itself permission to request Wireless debugging when you press Start. It never starts advanced control automatically after a restart. Android’s debugging and pairing settings remain under your control.",
                         ).setNegativeButton("Cancel", null)
                         .setPositiveButton("Continue") { _, _ ->
                             AdvancedControl.start(this)
@@ -888,19 +956,34 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        if (!AdvancedControl.paired(this)) {
-            text(
-                layout,
-                "1. Enable Developer options: open Android’s About phone and tap Build number seven times.\n2. Open Developer options → Wireless debugging, turn it on and choose Pair device with pairing code.\n3. Keep the code dialog open. Open notifications and reply to YepControl’s Enter pairing code action with the six-digit code.\n4. Return here and wait for Ready. Advanced control stops after an hour; you can start it again.",
-                14f,
-            )
+        val unpaired = !AdvancedControl.paired(this)
+        if (unpaired) {
+            val steps =
+                if (tv) {
+                    "In Android Settings → System → About, press Android TV OS build seven times. " +
+                        "Then return here, start setup and open Developer options below. Turn on Wireless debugging and choose " +
+                        "Pair device with pairing code. Enter the six digits using YepControl’s keypad when it appears. " +
+                        "Leave Android’s pairing screen open until it confirms pairing."
+                } else {
+                    "1. Enable Developer options: open Android’s About phone and tap Build number seven times.\n" +
+                        "2. Open Developer options → Wireless debugging, turn it on and choose Pair device with pairing code.\n" +
+                        "3. Keep the code dialog open. Open notifications and reply to YepControl’s Enter pairing code action " +
+                        "with the six-digit code.\n" +
+                        "4. Return here and wait for Ready. Advanced control stops after an hour; you can start it again."
+                }
+            text(layout, steps, 14f)
+            if (tv && ScreenAccessService.current == null) {
+                text(layout, "Turn on Screen and control in YepControl Settings so the TV keypad can appear.", 14f)
+            }
         }
-        if (manage || !AdvancedControl.paired(this)) {
+        if (manage || unpaired) {
             button(layout, "Open Android Developer options", R.id.advanced_developer) {
+                if (tv && unpaired && AdvancedControl.running()) AdvancedControl.watchTvPairing(this)
                 try {
                     startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
-                } catch (_: Exception) {
-                    startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS))
+                } catch (_: android.content.ActivityNotFoundException) {
+                    runCatching { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+                        .onFailure { shell.message("Open Developer options from Android Settings.") }
                 }
             }
             if (AdvancedControl.paired(this) && !AdvancedControl.running()) {
@@ -957,7 +1040,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun appearance(layout: LinearLayout) {
-        text(layout, "Choose how this app looks. System follows your phone’s appearance setting.", 14f)
+        text(layout, "Choose how this app looks. System follows Android’s appearance setting.", 14f)
         val selected = Appearance.choice(this)
         val choices = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
         for ((mode, resource) in listOf(
@@ -1017,7 +1100,7 @@ class MainActivity : ComponentActivity() {
                 unusedRestrictions == null -> "Checking Android settings…"
                 unusedRestrictions == UnusedAppRestrictionsConstants.DISABLED -> "Android won’t pause this app when it’s unused."
                 unusedRestrictions == UnusedAppRestrictionsConstants.FEATURE_NOT_AVAILABLE ->
-                    "Android does not pause unused apps on this phone."
+                    "Android does not pause unused apps on $deviceLabel."
                 restricted ->
                     "Android may remove permissions and archive this app after months unused. " +
                         "To prevent that, turn off “Manage app if unused” at the bottom of App info."
@@ -1031,25 +1114,43 @@ class MainActivity : ComponentActivity() {
             }
         }
         text(layout, "Connection setup", 20f)
-        button(layout, "Retry setup", R.id.retry_setup) {
-            HostRuntime.io.execute {
-                WakeSupport.register(this)
-                WakeSupport.enqueue(this, androidx.work.Data.EMPTY, registration = true)
-            }
-            notice = "Updating connection settings…"
-            render()
-        }
-        if (com.google.firebase.FirebaseApp
+        val configured =
+            com.google.firebase.FirebaseApp
                 .getApps(this)
-                .isEmpty()
-        ) {
-            text(layout, "Connection requests are unavailable in this installation. Install an app update to complete setup.", 14f)
+                .isNotEmpty()
+        val ready = store.snapshot.devices.any { it.wakeReady && store.allowed(it.id, it.generation, automatic = true) }
+        val wakeAllowed = WakeSupport.allowed(this)
+        val registrationIssue = WakeSupport.preferences(this).getString("registrationIssue", null)
+        val status =
+            when {
+                !configured -> "Connection requests are unavailable in this installation. Install an app update to complete setup."
+                !wakeAllowed ->
+                    "Background connection setup starts when background connections and notifications are on for an allowed browser."
+                ready -> "Background connections are set up."
+                registrationIssue == "play-services" -> "Google Play services is unavailable. Check it and retry setup."
+                registrationIssue == "configuration" -> "Couldn’t register this installation. Update YepControl and retry setup."
+                registrationIssue != null -> "Couldn’t register for background connections. Check the network and retry setup."
+                else -> "Waiting for background connection setup."
+            }
+        text(layout, status, 14f).id = R.id.connection_setup_status
+        if (configured) {
+            button(layout, if (wakeAllowed && !ready) "Retry setup" else "Refresh setup", R.id.retry_setup) {
+                HostRuntime.io.execute {
+                    if (!WakeSupport.register(this)) WakeSupport.enqueue(this, androidx.work.Data.EMPTY, registration = true)
+                }
+                shell.message("Updating connection settings…")
+            }
         }
     }
 
     private fun about(layout: LinearLayout) {
         row(layout, "Privacy policy", "How YepControl handles your data", R.id.privacy_policy) {
-            startActivity(Intent(Intent.ACTION_VIEW, (BuildConfig.SHARING_WEBSITE + "/privacy/").toUri()))
+            val url = BuildConfig.SHARING_WEBSITE + "/privacy/"
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+            } catch (_: android.content.ActivityNotFoundException) {
+                shell.message("Open $url on another device.")
+            }
         }
         row(layout, "Open source licenses", "Third-party component notices", R.id.open_source_licenses) {
             val notices =
@@ -1073,10 +1174,11 @@ class MainActivity : ComponentActivity() {
                 .show()
         }
         text(layout, "YepControl ${BuildConfig.VERSION_NAME}", 14f)
-        text(layout, "Pair devices to view and control this phone securely.", 14f)
+        text(layout, "Pair devices to view and control $deviceLabel securely.", 14f)
         text(
             layout,
-            "After a restart, unlock the phone locally once. Activity is stored only on this phone for up to 30 days or 10,000 entries.",
+            "After a restart, unlock $deviceLabel locally if it has a screen lock. " +
+                "Activity is stored only on $deviceLabel for up to 30 days or 10,000 entries.",
             14f,
         )
     }
@@ -1111,19 +1213,21 @@ class MainActivity : ComponentActivity() {
         toggle(layout, "Allow this device", device.enabled, R.id.device_toggle) { enabled -> change { it.enable(device.id, enabled) } }
         val setupIssue =
             when {
-                ScreenAccessService.current == null -> "Screen access is off. Enable it to view and control this phone."
+                ScreenAccessService.current == null -> "Screen access is off. Enable it to view and control $deviceLabel."
                 store.snapshot.settings.automatic && !WakeSupport.notificationsAllowed(this) -> "Background requests need notifications."
                 else -> null
             }
         if (setupIssue != null) {
-            row(layout, "Phone setup", setupIssue, R.id.open_features) { navigate("features", device.id) }
+            row(layout, "$deviceKind setup", setupIssue, R.id.open_features) { navigate("features", device.id) }
         }
-        row(
-            layout,
-            "Unlocking",
-            if (device.unlockAllowed) "Allowed" else "Not allowed",
-            R.id.unlock_settings,
-        ) { navigate("unlock", device.id) }
+        if (supportsUnlock) {
+            row(
+                layout,
+                "Unlocking",
+                if (device.unlockAllowed) "Allowed" else "Not allowed",
+                R.id.unlock_settings,
+            ) { navigate("unlock", device.id) }
+        }
         shell.titleAction("Rename ${device.nickname}", R.drawable.ic_edit, R.id.rename_device) {
             val input =
                 EditText(this).apply {
@@ -1152,7 +1256,7 @@ class MainActivity : ComponentActivity() {
                     this,
                 ).setTitle("Remove ${device.nickname}?")
                 .setMessage(
-                    "This device will lose access to this phone immediately. An old entry may remain on your other device and can be forgotten there.",
+                    "This device will lose access to $deviceLabel immediately. An old entry may remain on your other device and can be forgotten there.",
                 ).setNegativeButton("Cancel", null)
                 .setPositiveButton("Remove") { _, _ ->
                     change(saved = { if (page == "device") goBack() }) { it.revoke(device.id) }
@@ -1170,14 +1274,14 @@ class MainActivity : ComponentActivity() {
         toggle(layout, "Allow unlocking", device.unlockAllowed, R.id.allow_unlock) { enabled ->
             change { it.allowUnlock(device.id, enabled) }
         }
-        text(layout, "Lets this device submit a PIN or request the PIN saved on this phone.", 14f)
+        text(layout, "Lets this device submit a PIN or request the PIN saved on $deviceLabel.", 14f)
     }
 
     private fun savedPinSettings(layout: LinearLayout) {
         val saved = PinVault(this).saved()
         check(
             layout,
-            "Save PIN on this phone",
+            "Save PIN on $deviceLabel",
             if (saved) "Unlock without typing the PIN" else "Otherwise type the PIN to unlock",
             saved,
             R.id.save_pin,
@@ -1185,7 +1289,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun activity(layout: LinearLayout) {
-        text(layout, "Recent activity · Stored on this phone", 14f)
+        text(layout, "Recent activity · Stored on $deviceLabel", 14f)
         val container = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         layout.addView(container)
         HostRuntime.io.execute {

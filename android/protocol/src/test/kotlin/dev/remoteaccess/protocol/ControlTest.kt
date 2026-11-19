@@ -20,6 +20,10 @@ class ControlTest {
             when (expected.getString("op")) {
                 "tap" -> assertEquals(listOf(3, 120, 240), parsed.values)
                 "swipe" -> assertEquals(listOf(3, 120, 240, 400, 500, 300), parsed.values)
+                "key" -> {
+                    assertEquals(30, parsed.op)
+                    assertEquals(listOf(if (expected.getString("key") == "center") 5 else 6), parsed.values)
+                }
                 "navigation" -> assertEquals(listOf(2), parsed.values)
                 "text" -> assertEquals(expected.getString("text"), parsed.text)
                 "launch" -> assertEquals(expected.getString("packageName"), parsed.text)
@@ -65,6 +69,9 @@ class ControlTest {
         assertFails { ControlCommand.decode(bytes("415243310700000000000001ff")) }
         assertFails { ControlCommand.decode(bytes("41524331060000000000000100")) }
         assertFails { ControlCommand.decode(bytes("415243310800000000000001")) }
+        for (payload in listOf("", "00", "0c", "ff", "0101")) {
+            assertFails { ControlCommand.decode(bytes("415243311e00000000000001" + payload)) }
+        }
     }
 
     @Test fun unlockOnlyAdmitsBoundedAsciiDigits() {

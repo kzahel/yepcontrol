@@ -69,6 +69,10 @@ data class ControlCommand(
                     require(input.remaining() == 1)
                     values.add(input.get().toInt().also { require(it in 1..3) })
                 }
+                30 -> {
+                    require(input.remaining() == 1)
+                    values.add(input.get().toInt().also { require(it in 1..11) })
+                }
                 7, 8, 13, 19 -> {
                     require(
                         input.remaining() <=

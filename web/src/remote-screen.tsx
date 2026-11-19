@@ -6,6 +6,7 @@ import {
 } from "@remote/protocol/control";
 import { useEffect, useRef, useState } from "react";
 import type { RemoteSession } from "./control-session.js";
+import { KeyRemote } from "./key-remote.js";
 import { MediaToolbar } from "./media-toolbar.js";
 import { RemoteControls } from "./remote-controls.js";
 import { SmoothView, type SmoothViewState } from "./smooth-view.js";
@@ -52,6 +53,7 @@ export function RemoteScreen({
   const [facing, setFacing] = useState<"front" | "rear">("rear");
   const [cameraSmooth, setCameraSmooth] = useState(VideoRenderer.supported);
   const media = usePhoneMedia(session);
+  const remoteDialog = useRef<HTMLDialogElement>(null);
   const typingDialog = useRef<HTMLDialogElement>(null);
   const frame = useRef<
     { scene: number; width: number; height: number } | undefined
@@ -353,12 +355,25 @@ export function RemoteScreen({
         listen={media.listen}
         stopListening={() => void media.stopMicrophone()}
       />
+      <KeyRemote
+        dialog={remoteDialog}
+        keys={state.remoteKeys ?? []}
+        disabled={state.locked || !!state.localSettings}
+        send={(key) => void act({ op: "key", key })}
+        navigate={(action) => void act({ op: "navigation", action })}
+        message={actionMessage}
+      />
       <ViewerWorkspace
         aspect={view === "camera" ? media.aspect : screenAspect}
         controls={
           <RemoteControls
             screenInput={view === "screen"}
             onExpandedChange={setControlsExpanded}
+            openRemote={
+              state.remoteKeys?.length
+                ? () => remoteDialog.current?.show()
+                : undefined
+            }
             navigate={(action) => void act({ op: "navigation", action })}
             wake={() => void act({ op: "wake" })}
             lock={() => void act({ op: "sleep" })}

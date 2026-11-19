@@ -816,6 +816,54 @@ try {
     );
     await context.close();
   }
+  // TV direction controls must stay individually clickable beside the live screen.
+  for (const width of [1440, 390]) {
+    const context: BrowserContext = await browser.newContext({
+      viewport: { width, height: 844 },
+    });
+    const page: Page = await context.newPage();
+    activePage = page;
+    await page.goto(
+      `http://127.0.0.1:${address.port}/layout-proof?locked=false&width=1920&height=1080`,
+    );
+    await page.evaluate(() => {
+      window.layoutFixture.patch({
+        remoteKeys: ["up", "down", "left", "right", "center", "play-pause"],
+      });
+    });
+    await page.getByRole("button", { name: "Remote", exact: true }).click();
+    const remote = page.getByRole("dialog", { name: "Remote keys" });
+    const center = remote.getByRole("button", { name: "Select", exact: true });
+    const up = remote.getByRole("button", { name: "Up", exact: true });
+    const left = remote.getByRole("button", { name: "Left", exact: true });
+    const [upBox, leftBox, centerBox] = await Promise.all([
+      up.boundingBox(),
+      left.boundingBox(),
+      center.boundingBox(),
+    ]);
+    assert.ok(upBox && leftBox && centerBox);
+    assert.equal(upBox.x, centerBox.x);
+    assert.equal(leftBox.y, centerBox.y);
+    assert.ok(upBox.y < centerBox.y && leftBox.x < centerBox.x);
+    await center.click();
+    await page.keyboard.press("ArrowUp");
+    await remote
+      .getByRole("button", { name: "Play / pause", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            window.layoutFixture.trace.filter((op) => op.startsWith("key:"))
+              .length,
+        ),
+      )
+      .toBe(3);
+    await page.keyboard.press("Escape");
+    await expect(remote).toBeHidden();
+    results.push({ tvRemoteWidth: width, keyControls: true });
+    await context.close();
+  }
   // The actual React switch must remain usable while Android consent is pending.
   for (const width of [1280, 390]) {
     const context = await browser.newContext({

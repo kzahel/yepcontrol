@@ -6,14 +6,20 @@ import android.app.KeyguardManager
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Path
+import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Display
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.graphics.scale
 import dev.remoteaccess.app.advanced.AdvancedControl
+import dev.remoteaccess.app.isTv
+import dev.remoteaccess.app.launchIntent
 import dev.remoteaccess.app.unlock.PinUnlock
 import dev.remoteaccess.app.unlock.PinVault
 import dev.remoteaccess.protocol.ControlCommand
@@ -137,6 +143,7 @@ class ScreenAccessService : AccessibilityService() {
             .put("height", screenHeight)
             .put("scene", scene)
             .put("videoActive", VideoStream.available(this))
+            .put("remoteKeys", org.json.JSONArray(remoteKeys()))
             .put("localSettings", LocalSettingsProtection.blocked)
 
     fun execute(
@@ -146,7 +153,7 @@ class ScreenAccessService : AccessibilityService() {
         reply: (Int, ByteArray) -> Unit,
     ) {
         val inputRevision = LocalSettingsProtection.revision
-        val input = command.op in listOf(4, 5, 7, 8, 11, 13, 14, 20, 21, 22, 23, 28, 29) || (command.op == 6 && command.values[0] == 3)
+        val input = command.op in listOf(4, 5, 7, 8, 11, 13, 14, 20, 21, 22, 23, 28, 29, 30) || (command.op == 6 && command.values[0] == 3)
         val inputAllowed = {
             allowed() && (!input || (!LocalSettingsProtection.blocked && inputRevision == LocalSettingsProtection.revision))
         }
@@ -325,7 +332,7 @@ class ScreenAccessService : AccessibilityService() {
                     )
                 }
                 8 -> {
-                    val intent = packageManager.getLaunchIntentForPackage(command.text) ?: return@post result(4)
+                    val intent = packageManager.launchIntent(command.text, isTv()) ?: return@post result(4)
                     invalidate()
                     try {
                         startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -334,8 +341,33 @@ class ScreenAccessService : AccessibilityService() {
                         result(4)
                     }
                 }
+                30 -> {
+                    if (gesture || touch.active || advanced.active) return@post result(6)
+                    invalidate()
+                    result(if (pressRemoteKey(command.values[0])) 0 else 4)
+                }
                 else -> result(4)
             }
+        }
+    }
+
+    private fun remoteKeys(): List<String> =
+        (if (Build.VERSION.SDK_INT >= 33) dpadKeys.map { it.first } else emptyList()) + mediaKeys.map { it.first }
+
+    private fun pressRemoteKey(id: Int): Boolean {
+        dpadKeys.getOrNull(id - 1)?.let { (_, action) ->
+            // Android 14 implements these as legacy actions without enumerating them in systemActions.
+            return Build.VERSION.SDK_INT >= 33 && performGlobalAction(action)
+        }
+        val key = mediaKeys.getOrNull(id - dpadKeys.size - 1)?.second ?: return false
+        return try {
+            val audio = getSystemService(AudioManager::class.java)
+            val now = SystemClock.uptimeMillis()
+            audio.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, key, 0))
+            audio.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, key, 0))
+            true
+        } catch (_: SecurityException) {
+            false
         }
     }
 
@@ -453,6 +485,26 @@ class ScreenAccessService : AccessibilityService() {
     }
 
     companion object {
+        // The order matches the encrypted command's wire IDs.
+        @android.annotation.SuppressLint("InlinedApi") // Dispatch is gated on Android 13 or later.
+        private val dpadKeys =
+            listOf(
+                "up" to GLOBAL_ACTION_DPAD_UP,
+                "down" to GLOBAL_ACTION_DPAD_DOWN,
+                "left" to GLOBAL_ACTION_DPAD_LEFT,
+                "right" to GLOBAL_ACTION_DPAD_RIGHT,
+                "center" to GLOBAL_ACTION_DPAD_CENTER,
+            )
+        private val mediaKeys =
+            listOf(
+                "play-pause" to KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                "stop" to KeyEvent.KEYCODE_MEDIA_STOP,
+                "next" to KeyEvent.KEYCODE_MEDIA_NEXT,
+                "previous" to KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+                "rewind" to KeyEvent.KEYCODE_MEDIA_REWIND,
+                "fast-forward" to KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+            )
+
         @Volatile var current: ScreenAccessService? = null
             private set
     }

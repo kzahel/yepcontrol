@@ -23,13 +23,14 @@ const help = `YepControl CLI (Node 24+)
   swipe X Y END_X END_Y DURATION_MS --scene N
   text --from-stdin
   home | back | recents | launch PACKAGE
+  key up|down|left|right|center|play-pause|stop|next|previous|rewind|fast-forward
   camera snapshot --out photo.jpg [--facing rear|front]
   camera frames --duration 10s --fps 1 --out-dir frames/ [--facing rear|front]
   microphone record --duration 10s --out audio.wav
   session --stdio      JSON lines: {"id":"1","op":"capture"}
 Options: --phone ID, --json (fatal errors are JSON on stderr), --help
 State: YEPCONTROL_HOME or ~/.config/yepcontrol (owner-only).
-Pairing links and text use stdin, never command arguments. Screenshots return JPEG
+Pairing links, TV codes and text use stdin, never command arguments. Screenshots return JPEG
 base64 in session replies, or an owner-only --out artifact in screenshot mode.
 Media captures use private files (no overwrite/symlinks), up to 60s, 1–5 camera fps,
 100 artifacts and 64 MiB per job. Durations accept ms or s. Camera frames sample
@@ -233,6 +234,10 @@ async function main() {
       case "back":
       case "recents":
         command = { op: "navigation", action };
+        break;
+      case "key":
+        if (args.length !== 1) throw new Error("Use key KEY");
+        command = parseCommand({ op: "key", key: args[0] });
         break;
       case "launch":
         command = { op: "launch", packageName: args[0] };

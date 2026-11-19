@@ -1168,3 +1168,45 @@ a {
   overflow: hidden;
   clip-path: inset(50%);
 }
+
+.tv-code-form {
+  display: grid;
+  gap: 8px;
+  max-width: 360px;
+  margin-bottom: 20px;
+}
+
+.remote-key-dialog {
+  position: fixed;
+  inset: auto 16px 16px auto;
+  z-index: 5;
+  width: min(300px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: 0;
+}
+
+.remote-key-dialog fieldset {
+  border: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.remote-dpad {
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left center right"
+    ". down .";
+  grid-template-columns: repeat(3, minmax(44px, 1fr));
+  gap: 4px;
+  max-width: 240px;
+  margin-inline: auto;
+}
+
+.remote-key-actions,
+.remote-media-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 12px;
+}

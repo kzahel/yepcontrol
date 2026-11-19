@@ -8,4 +8,7 @@
     <string name="unlock_pin_explanation">Save this phone’s PIN for remote unlocking. It stays encrypted on this phone and is available while locked after the first local unlock following a restart. Allow unlocking separately for each device. A failed attempt requires local recovery.</string>
     <string name="remote_access_requested">Remote access requested</string>
     <string name="local_settings_explanation">Pairing and unlock configuration is protected while unrestricted remote control is off. Change these settings on this phone, or turn on unrestricted remote control in Settings. Back and Home still work remotely.</string>
+    <string name="tv_android_code_title">Enter Android’s code</string>
+    <string name="tv_android_code_count">%1$d of 6 digits entered</string>
+    <string name="tv_android_code_mask" translatable="false">%1$s%2$s</string>
 </resources>

@@ -206,6 +206,9 @@ export function PairPhone() {
               : "Try again"}
         </button>
       )}
+      <p>
+        <a href="/control">Enter a code shown on a TV</a>
+      </p>
       {qr && invitation && (
         <section className="pairing-code" aria-label="Pairing code">
           <p>Scan with the YepControl app.</p>

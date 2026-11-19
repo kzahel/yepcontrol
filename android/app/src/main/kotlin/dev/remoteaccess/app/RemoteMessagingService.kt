@@ -10,7 +10,10 @@ import dev.remoteaccess.protocol.WakeHint
 class RemoteMessagingService : FirebaseMessagingService() {
     override fun onRegistered(installationId: String) {
         if (!installationId.matches(Regex("[cdef][A-Za-z0-9_-]{21}"))) return
-        WakeSupport.preferences(this).save { putString("fid", installationId) }
+        WakeSupport.preferences(this).save {
+            putString("fid", installationId)
+            remove("registrationIssue")
+        }
         HostRuntime.io.execute {
             HostStore.get(this).load()
             if (WakeSupport.allowed(this)) WakeSupport.enqueue(this, Data.EMPTY, registration = true)

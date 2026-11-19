@@ -23,13 +23,15 @@ internal class GiveControl : ViewModel() {
         val phase: Phase = Phase.IDLE,
         val link: String? = null,
         val deviceId: String? = null,
+        val tvCode: String? = null,
     )
 
     private class Session(
         val origin: String,
+        val tvCode: TvPairingCode?,
     ) {
-        val id = randomHex(16)
-        val secret = randomHex(32)
+        val id = tvCode?.id ?: randomHex(16)
+        val secret = tvCode?.secret ?: randomHex(32)
 
         @Volatile var active = true
 
@@ -58,7 +60,8 @@ internal class GiveControl : ViewModel() {
         val session =
             synchronized(lock) {
                 if (current != null) return
-                Session(Website.current(app)).also {
+                val origin = Website.current(app)
+                Session(origin, if (app.isTv()) TvPairingCode(origin) else null).also {
                     current = it
                     publish(State(Phase.CREATING))
                 }
@@ -123,7 +126,13 @@ internal class GiveControl : ViewModel() {
                     .put("secret", session.secret)
             synchronized(lock) {
                 check(current === session && session.active)
-                publish(State(Phase.WAITING, "${session.origin}/control#${encoded(invite.toString().toByteArray(Charsets.UTF_8))}"))
+                publish(
+                    State(
+                        Phase.WAITING,
+                        "${session.origin}/control#${encoded(invite.toString().toByteArray(Charsets.UTF_8))}",
+                        tvCode = session.tvCode?.display,
+                    ),
+                )
             }
             while (session.active && now() < expires * 1000) {
                 val result =
