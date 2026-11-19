@@ -8,6 +8,7 @@ import jsQR from "jsqr";
 import { PNG } from "pngjs";
 import { decodeInvitation } from "../protocol/src/enrollment.js";
 import { decodePhoneInvitation } from "../protocol/src/phone-invitation.js";
+import { nativeFailure } from "./acceptance-diagnostics.js";
 import { candidateViewer } from "./candidate-viewer.js";
 import { admitProofBrowser } from "./proof-relay.js";
 
@@ -108,9 +109,16 @@ export async function mobileAcceptance(f: Fixture, pairingOnly = false) {
   ): Promise<State> {
     adb("shell", "run-as", app, "rm", "-f", "files/hosted-stage");
     privateWrite("hosted-command", JSON.stringify({ action, ...extra }));
-    return until(() => {
-      if (native?.exitCode !== null)
-        throw new FixtureExited("Native fixture exited; see mobile-native.log");
+    return until(async () => {
+      if (native?.exitCode !== null) {
+        const output = await readFile(
+          path.join(f.state, "mobile-native.log"),
+          "utf8",
+        );
+        throw new FixtureExited(
+          nativeFailure("Native management fixture exited", output).message,
+        );
+      }
       const raw = adb("shell", "run-as", app, "cat", "files/hosted-stage");
       if (action === "stop" && raw === "stopped")
         return { action, devices: [], armed: false };

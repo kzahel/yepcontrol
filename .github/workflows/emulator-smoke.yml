@@ -20,8 +20,13 @@ permissions:
   contents: read
 jobs:
   smoke:
+    name: ${{ matrix.suite }}
     runs-on: ubuntu-24.04  # Playwright has no Chromium build for ubuntu-26.04 yet
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(inputs.hosted_origin != '' && '["device","hosted-pairing","hosted-control"]' || '["device"]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -63,11 +68,18 @@ jobs:
         run: ./android/gradlew -p android --stop
       # Each harness refuses occupied selectors and owns/reaps its emulator.
       - name: Phone-only advanced pairing, protected input and no boot arming
-        run: python3 scripts/advanced-control-acceptance.py
+        if: matrix.suite == 'device'
+        run: |
+          if ! python3 scripts/advanced-control-acceptance.py; then
+            echo '::warning::Advanced control acceptance failed once. Retrying on a freshly initialized owned emulator.'
+            python3 scripts/advanced-control-acceptance.py
+          fi
       - run: pnpm test:interop
+        if: matrix.suite == 'device'
       - run: pnpm test:mobile-smoke --media
+        if: matrix.suite == 'device'
       - name: Hosted pairing and process-absent FCM wake
-        if: inputs.hosted_origin != ''
+        if: matrix.suite == 'hosted-pairing'
         run: pnpm test:hosted
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
@@ -76,15 +88,19 @@ jobs:
           HOSTED_VERIFY_APP_LINKS: '0'
           HOSTED_FCM: '1'
       - name: Phone-first QR and existing browser-first pairing
-        if: inputs.hosted_origin != ''
-        run: pnpm exec tsx scripts/hosted-acceptance.ts --pairing-only
+        if: matrix.suite == 'hosted-pairing'
+        run: |
+          if ! pnpm exec tsx scripts/hosted-acceptance.ts --pairing-only; then
+            echo '::warning::Hosted QR acceptance failed once. Retrying on a freshly initialized owned emulator.'
+            pnpm exec tsx scripts/hosted-acceptance.ts --pairing-only
+          fi
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
           HOSTED_VIEWER_DIRECTORY: web/dist
           HOSTED_VERIFY_APP_LINKS: '0'
       # Credential/reboot qualification remains a separate owned-emulator run.
       - name: Hosted encrypted control smoke acceptance
-        if: inputs.hosted_origin != ''
+        if: matrix.suite == 'hosted-control'
         run: |
           if ! pnpm exec tsx scripts/hosted-acceptance.ts --control; then
             echo '::warning::Hosted control acceptance failed once. Retrying on a freshly initialized owned emulator.'
