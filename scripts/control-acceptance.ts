@@ -187,8 +187,10 @@ export async function controlAcceptance(f: Fixture) {
       sliderHeld: boolean;
       longPresses: number;
       multi: { x: number; y: number };
+      scrollStart: { x: number; y: number };
       maxPointers: number;
       multiMoves: number;
+      multiHeld: boolean;
       distanceChange: number;
       angleChange: number;
     };
@@ -702,21 +704,15 @@ export async function controlAcceptance(f: Fixture) {
         });
         await cdp.detach();
       }
+      await until(() => !witness().multiHeld, 5000);
+      await freshFrames();
       console.log("Two-finger pinch and rotation reached native input");
-      await delay(1000);
     }
-    const size = await canvas.evaluate((c) => ({
-      width: (c as HTMLCanvasElement).width,
-      height: (c as HTMLCanvasElement).height,
-    }));
-    const start = await at({
-      x: Math.floor(size.width / 2),
-      y: Math.floor(size.height * 0.75),
-    });
-    const end = await at({
-      x: Math.floor(size.width / 2),
-      y: Math.floor(size.height * 0.4),
-    });
+    // Begin in a native list row below the two-finger surface, which consumes
+    // all touches that start on it. Inset and window sizes vary by emulator.
+    const scrollStart = witness().scrollStart;
+    const start = await at(scrollStart);
+    const end = await at({ ...scrollStart, y: scrollStart.y - 400 });
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
     // Playwright's `steps` only interpolates positions; it does not give a

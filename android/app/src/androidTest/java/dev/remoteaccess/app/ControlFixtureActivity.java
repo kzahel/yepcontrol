@@ -40,7 +40,9 @@ public final class ControlFixtureActivity extends Activity {
     private ScrollView scroll;
     private SeekBar slider;
     private View multi;
+    private View scrollStart;
     private int maxPointers, multiMoves;
+    private boolean multiHeld;
     private double firstDistance, lastDistance, firstAngle, lastAngle;
 
     @Override public void onConfigurationChanged(Configuration configuration) {
@@ -98,13 +100,15 @@ public final class ControlFixtureActivity extends Activity {
             }
             @Override public boolean onTouchEvent(MotionEvent event) {
                 getParent().requestDisallowInterceptTouchEvent(true);
+                int action = event.getActionMasked();
+                multiHeld = action != MotionEvent.ACTION_UP && action != MotionEvent.ACTION_CANCEL;
                 maxPointers = Math.max(maxPointers, event.getPointerCount());
                 if (event.getPointerCount() == 2) {
                     double dx = event.getX(1) - event.getX(0), dy = event.getY(1) - event.getY(0);
                     lastDistance = Math.hypot(dx, dy); lastAngle = Math.atan2(dy, dx);
-                    if (event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
+                    if (action == MotionEvent.ACTION_POINTER_DOWN) {
                         firstDistance = lastDistance; firstAngle = lastAngle;
-                    } else if (event.getActionMasked() == MotionEvent.ACTION_MOVE) multiMoves++;
+                    } else if (action == MotionEvent.ACTION_MOVE) multiMoves++;
                 }
                 witness();
                 return true;
@@ -117,6 +121,7 @@ public final class ControlFixtureActivity extends Activity {
             item.setTextSize(22);
             item.setPadding(0, 30, 0, 30);
             content.addView(item);
+            if (i == 0) scrollStart = item;
         }
         scroll = new ScrollView(this);
         scroll.addView(content);
@@ -164,7 +169,9 @@ public final class ControlFixtureActivity extends Activity {
                 .put("fieldFocused", field.hasFocus())
                 .put("target", center(target)).put("field", center(field)).put("slider", center(slider))
                 .put("sliderProgress", sliderProgress).put("longPresses", longPresses).put("sliderHeld", sliderHeld)
+                .put("scrollStart", center(scrollStart))
                 .put("multi", center(multi)).put("maxPointers", maxPointers).put("multiMoves", multiMoves)
+                .put("multiHeld", multiHeld)
                 .put("distanceChange", lastDistance - firstDistance).put("angleChange", lastAngle - firstAngle);
             File next = new File(getFilesDir(), "control-witness.next");
             try (FileOutputStream output = new FileOutputStream(next)) { output.write(value.toString().getBytes(StandardCharsets.UTF_8)); }
