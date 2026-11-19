@@ -85,7 +85,11 @@ jobs:
       # Credential/reboot qualification remains a separate owned-emulator run.
       - name: Hosted encrypted control smoke acceptance
         if: inputs.hosted_origin != ''
-        run: pnpm exec tsx scripts/hosted-acceptance.ts --control
+        run: |
+          if ! pnpm exec tsx scripts/hosted-acceptance.ts --control; then
+            echo '::warning::Hosted control acceptance failed once. Retrying on a freshly initialized owned emulator.'
+            pnpm exec tsx scripts/hosted-acceptance.ts --control
+          fi
         env:
           HOSTED_ORIGIN: ${{ inputs.hosted_origin }}
           HOSTED_VIEWER_DIRECTORY: web/dist

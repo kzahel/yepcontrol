@@ -4,6 +4,7 @@ import android.app.UiAutomation
 import android.content.Intent
 import android.net.Uri
 import android.view.View
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.TextView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -17,6 +18,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiScrollable
 import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
+import dev.remoteaccess.app.media.MediaController
 import org.json.JSONObject
 import org.junit.Rule
 import org.junit.Test
@@ -421,6 +423,11 @@ class HostedPairingTest {
                 }
                 "media-settings" -> {
                     check(device.executeShellCommand("getprop ro.kernel.qemu").trim() == "1")
+                    val automation =
+                        InstrumentationRegistry.getInstrumentation().getUiAutomation(
+                            UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES,
+                        )
+                    val permissionControllers = setOf("com.android.permissioncontroller", "com.google.android.permissioncontroller")
                     // Exercise normal disclosures and Android consent; capture starts only after detach.
                     for (camera in listOf(true, false)) {
                         settings()
@@ -436,19 +443,24 @@ class HostedPairingTest {
                         )
                         Thread.sleep(500) // Keep the actual disclosure legible in optional review recordings.
                         tap(By.res("android:id/button1"))
-                        if (!dev.remoteaccess.app.media.MediaController
-                                .permission(context, camera)
-                        ) {
-                            tap(By.res("com.android.permissioncontroller:id/permission_allow_foreground_only_button"))
-                        }
                         waitFor {
-                            dev.remoteaccess.app.media.MediaController
-                                .allowed(context, camera)
+                            if (MediaController.permission(context, camera)) {
+                                true
+                            } else {
+                                // The permission window can move while entering. Activate the live
+                                // foreground-only button and require Android's actual grant.
+                                val root = automation.rootInActiveWindow
+                                if (root != null && root.packageName.toString() in permissionControllers) {
+                                    root
+                                        .findAccessibilityNodeInfosByViewId(
+                                            "com.android.permissioncontroller:id/permission_allow_foreground_only_button",
+                                        ).firstOrNull { it.isVisibleToUser && it.isEnabled }
+                                        ?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                                }
+                                false
+                            }
                         }
-                        assertTrue(
-                            dev.remoteaccess.app.media.MediaController
-                                .permission(context, camera),
-                        )
+                        waitFor { MediaController.allowed(context, camera) }
                     }
                     start()
                 }
