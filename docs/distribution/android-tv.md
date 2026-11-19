@@ -142,7 +142,8 @@ The same code-15 bundle was selected from the Play library for a 100% rollout
 in all 178 existing production regions. Play Console received the five-change
 review request for the release, description, screenshots, banner, and Android
 TV opt-in. Submission activity records **In review** at 22:53 CET. The
-production view initially showed automated quick checks in progress. Google
+automated quick checks finished, and Publishing overview confirmed **Your
+changes are now in review** at 23:01 CET. Managed publishing is off. Google
 approval and public TV discovery are pending.
 
 ## Qualification
