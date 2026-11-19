@@ -194,32 +194,43 @@ public class AdvancedAcceptance {
     return toggle;
   }
 
-  UiObject2 enableWirelessUi() throws Exception {
+  UiObject2 openPairingDialog() throws Exception {
     // Native user-visible switch; no settings-provider writes from the harness.
     UiObject2 toggle = wirelessToggle();
     if (!toggle.isChecked()) toggle.click();
-    long approvalDeadline = SystemClock.elapsedRealtime() + 30000;
-    UiObject2 pairing = null;
+    long approvalDeadline = SystemClock.elapsedRealtime() + 45000;
+    BySelector codeSelector = By.pkg("com.android.settings").text(Pattern.compile("[0-9]{6}"));
     while (SystemClock.elapsedRealtime() < approvalDeadline) {
-      UiObject2 trust = device.findObject(By.res("android", "alwaysUse"));
+      UiObject2 code = device.findObject(codeSelector);
+      if (code != null) return code;
+      UiObject2 trust =
+          device.findObject(By.pkg("com.android.systemui").res("android:id/alwaysUse"));
       if (trust != null) {
         if (!trust.isChecked()) clickNativeId("com.android.systemui", "android:id/alwaysUse");
         clickNativeId("com.android.systemui", "android:id/button1");
       }
-      pairing = device.findObject(By.text("Pair device with pairing code"));
-      if (pairing != null && pairing.isEnabled()) break;
-      pairing = null;
-      Thread.sleep(200);
+      // System UI can show the trust dialog after Settings has enabled the row.
+      // Recheck both windows if the approval intercepted the pairing tap.
+      UiObject2 pairing =
+          device.findObject(By.pkg("com.android.settings").text("Pair device with pairing code"));
+      if (pairing != null && pairing.isEnabled()) {
+        try {
+          pairing.click();
+        } catch (StaleObjectException ignored) {
+          // Resolve the row from the new Settings window on the next pass.
+        }
+        code = device.wait(Until.findObject(codeSelector), 2000);
+        if (code != null) return code;
+      } else {
+        Thread.sleep(200);
+      }
     }
-    assertNotNull("Wireless debugging approval did not expose pairing", pairing);
-    return pairing;
+    throw new AssertionError("Native pairing dialog did not open after wireless debugging approval");
   }
 
   void pairUsingPhoneUi() throws Exception {
     openWirelessPage();
-    enableWirelessUi().click();
-    UiObject2 codeView = device.wait(Until.findObject(By.text(Pattern.compile("[0-9]{6}"))), 10000);
-    assertNotNull("Native pairing dialog", codeView);
+    UiObject2 codeView = openPairingDialog();
     String code = codeView.getText();
     assertNotNull("Pairing code must be read on the phone", code);
     // Deliver exactly the notification RemoteInput path, without sending the secret to the host.

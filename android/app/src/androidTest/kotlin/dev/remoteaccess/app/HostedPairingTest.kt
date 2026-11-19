@@ -414,6 +414,7 @@ class HostedPairingTest {
                 }
                 "home" -> start()
                 "idle" -> waitFor { HostSessions.current.get() == null }
+                "foreground-ready" -> waitFor { ForegroundAccess.listening(id) }
                 "media-defaults" -> {
                     assertFalse(store.snapshot.settings.cameraAllowed)
                     assertFalse(store.snapshot.settings.microphoneAllowed)

@@ -186,6 +186,8 @@ export async function cliAcceptance(f: Fixture) {
     await command("pair", { simple: true });
     assert.equal((await p.finish(10000)).code, 0);
     await command("home");
+    await command("idle");
+    await command("foreground-ready", { id });
     let s = await session("terminal");
     assert.equal(
       (s.ready.state as { accessibility: boolean }).accessibility,
