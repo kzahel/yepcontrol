@@ -11,7 +11,7 @@ import {
   type MediaPacket,
   type MediaReason,
 } from "@remote/protocol/media";
-import { LaneReader } from "./lane-reader.js";
+import { LaneReader, ReplyTimeoutError } from "./lane-reader.js";
 import { MediaError, RemoteMedia } from "./media-stream.js";
 import type { openEncryptedSession } from "./relay.js";
 
@@ -21,6 +21,15 @@ export type Lane = Pick<
   Awaited<ReturnType<typeof openEncryptedSession>>,
   "close" | "send" | "read"
 >;
+export type CommandDiagnostic = {
+  sequence: number;
+  op: Command["op"];
+  action?: "back" | "home" | "recents";
+} & (
+  | { event: "command.sending" | "command.sent" }
+  | { event: "command.reply"; kind: Reply["kind"]; code?: number }
+  | { event: "command.failed" | "command.timeout" }
+);
 export interface SessionAdapters {
   open: (
     identity: Identity,
@@ -34,6 +43,7 @@ export interface SessionAdapters {
     offer: (sdp: string) => Promise<string>,
     signal: AbortSignal,
   ) => Promise<Lane>;
+  onDiagnostic?: (diagnostic: CommandDiagnostic) => void;
 }
 class RecoveredAction extends Error {}
 class CanceledAction extends Error {}
@@ -167,13 +177,39 @@ export class RemoteSession {
     const id = ++this.sequence,
       encoded = encodeCommand(id, command);
     const response = this.reader(lane).wait(id);
+    const trace = this.adapters.onDiagnostic;
+    const details = {
+      sequence: id,
+      op: command.op,
+      ...(command.op === "navigation" ? { action: command.action } : {}),
+    };
     try {
+      trace?.({ event: "command.sending", ...details });
       sent?.();
-      const [reply] = await Promise.all([response, this.write(lane, encoded)]);
+      const write = this.write(lane, encoded);
+      const [reply] = await Promise.all([
+        response,
+        trace
+          ? write.then(() => trace({ event: "command.sent", ...details }))
+          : write,
+      ]);
+      trace?.({
+        event: "command.reply",
+        ...details,
+        kind: reply.kind,
+        ...(reply.kind === "result" ? { code: reply.code } : {}),
+      });
       if (reply.kind === "state" && lane === this.lane)
         this.latestState = reply.state;
       return reply;
     } catch (error) {
+      trace?.({
+        event:
+          error instanceof ReplyTimeoutError
+            ? "command.timeout"
+            : "command.failed",
+        ...details,
+      });
       this.lost(
         lane,
         error instanceof Error ? error : new Error("Connection ended"),

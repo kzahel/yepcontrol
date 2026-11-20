@@ -380,12 +380,15 @@ export class Pairing extends DurableObject<Env> {
               !(ws.deserializeAttachment() as Attachment).management)),
       );
   }
-  private disconnect(viewerCode = 4001) {
+  private disconnect(viewerCode = 4001, viewerReason = "Reconnect") {
     this.drop("wake");
     for (const ws of this.sockets()) {
       const attachment = ws.deserializeAttachment() as Attachment;
       if (attachment.role && !attachment.management)
-        ws.close(attachment.role === "viewer" ? viewerCode : 4001, "Reconnect");
+        ws.close(
+          attachment.role === "viewer" ? viewerCode : 4001,
+          attachment.role === "viewer" ? viewerReason : "Reconnect",
+        );
     }
   }
   async fetch(req: Request): Promise<Response> {
@@ -837,7 +840,7 @@ export class Pairing extends DurableObject<Env> {
       return;
     }
     if (wake.expires * 1000 <= Date.now()) {
-      this.disconnect();
+      this.disconnect(4001, "Wake request expired");
       return;
     }
     if (!target) {

@@ -6,6 +6,12 @@ import {
 } from "@remote/protocol/media";
 import type { Lane } from "./control-session.js";
 
+export class ReplyTimeoutError extends Error {
+  constructor() {
+    super("Phone did not respond; the action was not retried");
+  }
+}
+
 /** A lane has exactly one read/decrypt owner, even when command replies and media interleave. */
 export class LaneReader {
   private active = true;
@@ -31,7 +37,7 @@ export class LaneReader {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.replies.delete(id);
-        reject(new Error("Phone did not respond; the action was not retried"));
+        reject(new ReplyTimeoutError());
       }, 15000);
       this.replies.set(id, { resolve, reject, timer });
     });

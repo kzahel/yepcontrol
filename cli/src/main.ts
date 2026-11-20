@@ -2,8 +2,14 @@
 import os from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { RemoteSession } from "@remote/client/control-session";
-import { openEncryptedSession } from "@remote/client/relay";
+import {
+  type CommandDiagnostic,
+  RemoteSession,
+} from "@remote/client/control-session";
+import {
+  openEncryptedSession,
+  type RelayDiagnostic,
+} from "@remote/client/relay";
 import { encode } from "uqr";
 import { AgentSession } from "./agent-session.js";
 import { parseCommand, requireCapability } from "./commands.js";
@@ -28,7 +34,7 @@ const help = `YepControl CLI (Node 24+)
   camera frames --duration 10s --fps 1 --out-dir frames/ [--facing rear|front]
   microphone record --duration 10s --out audio.wav
   session --stdio      JSON lines: {"id":"1","op":"capture"}
-Options: --phone ID, --json (fatal errors are JSON on stderr), --help
+Options: --phone ID, --json (fatal errors are JSON on stderr), --verbose (timings on stderr), --help
 State: YEPCONTROL_HOME or ~/.config/yepcontrol (owner-only).
 Pairing links, TV codes and text use stdin, never command arguments. Screenshots return JPEG
 base64 in session replies, or an owner-only --out artifact in screenshot mode.
@@ -80,6 +86,7 @@ async function main() {
       options: {
         help: { type: "boolean" },
         json: { type: "boolean" },
+        verbose: { type: "boolean" },
         phone: { type: "string" },
         origin: { type: "string" },
         name: { type: "string" },
@@ -270,6 +277,20 @@ async function main() {
     }
     if (action !== "session" && !capture) parseCommand(command);
     const phone = store.select(values.phone);
+    const startedAt = performance.now();
+    const diagnostics = values.verbose
+      ? {
+          onDiagnostic: (diagnostic: RelayDiagnostic | CommandDiagnostic) => {
+            process.stderr.write(
+              `yepcontrol: ${JSON.stringify({
+                at: new Date().toISOString(),
+                elapsedMs: Math.round(performance.now() - startedAt),
+                ...diagnostic,
+              })}\n`,
+            );
+          },
+        }
+      : {};
     const connected = await RemoteSession.connect(
       store.identity,
       phone.grant,
@@ -278,12 +299,13 @@ async function main() {
       {
         open: (identity, grant, report, signal) =>
           openEncryptedSession(
-            { origin: phone.origin },
+            { origin: phone.origin, ...diagnostics },
             identity,
             grant,
             report,
             signal,
           ),
+        ...diagnostics,
       },
     );
     session = connected.session;

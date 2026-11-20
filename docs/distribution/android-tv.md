@@ -196,3 +196,13 @@ Local 2026-11-19 checks:
   Android lint, Kotlin protocol tests, handheld UI acceptance, browser
   layout acceptance and the existing phone-first browser pairing checks
   passed.
+
+### Timeout diagnostics — 2026-11-20
+
+On the owned Google TV API 34 emulator, the CLI trace and Android log recorded
+a real FCM wake and authenticated replies for `wake` and `back`. With Wi-Fi
+disabled immediately before a request, the production relay still had a host
+socket and the CLI timed out during the handshake. With the app force-stopped,
+FCM accepted the wake and the CLI timed out waiting for the host to join. These
+tests exercise two failure modes available in the trace. The office TV's
+original timeout remains undiagnosed. See [CLI timeout diagnostics](../cli-control.md#diagnosing-connection-timeouts).

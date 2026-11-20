@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -18,6 +19,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 
 internal object WakeSupport {
+    const val LOG_TAG = "YepControlWake"
     const val CHANNEL = "remote-connections"
     const val NOTIFICATION = 100
     const val CONTROL_NOTIFICATION = 101
@@ -58,7 +60,7 @@ internal object WakeSupport {
                     "FIS_AUTH_ERROR", "BAD_CONFIG" -> "configuration"
                     else -> "unavailable"
                 }
-            android.util.Log.w("YepControlWake", "Registration failed: $issue (${error.javaClass.simpleName})")
+            Log.w(LOG_TAG, "registration_failed issue=$issue error=${error.javaClass.simpleName}")
             preferences(context).save { putString("registrationIssue", issue) }
             HostStore.get(context).listeners.forEach { it() }
         }

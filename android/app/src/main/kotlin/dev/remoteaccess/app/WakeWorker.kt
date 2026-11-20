@@ -1,6 +1,8 @@
 package dev.remoteaccess.app
 
 import android.content.Context
+import android.os.SystemClock
+import android.util.Log
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import java.util.concurrent.CountDownLatch
@@ -20,16 +22,21 @@ class WakeWorker(
         val generation = inputData.getString("generation") ?: return Result.success()
         val automatic = !inputData.getBoolean("manual", false)
         val expires = inputData.getLong("expires", 0)
+        val started = SystemClock.elapsedRealtime()
+        if (automatic) {
+            Log.i(WakeSupport.LOG_TAG, "worker_started remainingMs=${expires * 1000 - System.currentTimeMillis()}")
+        }
         if (automatic && inputData.getString("requestId")?.matches(Regex("[0-9a-f]{32}")) != true) return Result.success()
-        val device = store.device(id) ?: return Result.success()
-        if (!store.allowed(id, generation, automatic) || expires <= System.currentTimeMillis() / 1000) return Result.success()
-        if (automatic && !WakeSupport.notificationsAllowed(applicationContext)) return Result.success()
+        val device = store.device(id) ?: return skipped("local_access")
+        if (!store.allowed(id, generation, automatic)) return skipped("local_access")
+        if (expires <= System.currentTimeMillis() / 1000) return skipped("expired")
+        if (automatic && !WakeSupport.notificationsAllowed(applicationContext)) return skipped("notifications_unavailable")
         // Synchronize policy before the advanced manual fallback opens a session.
-        if (!device.synced && !syncDevice(store, device)) return Result.success()
+        if (!device.synced && !syncDevice(store, device)) return skipped("sync_failed")
         val lease = ForegroundAccess.acquireWorker(device)
         if (lease == null) {
             store.record("Session blocked: phone busy", id)
-            return Result.success()
+            return skipped("busy")
         }
         val viewerClosed = CountDownLatch(1)
         val passed = AtomicBoolean(false)
@@ -57,6 +64,8 @@ class WakeWorker(
                 device.authority(),
                 { state ->
                     lease.status = state
+                    // RelayConnection reports fixed app messages; no socket reasons, payloads or IDs.
+                    if (automatic) Log.i(WakeSupport.LOG_TAG, "relay_status $state")
                     if (current()) {
                         when (state) {
                             "Encrypted session established" -> store.connected(id)
@@ -96,13 +105,20 @@ class WakeWorker(
                         } else {
                             androidx.work.ForegroundInfo(WakeSupport.WORKER_NOTIFICATION, notification)
                         }
-                    setForegroundAsync(info).get(5, TimeUnit.SECONDS)
+                    if (automatic) Log.i(WakeSupport.LOG_TAG, "control_foreground_starting")
+                    try {
+                        setForegroundAsync(info).get(5, TimeUnit.SECONDS)
+                    } catch (error: Exception) {
+                        if (automatic) Log.i(WakeSupport.LOG_TAG, "control_foreground_failed error=${error.javaClass.simpleName}")
+                        throw error
+                    }
                 },
             )
         lease.connection = connection
         return try {
-            if (!current()) return Result.success()
+            if (!current()) return skipped("lease_ended")
             store.record("Connection requested", id)
+            if (automatic) Log.i(WakeSupport.LOG_TAG, "relay_connecting")
             connection.connect()
             // Keep this exact authenticated lane available for up to 30 seconds after
             // checking. Starting control promotes its existing lease, without a new push.
@@ -115,7 +131,19 @@ class WakeWorker(
             connection.close(graceful = passed.get())
             HostSessions.release(lease)
             store.record("Connection ended", id)
+            if (automatic) {
+                Log.i(
+                    WakeSupport.LOG_TAG,
+                    "worker_ended elapsedMs=${SystemClock.elapsedRealtime() - started} " +
+                        "control=${control.get()} check=${passed.get()} relayClosed=${viewerClosed.count == 0L}",
+                )
+            }
         }
+    }
+
+    private fun skipped(reason: String): Result {
+        Log.i(WakeSupport.LOG_TAG, "worker_skipped reason=$reason")
+        return Result.success()
     }
 
     private fun synchronize(store: HostStore): Result {
@@ -188,12 +216,15 @@ class WakeWorker(
             while (current() && System.nanoTime() < deadline && !done.await(100, TimeUnit.MILLISECONDS)) {}
             if (passed.get() && current()) {
                 store.synced(device.id, device.generation, wakeReady = fid != null)
+                Log.i(WakeSupport.LOG_TAG, "registration_synced wakeReady=${fid != null}")
             } else {
                 store.record("Wake setup failed", device.id)
+                Log.i(WakeSupport.LOG_TAG, "registration_sync_failed")
             }
             passed.get() && current()
         } catch (_: Exception) {
             store.record("Wake setup failed", device.id)
+            Log.i(WakeSupport.LOG_TAG, "registration_sync_failed")
             false
         } finally {
             connection.close(graceful = passed.get())

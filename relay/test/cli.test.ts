@@ -150,7 +150,12 @@ beforeEach(async () => {
   const a = tls.address();
   if (!a || typeof a === "string") throw Error("No TLS port");
   origin = `https://127.0.0.1:${a.port}`;
-  relay = createRelay({ origin, stateDir: path.join(directory, "relay") });
+  relay = createRelay({
+    origin,
+    stateDir: path.join(directory, "relay"),
+    sender: async () => "accepted",
+    wakeLifetimeMs: 4000,
+  });
   relay.server.listen(0, "127.0.0.1");
   await once(relay.server, "listening");
   const b = relay.server.address();
@@ -372,14 +377,55 @@ it("pairs from a private terminal code and persists the identity across CLI proc
   const grant = await pairCli();
   const h = await host(grant);
   const serving = h.serve();
-  const c = cli(["status"]);
+  const c = cli(["status", "--verbose"]);
   const result = await c.done;
   expect(result.code, result.stderr).toBe(0);
   expect(JSON.parse(result.stdout).state.device).toEqual(device);
+  expect(result.stderr).toContain('"event":"relay.encrypted"');
+  expect(result.stderr).toMatch(
+    /"elapsedMs":\d+,"event":"command.reply","sequence":2,"op":"status","kind":"state"/,
+  );
+  expect(result.stderr).not.toContain(grant.id);
+  expect(result.stderr).not.toContain(device.name);
   sockets.at(-1)?.terminate();
   await serving;
   const list = await cli(["phones"]).done;
   expect(JSON.parse(list.stdout).phones[0].id).toBe(grant.id);
+}, 20000);
+
+it("reports wake delivery and expiry before a device connects", async () => {
+  const grant = await pairCli();
+  const result = await cli(["status", "--json", "--verbose"]).done;
+  expect(result.code).toBe(1);
+  expect(result.stdout).toBe("");
+  const trace = result.stderr
+    .split("\n")
+    .filter((line) => line.startsWith("yepcontrol: "))
+    .map((line) => JSON.parse(line.slice("yepcontrol: ".length)));
+  expect(trace).toEqual([
+    expect.objectContaining({ event: "relay.connecting" }),
+    expect.objectContaining({ event: "relay.challenge" }),
+    expect.objectContaining({ event: "relay.authenticated" }),
+    expect.objectContaining({
+      event: "relay.contacting",
+      delivery: "unregistered",
+    }),
+    expect.objectContaining({
+      event: "relay.closed",
+      phase: "waiting_for_device",
+      code: 4001,
+      reason: "Wake request expired",
+      at: expect.any(String),
+      elapsedMs: expect.any(Number),
+    }),
+  ]);
+  expect(result.stderr).not.toContain(grant.id);
+  expect(
+    JSON.parse(result.stderr.trim().split("\n").at(-1) ?? "null"),
+  ).toMatchObject({
+    ok: false,
+    error: { code: "CLI_ERROR" },
+  });
 }, 20000);
 
 it("writes authenticated camera bytes with private metadata-only CLI output", async () => {
@@ -495,16 +541,24 @@ it("does not replay an action whose encrypted reply is lost", async () => {
   const grant = await pairCli();
   const h = await host(grant, true);
   const serving = h.serve();
-  const c = cli(["session", "--stdio"]);
+  const c = cli(["session", "--stdio", "--verbose"]);
   await until(async () => c.stdout().includes('"type":"ready"'));
   c.child.stdin.end(
-    `${JSON.stringify({ id: "action", op: "navigation", action: "home" })}\n`,
+    `${JSON.stringify({ id: "private-caller-id", op: "navigation", action: "back" })}\n`,
   );
   const result = await c.done;
   await serving;
   expect(result.code).toBe(1);
   expect(h.actions()).toBe(1);
   expect(result.stdout).toContain('"ok":false');
+  expect(result.stderr).toContain(
+    '"event":"command.sent","sequence":2,"op":"navigation","action":"back"',
+  );
+  expect(result.stderr).toContain(
+    '"event":"command.failed","sequence":2,"op":"navigation","action":"back"',
+  );
+  expect(result.stderr).not.toContain('"event":"command.reply","sequence":2');
+  expect(result.stderr).not.toContain("private-caller-id");
 }, 20000);
 
 it("cancels while waiting for a pairing link on stdin without hanging", async () => {

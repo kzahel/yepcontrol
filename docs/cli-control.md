@@ -105,6 +105,43 @@ shutdown flushing are bounded, including when the caller stops reading.
 The CLI does not accept PINs, unlock, live-video rendering or transport-negotiation
 commands. Camera and microphone artifact operations are described below.
 
+### Diagnosing connection timeouts
+
+Run `pnpm --silent yepcontrol status --phone ID --verbose` or add `--verbose`
+to the failing command or `session --stdio`. Save stderr if the failure is
+intermittent. The `yepcontrol: ` lines contain JSON with a UTC timestamp and
+elapsed milliseconds. stdout still carries the usual results and session
+replies. Diagnostics omit pairing identifiers, command arguments and reply
+contents, with the exception of operation names, system navigation actions and
+numeric result codes.
+
+- `relay.authenticated` confirms the relay accepted the viewer credentials.
+  `relay.contacting` reports what the relay knows about wake delivery.
+  `accepted` means FCM accepted the send. Device receipt is a separate event.
+  `unregistered` means there was no usable push registration. `invalid_target`
+  means FCM rejected the stored address. `unavailable` means the relay could
+  not submit a wake. `coalesced` means the relay is waiting for its wake budget
+  to replenish. A device that was already connected can go straight to
+  `relay.ready`.
+- `relay.ready` means the relay has a socket for each endpoint. A stale host
+  socket can still fail the handshake. `relay.encrypted` confirms the
+  end-to-end handshake. `relay.closed` and `relay.timeout` identify the last
+  connection phase. Updated relays report `Wake request expired` when they
+  expire a pending wake. Older relays can close with a generic reconnect reason.
+- `command.sent` means the CLI handed the encrypted command to the socket.
+  `command.reply` is the host's authenticated response. `command.timeout`
+  means the reply deadline elapsed. `command.failed` can follow a transport
+  loss. If a sent action has no reply, inspect the screen before issuing it
+  again because the host may have acted.
+
+On an updated Android build, correlate the CLI timestamps with
+`adb -s SERIAL logcat -v threadtime -v UTC -s YepControlWake:I`. The app records
+FCM registration and receipt, Android's interactive and idle state at receipt,
+remaining wake time and priority, worker startup and skips, relay progress,
+and whether Wake or navigation completed with a reply still allowed. The
+command sequence matches the CLI's sequence within that connection. A TV in
+standby with networking off may leave no app log for the attempt.
+
 ### CLI process qualification — 2026-10-30
 
 Retained tests run actual CLI subprocesses against a local HTTPS relay and a

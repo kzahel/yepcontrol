@@ -1,5 +1,6 @@
 package dev.remoteaccess.app
 
+import android.util.Log
 import dev.remoteaccess.app.control.ControlSession
 import dev.remoteaccess.app.control.SessionService
 import dev.remoteaccess.protocol.Authority
@@ -168,6 +169,7 @@ internal class RelayConnection(
                                 ::sendControl,
                                 ::offerDirect,
                                 onOutputFailure = { close() },
+                                traceNavigation = true,
                             )
                         report("Remote control connected")
                         control!!.receive(plaintext)
@@ -249,6 +251,9 @@ internal class RelayConnection(
         response: Response?,
     ) {
         if (!active.get()) return
+        if (requestId != null || registrationOnly) {
+            Log.i(WakeSupport.LOG_TAG, "socket_failed httpCode=${response?.code} error=${t.javaClass.simpleName}")
+        }
         close()
         report("Connection closed. Tap Connect to try again.")
     }
@@ -259,6 +264,7 @@ internal class RelayConnection(
         reason: String,
     ) {
         if (!active.get()) return
+        if (requestId != null || registrationOnly) Log.i(WakeSupport.LOG_TAG, "socket_closed code=$code")
         webSocket.close(code, null)
         close()
         report("Connection closed. Tap Connect to try again.")

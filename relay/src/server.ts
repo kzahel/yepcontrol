@@ -121,7 +121,11 @@ export function createRelay(options: Options) {
     string,
     Partial<Record<"phone" | "viewer", WebSocket>>
   >();
-  const disconnect = (id: string, viewerCode?: number) => {
+  const disconnect = (
+    id: string,
+    viewerCode = 4001,
+    viewerReason = "Reconnect with a fresh session",
+  ) => {
     const route = routes.get(id);
     routes.delete(id);
     clearRequest(id);
@@ -130,7 +134,7 @@ export function createRelay(options: Options) {
       route?.viewer?.close(viewerCode, "Access removed");
     else if (viewerCode === ACCESS_PAUSED)
       route?.viewer?.close(viewerCode, "Access paused");
-    else route?.viewer?.close(4001, "Reconnect with a fresh session");
+    else route?.viewer?.close(viewerCode, viewerReason);
   };
   function admit(req: IncomingMessage): boolean {
     if (unhealthy) return false;
@@ -597,7 +601,7 @@ export function createRelay(options: Options) {
               wakeTimers.delete(pairingId);
               if (!stillWaiting()) return;
               if (request.expires * 1000 <= Date.now()) {
-                disconnect(pairingId);
+                disconnect(pairingId, 4001, "Wake request expired");
                 return;
               }
               try {
@@ -719,7 +723,8 @@ export function createRelay(options: Options) {
     for (const [id, p] of pending)
       if (p.expires * 1000 <= now) pending.delete(id);
     for (const [id, request] of requests)
-      if (request.expires * 1000 <= now) disconnect(id);
+      if (request.expires * 1000 <= now)
+        disconnect(id, 4001, "Wake request expired");
     for (const [ip, b] of buckets) if (b.until <= now) buckets.delete(ip);
   }, 10000);
   sweep.unref();

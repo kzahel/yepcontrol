@@ -732,7 +732,9 @@ it("expires a queued wake rather than sending a stale hint", async () => {
   const waiting = client();
   await waiting.login(viewer, "viewer");
   expect(await waiting.json()).toMatchObject({ delivery: "coalesced" });
-  await once(waiting.socket, "close");
+  const [code, reason] = await once(waiting.socket, "close");
+  expect(code).toBe(4001);
+  expect(reason.toString()).toBe("Wake request expired");
   expect(sends).toBe(1);
 });
 it("rejects delayed, expired and revoked wake requests", async () => {

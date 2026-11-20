@@ -15,9 +15,63 @@ import {
 } from "@remote/protocol/enrollment";
 import { type PhoneFeatures, parseFeatures } from "@remote/protocol/features";
 export type PhoneAccess = "removed" | "paused";
+const wakeDeliveries = [
+  "accepted",
+  "unregistered",
+  "invalid_target",
+  "unavailable",
+  "coalesced",
+] as const;
+type WakeDelivery = (typeof wakeDeliveries)[number];
+const relayCloseReasons = [
+  "Wake request expired",
+  "Wake unavailable",
+  "Authentication expired",
+  "Session expired",
+  "Access removed",
+  "Access paused",
+  "Reconnect with a fresh session",
+  "Request rejected",
+  "Reconnect",
+  "Transport",
+  "Rejected",
+  "Expired",
+] as const;
+type RelayPhase =
+  | "challenge"
+  | "authentication"
+  | "waiting_for_device"
+  | "handshake"
+  | "connected";
+export type RelayDiagnostic =
+  | {
+      event:
+        | "relay.connecting"
+        | "relay.challenge"
+        | "relay.authenticated"
+        | "relay.ready"
+        | "relay.encrypted";
+    }
+  | { event: "relay.contacting"; delivery: WakeDelivery | "unknown" }
+  | {
+      event: "relay.closed";
+      phase: RelayPhase;
+      code: number;
+      clean: boolean;
+      reason: (typeof relayCloseReasons)[number] | undefined;
+    }
+  | {
+      event:
+        | "relay.error"
+        | "relay.timeout"
+        | "relay.failed"
+        | "relay.canceled";
+      phase: RelayPhase;
+    };
 export interface RelayOptions {
   origin: string;
   onAccess?: (grant: Grant, access: PhoneAccess | undefined) => void;
+  onDiagnostic?: (diagnostic: RelayDiagnostic) => void;
 }
 const ACCESS_CLOSE: Record<number, [PhoneAccess, string]> = {
   4010: ["removed", "Access to this phone was removed on the phone."],
@@ -34,9 +88,13 @@ export async function openEncryptedSession(
 ) {
   signal?.throwIfAborted();
   let active = true;
+  let phase: RelayPhase = "challenge";
+  let timedOut = false;
+  const trace = options.onDiagnostic;
   const url = new URL("/api/socket", options.origin);
   url.protocol = "wss:";
   url.searchParams.set("id", grant.id);
+  trace?.({ event: "relay.connecting" });
   const ws = new WebSocket(url);
   ws.binaryType = "arraybuffer";
   let relayFlow = false;
@@ -58,10 +116,14 @@ export async function openEncryptedSession(
     channel?.close();
     ws.close();
     wake?.();
-    signal?.removeEventListener("abort", close);
+    signal?.removeEventListener("abort", cancel);
   };
-  signal?.addEventListener("abort", close, { once: true });
-  if (signal?.aborted) close();
+  const cancel = () => {
+    if (active) trace?.({ event: "relay.canceled", phase });
+    close();
+  };
+  signal?.addEventListener("abort", cancel, { once: true });
+  if (signal?.aborted) cancel();
   ws.onmessage = (event) => {
     if (!active) return;
     try {
@@ -85,10 +147,19 @@ export async function openEncryptedSession(
       queue.push(frame);
       wake?.();
     } catch {
+      trace?.({ event: "relay.failed", phase });
       close();
     }
   };
   ws.onclose = (event) => {
+    if (active)
+      trace?.({
+        event: "relay.closed",
+        phase,
+        code: event.code,
+        clean: event.wasClean,
+        reason: relayCloseReasons.find((reason) => reason === event.reason),
+      });
     const access = ACCESS_CLOSE[event.code];
     if (access) {
       refusal = access[1];
@@ -96,7 +167,10 @@ export async function openEncryptedSession(
     }
     close();
   };
-  ws.onerror = close;
+  ws.onerror = () => {
+    if (active) trace?.({ event: "relay.error", phase });
+    close();
+  };
   async function receive(timeout: number): Promise<Frame | undefined> {
     const deadline = Date.now() + timeout;
     while (!queue.length && active && Date.now() < deadline)
@@ -117,8 +191,10 @@ export async function openEncryptedSession(
   }
   async function next() {
     const value = await receive(70000);
-    if (!value)
+    if (!value) {
+      timedOut = true;
       throw new Error("Phone is unavailable. Open the app and try again.");
+    }
     return value;
   }
   const binary = async (): Promise<Bytes> => {
@@ -136,6 +212,8 @@ export async function openEncryptedSession(
     )
       throw new Error("Invalid relay challenge");
     fromHex(challenge.nonce, 32);
+    trace?.({ event: "relay.challenge" });
+    phase = "authentication";
     relayFlow = challenge.relayFlow === 1;
     const signature = b64(
       await identity.sign(
@@ -154,14 +232,28 @@ export async function openEncryptedSession(
       )
         throw new Error("Invalid relay state");
       ready = value.type === "ready";
-      if (value.type === "authenticated") options.onAccess?.(grant, undefined);
-      if (value.type === "contacting")
+      if (value.type === "authenticated") {
+        phase = "waiting_for_device";
+        trace?.({ event: "relay.authenticated" });
+        options.onAccess?.(grant, undefined);
+      }
+      if (value.type === "contacting") {
+        phase = "waiting_for_device";
+        trace?.({
+          event: "relay.contacting",
+          delivery:
+            wakeDeliveries.find((delivery) => delivery === value.delivery) ??
+            "unknown",
+        });
         report?.(
           value.delivery === "coalesced"
             ? "Waiting a moment before contacting your phone again…"
             : "Contacting phone…",
         );
+      }
     }
+    phase = "handshake";
+    trace?.({ event: "relay.ready" });
     const handshake = await ViewerHandshake.start(identity, {
       id: fromHex(grant.id, 16),
       generation: 1,
@@ -172,6 +264,8 @@ export async function openEncryptedSession(
     ws.send(await handshake.answer(await binary()));
     channel = await handshake.finish(await binary());
     const established = channel;
+    phase = "connected";
+    trace?.({ event: "relay.encrypted" });
     return {
       close,
       closed,
@@ -194,6 +288,8 @@ export async function openEncryptedSession(
       },
     };
   } catch (error) {
+    if (active)
+      trace?.({ event: timedOut ? "relay.timeout" : "relay.failed", phase });
     close();
     throw error;
   }

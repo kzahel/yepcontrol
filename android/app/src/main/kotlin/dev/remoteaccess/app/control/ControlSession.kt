@@ -2,8 +2,10 @@ package dev.remoteaccess.app.control
 
 import android.app.KeyguardManager
 import android.content.Context
+import android.util.Log
 import dev.remoteaccess.app.HostRuntime
 import dev.remoteaccess.app.HostStore
+import dev.remoteaccess.app.WakeSupport
 import dev.remoteaccess.app.advanced.AdvancedControl
 import dev.remoteaccess.app.isTv
 import dev.remoteaccess.app.launcherActivities
@@ -22,6 +24,7 @@ internal class ControlSession(
     private val offerDirect: ((String, (String?) -> Unit) -> Unit)? = null,
     scheduler: ((() -> Unit) -> Boolean)? = null,
     onOutputFailure: () -> Unit = {},
+    private val traceNavigation: Boolean = false,
 ) {
     private val active = AtomicBoolean(true)
     private val busy = AtomicBoolean(false)
@@ -41,11 +44,20 @@ internal class ControlSession(
         val ownsBusy = command.op !in listOf(26, 27)
         if (ownsBusy) check(busy.compareAndSet(false, true))
         val commandId = command.id
+        val traced = traceNavigation && (command.op == 6 || command.op == 9)
+        if (traced) Log.i(WakeSupport.LOG_TAG, "action_received sequence=$commandId op=${command.op}")
         val replied = AtomicBoolean(false)
         val reply = { kind: Int, payload: ByteArray ->
             if (replied.compareAndSet(false, true)) {
                 if (ownsBusy) busy.set(false)
-                if (active.get() && current()) output.control(ControlCommand.reply(commandId, kind, payload))
+                val canReply = active.get() && current()
+                if (traced) {
+                    Log.i(
+                        WakeSupport.LOG_TAG,
+                        "action_finished sequence=$commandId code=${payload.singleOrNull()} replyAllowed=$canReply",
+                    )
+                }
+                if (canReply) output.control(ControlCommand.reply(commandId, kind, payload))
             }
         }
         if (command.op in 24..27) {
